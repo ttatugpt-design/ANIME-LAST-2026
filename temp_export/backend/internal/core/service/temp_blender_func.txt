@@ -1,0 +1,81 @@
+// runBlenderExport executes the Blender Python script
+func (s *ExportService) runBlenderExport(characterPath, animationPath, outputPath string) error {
+	// Debug: Print CWD
+	cwd, _ := os.Getwd()
+	fmt.Printf("Current Working Directory: %s\n", cwd)
+
+	// Get script path
+	possiblePaths := []string{
+		filepath.Join("export", "export_animation.py"),
+		filepath.Join("backend", "export", "export_animation.py"),
+		`C:\Users\Abdo\Desktop\3D\backend\export\export_animation.py`,
+	}
+
+	var scriptPath string
+	found := false
+	for _, p := range possiblePaths {
+		if _, err := os.Stat(p); err == nil {
+			scriptPath = p
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("export script not found. CWD: %s", cwd)
+	}
+	fmt.Printf("Found export script at: %s\n", scriptPath)
+
+	// Convert paths to absolute
+	absScriptPath, _ := filepath.Abs(scriptPath)
+	absCharacterPath, _ := filepath.Abs(characterPath)
+	absAnimationPath, _ := filepath.Abs(animationPath)
+	absOutputPath, _ := filepath.Abs(outputPath)
+
+	// Context with Timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.exportTimeout)*time.Second)
+	defer cancel()
+
+	// Build Blender command
+	cmd := exec.CommandContext(ctx,
+		s.blenderPath,
+		"--background",
+		"--python", absScriptPath,
+		"--",
+		"--character", absCharacterPath,
+		"--animation", absAnimationPath,
+		"--output", absOutputPath,
+	)
+
+	// Capture output
+	fmt.Println("Running Blender command...")
+	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+
+	// Log output
+	fmt.Println("=== Blender Output ===")
+	fmt.Println(outputStr)
+	fmt.Println("=====================")
+
+	// Check if context was done (timeout)
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("blender export timed out after %d seconds", s.exportTimeout)
+	}
+
+	// Check for errors
+	if err != nil {
+		errorMsg := s.parseBlenderError(outputStr, err)
+		return fmt.Errorf("blender failed: %s\n\nFull Log:\n%s", errorMsg, getLastNLines(outputStr, 20))
+	}
+
+	// Check output logs for failure indications
+	if strings.Contains(outputStr, "ERROR:") {
+		errorMsg := s.parseBlenderError(outputStr, nil)
+		return fmt.Errorf("script error: %s\n\nFull Log:\n%s", errorMsg, getLastNLines(outputStr, 20))
+	}
+
+	if !strings.Contains(outputStr, "SUCCESS:") {
+		return fmt.Errorf("process finished without success.\n\nOutput content:\n%s", getLastNLines(outputStr, 20))
+	}
+
+	return nil
+}

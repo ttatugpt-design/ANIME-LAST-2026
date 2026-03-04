@@ -1,0 +1,107 @@
+/* Episode Skeleton Theme Variables */
+:root {
+    /* Light Mode - Transparent/Subtle */
+    --skeleton-ep-bg: rgba(0, 0, 0, 0.1);
+    --shimmer-ep-glow: rgba(255, 255, 255, 0.5);
+}
+
+/* Dark Mode - Original */
+.dark {
+    --skeleton-ep-bg: #23252b;
+    --shimmer-ep-glow: rgba(255, 255, 255, 0.15);
+}
+
+/* Grid Container - Matches the Episode Grid (cols-5 on XL) */
+.episode-skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    /* gap-6 equivalent */
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .episode-skeleton-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 768px) {
+    .episode-skeleton-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .episode-skeleton-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .episode-skeleton-grid {
+        grid-template-columns: repeat(5, 1fr);
+        /* Matches xl:grid-cols-5 for episodes */
+    }
+}
+
+/* Card Structure */
+.episode-skeleton-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Shimmer Wrapper */
+.shimmer-wrapper-ep {
+    background-color: var(--skeleton-ep-bg);
+    position: relative;
+    overflow: hidden;
+    border-radius: 0;
+}
+
+/* Thumbnail Dimensions (16:9 aspect ratio) */
+.shimmer-wrapper-ep.thumbnail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+}
+
+/* Text Lines */
+.shimmer-wrapper-ep.line {
+    height: 12px;
+    width: 100%;
+}
+
+.shimmer-wrapper-ep.line.short {
+    width: 60%;
+}
+
+/* Shimmer Animation */
+.shimmer-wrapper-ep::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0) 35%,
+            var(--shimmer-ep-glow) 50%,
+            rgba(255, 255, 255, 0) 65%,
+            rgba(255, 255, 255, 0) 100%);
+
+    background-size: 300% 300%;
+    animation: fastDiagonalEp 0.6s infinite linear;
+}
+
+@keyframes fastDiagonalEp {
+    0% {
+        background-position: 100% 100%;
+    }
+
+    100% {
+        background-position: 0% 0%;
+    }
+}
