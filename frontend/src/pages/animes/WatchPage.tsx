@@ -583,6 +583,7 @@ export default function WatchPage() {
                     <Link to="/animes" className="text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-all font-bold">
                         {lang === 'ar' ? 'العودة لتصفح الأنمي' : 'Back to Browse'}
                     </Link>
+                    <Footer />
                 </div>
             ) : (
                 <div className="animate-fade-in relative z-10 w-full pt-0">
@@ -1334,9 +1335,9 @@ export default function WatchPage() {
                             }
                         </div>
                     </div>
+                    <Footer />
                 </div>
             )}
-            <Footer />
         </div>
     );
 }
