@@ -8,6 +8,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import AnimeHoverCard from '@/components/AnimeHoverCard';
+import { slugify } from '@/utils/slug';
+
 
 // Helper for image URLs
 const BASE_URL = '';
@@ -114,7 +116,7 @@ export default function HistoryPage() {
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="w-full text-gray-900 dark:text-white transition-colors duration-300" dir={isRtl ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isRtl ? 'سجل النشاط' : 'Activity History'} - AnimeLast</title>
             </Helmet>
@@ -134,7 +136,7 @@ export default function HistoryPage() {
                         <div className="flex items-center justify-between mb-8">
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <History className="w-6 h-6 text-[#f47521]" />
+                                    <History className="w-6 h-6 text-black dark:text-white" />
                                     {isRtl ? 'سجل النشاط' : 'Activity History'}
                                 </h1>
                             </div>
@@ -169,9 +171,12 @@ export default function HistoryPage() {
                                         image = item.image || item.episode.thumbnail || item.episode.anime?.cover || '';
                                         title = isRtl ? (item.episode.title || item.episode.anime?.title || 'حلقة') : (item.episode.title_en || item.episode.anime?.title_en || 'Episode');
                                         episodeNumber = item.episode.episode_number;
-                                        animeId = item.episode.anime_id || item.episode.anime?.id;
+                                        const animeObj = item.episode.anime;
+                                        animeId = item.episode.anime_id || animeObj?.id;
+
                                         if (animeId && episodeNumber) {
-                                            link = `/${i18n.language}/watch/${animeId}/${episodeNumber}`;
+                                            const animeTitle = isRtl ? (item.episode.anime?.title || item.episode.title) : (item.episode.anime?.title_en || item.episode.title_en || item.episode.anime?.title);
+                                            link = `/${i18n.language}/watch/${animeId}/${episodeNumber}/${slugify(animeTitle)}`;
                                         }
                                         hoverData = item.episode;
                                     } else if (item.anime) {
@@ -179,8 +184,10 @@ export default function HistoryPage() {
                                         image = item.image || item.anime.cover || item.anime.image || '';
                                         title = isRtl ? item.anime.title : (item.anime.title_en || item.anime.title);
                                         animeId = item.anime_id;
+
                                         if (animeId) {
-                                            link = `/${i18n.language}/animes/${animeId}`;
+                                            const animeTitle = isRtl ? item.anime.title : (item.anime.title_en || item.anime.title);
+                                            link = `/${i18n.language}/animes/${animeId}/${slugify(animeTitle)}`;
                                         }
                                         hoverData = item.anime;
                                     } else {
@@ -231,7 +238,7 @@ export default function HistoryPage() {
 
                                             {/* Content */}
                                             <div className="space-y-1 px-1">
-                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white line-clamp-2 leading-tight group-hover:text-[#f47521] transition-colors">
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white line-clamp-2 leading-tight group-hover:text-black dark:group-hover:text-white transition-colors">
                                                     {title}
                                                 </h3>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">

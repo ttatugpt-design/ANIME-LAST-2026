@@ -2,8 +2,11 @@ package handler
 
 import (
 	"backend/internal/adapters/repository"
+	"backend/internal/adapters/ws"
 	"backend/internal/core/domain"
+	"backend/internal/core/port"
 	"backend/internal/core/service"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,14 +27,18 @@ func escapeJSON(s string) string {
 type CommentHandler struct {
 	repo           *repository.CommentRepository
 	notifRepo      *repository.NotificationRepository
+	userRepo       port.UserRepository
 	historyService *service.HistoryService
+	hub            *ws.Hub
 }
 
-func NewCommentHandler(repo *repository.CommentRepository, notifRepo *repository.NotificationRepository, historyService *service.HistoryService) *CommentHandler {
+func NewCommentHandler(repo *repository.CommentRepository, notifRepo *repository.NotificationRepository, userRepo port.UserRepository, historyService *service.HistoryService, hub *ws.Hub) *CommentHandler {
 	return &CommentHandler{
 		repo:           repo,
 		notifRepo:      notifRepo,
+		userRepo:       userRepo,
 		historyService: historyService,
+		hub:            hub,
 	}
 }
 
@@ -55,7 +62,11 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		input.EpisodeID = uint(id)
 	}
 
-	userID := c.GetUint("user_id") // Assumes Auth Middleware sets this
+	userID := c.GetUint("user_id")
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: Missing valid user session"})
+		return
+	}
 
 	comment := domain.Comment{
 		Content:   input.Content,
@@ -69,16 +80,50 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Fetch full comment with preloaded User to avoid "Unknown User" on frontend
+	if fullComment, err := h.repo.GetByID(comment.ID); err == nil {
+		comment = *fullComment
+	}
+
 	// NOTIFICATION LOGIC: Reply
 	if comment.ParentID != nil {
 		// Fetch parent to get owner
 		parent, err := h.repo.GetByID(*comment.ParentID)
 		if err == nil && parent.UserID != userID {
 			// Create notification
-			h.notifRepo.Create(&domain.Notification{
+			// Create rich notification data
+			animeTitle := parent.Episode.Anime.Title
+			animeImage := parent.Episode.Anime.Image
+			epNum := parent.Episode.EpisodeNumber
+
+			dataPayload := gin.H{
+				"comment_id":      comment.ID,
+				"parent_id":       parent.ID,
+				"actor_id":        userID,
+				"actor_name":      comment.User.Name,
+				"actor_avatar":    comment.User.Avatar,
+				"comment_content": parent.Content,
+				"reply_content":   comment.Content,
+				"anime_id":        parent.Episode.AnimeID,
+				"anime_title":     animeTitle,
+				"anime_image":     animeImage,
+				"episode_id":      parent.EpisodeID,
+				"episode_number":  epNum,
+				"episode_image":   parent.Episode.Thumbnail,
+			}
+			dataJSON, _ := json.Marshal(dataPayload)
+
+			notif := &domain.Notification{
 				UserID: parent.UserID,
 				Type:   domain.NotificationTypeReply,
-				Data:   []byte(`{"comment_id": ` + strconv.Itoa(int(comment.ID)) + `, "actor_id": ` + strconv.Itoa(int(userID)) + `}`),
+				Data:   dataJSON,
+			}
+			h.notifRepo.Create(notif)
+
+			// Broadcast via WebSocket
+			h.hub.SendToUser(parent.UserID, gin.H{
+				"type": "notification",
+				"data": notif,
 			})
 		}
 
@@ -94,6 +139,13 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "episode_id": ` + strconv.Itoa(int(comment.EpisodeID)) + `}`
 		go h.historyService.TrackWithMetadata(userID, domain.ActivityComment, &comment.EpisodeID, nil, &comment.ID, metadata, "")
 	}
+
+	// Broadcast to episode topic for real-time updates
+	topic := "episode:" + strconv.Itoa(int(comment.EpisodeID))
+	h.hub.BroadcastToTopic(topic, gin.H{
+		"type": "comment",
+		"data": comment,
+	})
 
 	c.JSON(http.StatusCreated, comment)
 }
@@ -140,18 +192,62 @@ func (h *CommentHandler) ToggleLike(c *gin.Context) {
 
 	// NOTIFICATION LOGIC: Like
 	if input.IsLike {
-		// Fetch comment to get owner
+		// Fetch comment to get owner and context
 		target, err := h.repo.GetByID(uint(commentID))
-		if err == nil && target.UserID != userID {
-			h.notifRepo.Create(&domain.Notification{
-				UserID: target.UserID,
-				Type:   domain.NotificationTypeLike,
-				Data:   []byte(`{"comment_id": ` + strconv.Itoa(commentID) + `, "actor_id": ` + strconv.Itoa(int(userID)) + `}`),
-			})
-		}
+		if err == nil {
+			if target.UserID != userID {
+				// Fetch actor profile for rich notification data
+				actor, _ := h.userRepo.GetUserByID(userID)
+				actorName := "User"
+				actorAvatar := ""
+				if actor != nil {
+					actorName = actor.Name
+					actorAvatar = actor.Avatar
+				}
 
-		// Track Like in History with metadata
-		if target != nil {
+				dataPayload := gin.H{
+					"comment_id":      target.ID,
+					"parent_id":       target.ParentID,
+					"actor_id":        userID,
+					"actor_name":      actorName,
+					"actor_avatar":    actorAvatar,
+					"comment_content": target.Content,
+					"anime_id":        target.Episode.AnimeID,
+					"anime_title":     target.Episode.Anime.Title,
+					"anime_image":     target.Episode.Anime.Image,
+					"episode_id":      target.EpisodeID,
+					"episode_number":  target.Episode.EpisodeNumber,
+					"episode_image":   target.Episode.Thumbnail,
+				}
+
+				dataJSON, _ := json.Marshal(dataPayload)
+
+				notif := &domain.Notification{
+					UserID: target.UserID,
+					Type:   domain.NotificationTypeLike,
+					Data:   dataJSON,
+				}
+				h.notifRepo.Create(notif)
+
+				// Broadcast via WebSocket (Direct notification)
+				h.hub.SendToUser(target.UserID, gin.H{
+					"type": "notification",
+					"data": notif,
+				})
+			}
+
+			// Broadcast like update to episode topic (For real-time count updates for everyone)
+			topic := "episode:" + strconv.Itoa(int(target.EpisodeID))
+			h.hub.BroadcastToTopic(topic, gin.H{
+				"type": "comment_like",
+				"data": gin.H{
+					"comment_id": commentID,
+					"is_like":    input.IsLike,
+					"user_id":    userID,
+				},
+			})
+
+			// Track Like in History with metadata
 			commentIDUint := uint(commentID)
 			ownerName := "User"
 			if target.User != nil {
@@ -199,12 +295,19 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// Cleanup notifications in background
+	go func() {
+		h.notifRepo.DeleteByCommentID(uint(commentID))
+		h.notifRepo.DeleteByParentID(uint(commentID))
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted"})
 }
 
 // GetAllComments for dashboard
 func (h *CommentHandler) GetAllComments(c *gin.Context) {
-	comments, err := h.repo.GetAllComments()
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
+	comments, err := h.repo.GetAllComments(limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
 		return
@@ -245,6 +348,12 @@ func (h *CommentHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update comment"})
 		return
 	}
+
+	// Sync notifications in background
+	go func() {
+		h.notifRepo.UpdateContentByCommentID(existing.ID, existing.Content)
+		h.notifRepo.UpdateContentByParentID(existing.ID, existing.Content)
+	}()
 
 	c.JSON(http.StatusOK, existing)
 }

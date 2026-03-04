@@ -1,15 +1,15 @@
 package service
 
 import (
-	"backend/internal/adapters/repository"
 	"backend/internal/core/domain"
+	"backend/internal/core/port"
 )
 
 type EpisodeService struct {
-	repo *repository.SQLiteRepository
+	repo port.EpisodeRepository
 }
 
-func NewEpisodeService(repo *repository.SQLiteRepository) *EpisodeService {
+func NewEpisodeService(repo port.EpisodeRepository) *EpisodeService {
 	return &EpisodeService{repo: repo}
 }
 
@@ -17,8 +17,8 @@ func (s *EpisodeService) Create(episode *domain.Episode) error {
 	return s.repo.CreateEpisode(episode)
 }
 
-func (s *EpisodeService) GetAll() ([]domain.Episode, error) {
-	return s.repo.GetAllEpisodes()
+func (s *EpisodeService) GetAll(categoryID uint, letter string, animeType string, order string) ([]domain.Episode, error) {
+	return s.repo.GetAllEpisodes(categoryID, letter, animeType, order)
 }
 
 func (s *EpisodeService) GetLatest(limit int) ([]domain.Episode, error) {

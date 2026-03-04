@@ -657,7 +657,7 @@ export default function WatchPage() {
                             {/* MAIN CONTENT 1: Player Wrapper */}
                             <div className={`flex flex-col mt-0 transition-all duration-500 ease-in-out ${isTheaterMode ? 'lg:col-span-12 xl:col-span-12 w-full lg:w-[90%] mx-auto' : 'lg:col-span-7 xl:col-span-7'}`}>
                                 {/* Video Player - Desktop only */}
-                                <div className="hidden md:block w-full aspect-video bg-black overflow-hidden rounded-2xl shadow-xl mb-6 relative group">
+                                <div className="hidden md:block w-full aspect-video bg-black overflow-hidden rounded-none shadow-xl mb-6 relative group">
                                     {!isPlaying ? (
                                         <div
                                             className="absolute inset-0 cursor-pointer"
@@ -1021,7 +1021,7 @@ export default function WatchPage() {
                                 {/* Wrapper for Theater Mode Layout if needed */}
                                 <div className="w-full">
                                     {/* Sidebar Content Wrapper with Shared Rounding */}
-                                    <div className="bg-white dark:bg-[#111] rounded-2xl overflow-hidden border border-gray-100 dark:border-white/5 shadow-2xl transition-all duration-300">
+                                    <div className="bg-white dark:bg-[#111] rounded-none overflow-hidden border border-gray-100 dark:border-white/5 shadow-2xl transition-all duration-300">
                                         {/* Tabs Container */}
                                         <div className="sticky top-[60px] z-30 bg-inherit md:static border-b border-gray-200 dark:border-white/10">
                                             {/* Tabs - Restored for Desktop */}
@@ -1085,7 +1085,7 @@ export default function WatchPage() {
                                                             )}
                                                         >
                                                             {/* Thumbnail */}
-                                                            <div className="relative w-[170px] aspect-video flex-shrink-0 overflow-hidden rounded-xl shadow-sm border border-black/5 dark:border-white/10">
+                                                            <div className="relative w-[170px] aspect-video flex-shrink-0 overflow-hidden rounded-none shadow-sm border border-black/5 dark:border-white/10">
                                                                 <img
                                                                     src={getImageUrl(ep.thumbnail || ep.banner)}
                                                                     alt={ep.title}
@@ -1099,7 +1099,7 @@ export default function WatchPage() {
                                                                     </div>
                                                                 )}
                                                                 {/* Duration Badge */}
-                                                                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[11px] font-black bg-black/80 text-white z-10 rounded-sm">
+                                                                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 text-[11px] font-black bg-black/80 text-white z-10 rounded-none">
                                                                     {ep.duration ? `${ep.duration}m` : '24m'}
                                                                 </div>
                                                             </div>

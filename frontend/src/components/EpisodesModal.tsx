@@ -2,8 +2,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Search, X } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Eye } from 'lucide-react';
+import { Play, Eye, ThumbsUp } from 'lucide-react';
 import EpisodeSkeleton from '@/components/skeleton/EpisodeSkeleton';
+import SpinnerImage from '@/components/ui/SpinnerImage';
+import { renderEmojiContent } from '@/utils/render-content';
 
 interface EpisodesModalProps {
     isOpen: boolean;
@@ -11,6 +13,7 @@ interface EpisodesModalProps {
     episodes: any[];
     activeEpisodeNum: number;
     animeId: number;
+    slug?: string;
     lang: string;
     isLoading?: boolean;
     getImageUrl: (path?: string) => string;
@@ -23,15 +26,28 @@ export default function EpisodesModal({
     episodes,
     activeEpisodeNum,
     animeId,
+    slug,
     lang,
     isLoading = false,
     getImageUrl,
     getRelativeTime,
 }: EpisodesModalProps) {
     const navigate = useNavigate();
+
+    // ... (rest of logic)
+
+    // navigate use slug if available
+    const handleNavigate = (epNum: number) => {
+        const url = slug
+            ? `/${lang}/watch/${animeId}/${epNum}/${slug}`
+            : `/${lang}/watch/${animeId}/${epNum}`;
+        navigate(url);
+        onClose();
+    };
     const [searchQuery, setSearchQuery] = useState('');
     const activeEpisodeRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Filter episodes based on search
     const filteredEpisodes = useMemo(() => {
@@ -57,6 +73,13 @@ export default function EpisodesModal({
         }
     }, [isOpen]);
 
+    // Prevent autofocus on search input when modal opens (mobile)
+    useEffect(() => {
+        if (isOpen && searchInputRef.current) {
+            searchInputRef.current.blur();
+        }
+    }, [isOpen]);
+
     // Auto-scroll to active episode when modal opens
     useEffect(() => {
         if (isOpen && !showLoading && activeEpisodeRef.current && listRef.current && filteredEpisodes.length > 0) {
@@ -76,7 +99,10 @@ export default function EpisodesModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222] rounded-none">
+            <DialogContent
+                className="max-w-4xl h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222] rounded-none"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 <DialogHeader className="p-4 border-b border-gray-200 dark:border-[#222]">
                     <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
                         {lang === 'ar' ? 'حلقات المسلسل' : 'Episodes'}
@@ -88,11 +114,13 @@ export default function EpisodesModal({
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
+                            ref={searchInputRef}
                             type="text"
                             placeholder={lang === 'ar' ? 'بحث عن حلقة...' : 'Search episodes...'}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-gray-50 dark:bg-[#111] border border-gray-200 dark:border-[#222] pl-9 pr-4 py-2 text-sm outline-none focus:border-[#f47521] text-gray-900 dark:text-white"
+                            autoFocus={false}
+                            className="w-full bg-gray-50 dark:bg-[#111] border border-gray-200 dark:border-[#222] pl-9 pr-4 py-2 text-sm outline-none focus:border-black dark:focus:border-white text-gray-900 dark:text-white"
                         />
                         {searchQuery && (
                             <button
@@ -112,76 +140,75 @@ export default function EpisodesModal({
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pt-2 pb-4 overflow-y-auto custom-scrollbar"
                     />
                 ) : (
-                    <div ref={listRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 pt-2 pb-4 overflow-y-auto custom-scrollbar">
+                    <div ref={listRef} className="grid grid-cols-1 gap-1.5 px-3 pt-2 pb-4 overflow-y-auto custom-scrollbar">
                         {filteredEpisodes.length === 0 ? (
                             <div className="flex items-center justify-center py-8 text-gray-500">
                                 {lang === 'ar' ? 'لا توجد حلقات' : 'No episodes found'}
                             </div>
                         ) : (
-                            filteredEpisodes.map((ep: any) => (
-                                <div
-                                    key={ep.id}
-                                    ref={Number(ep.episode_number) === Number(activeEpisodeNum) ? activeEpisodeRef : null}
-                                    onClick={() => {
-                                        navigate(`/${lang}/watch/${animeId}/${ep.episode_number}`);
-                                        onClose();
-                                    }}
-                                    className="group cursor-pointer relative z-0"
-                                >
-                                    {/* Thumbnail Container */}
-                                    <div className={`relative aspect-video overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] mb-2 ${Number(ep.episode_number) === Number(activeEpisodeNum) ? 'ring-2 ring-[#f47521]' : ''}`}>
-                                        <img
-                                            src={getImageUrl(ep.thumbnail || ep.banner)}
-                                            alt={ep.title}
-                                            className="w-full h-full object-cover"
-                                            loading="lazy"
-                                        />
+                            filteredEpisodes.map((ep: any) => {
+                                const title = (lang === 'ar' ? ep.title : ep.title_en) || `Episode ${ep.episode_number}`;
+                                return (
+                                    <div
+                                        key={ep.id}
+                                        ref={Number(ep.episode_number) === Number(activeEpisodeNum) ? activeEpisodeRef : null}
+                                        onClick={() => handleNavigate(ep.episode_number)}
+                                        className="group cursor-pointer relative z-0 border-b border-gray-100 dark:border-white/5 pb-1.5 last:border-0"
+                                    >
+                                        <div className="flex flex-row gap-3 w-full h-full">
+                                            {/* Thumbnail Container */}
+                                            <div className={`relative flex-shrink-0 w-[140px] aspect-video overflow-hidden bg-gray-100 dark:bg-[#1c1c1c]`}>
+                                                <SpinnerImage
+                                                    src={getImageUrl(ep.thumbnail || ep.banner)}
+                                                    alt={title}
+                                                    className="w-full h-full"
+                                                    imageClassName="object-cover"
+                                                />
 
-                                        {/* Episode Number Badge (Top Left) */}
-                                        <div className="absolute top-2 left-2 px-2 py-0.5 text-xs font-bold bg-black/80 text-white z-10">
-                                            EP {ep.episode_number}
-                                        </div>
+                                                {/* Badge */}
+                                                <div className="absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white z-10 bg-black/80">
+                                                    {ep.episode_number}
+                                                </div>
 
-                                        {/* Duration Badge (Bottom Right) */}
-                                        <div className="absolute bottom-2 right-2 px-1 py-0.5 text-[10px] font-bold bg-black/80 text-white z-10">
-                                            {ep.duration ? `${ep.duration}m` : '24m'}
-                                        </div>
-
-                                        {/* Play Indicator Overlay */}
-                                        {Number(ep.episode_number) === Number(activeEpisodeNum) && (
-                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
-                                                <Play className="w-8 h-8 text-white fill-white opacity-90" />
+                                                {/* Watching Now overlay */}
+                                                {Number(ep.episode_number) === Number(activeEpisodeNum) && (
+                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10">
+                                                        <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                                                            {lang === 'ar' ? 'تشاهده الآن' : 'Watching Now'}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
 
-                                    {/* Metadata Below Card (Centered) */}
-                                    <div className="space-y-1 px-1 text-center">
-                                        <h4 className={`text-sm font-bold line-clamp-2 leading-tight ${Number(ep.episode_number) === Number(activeEpisodeNum) ? 'text-[#f47521]' : 'text-gray-900 dark:text-white'}`}>
-                                            {(lang === 'ar' ? ep.title : ep.title_en) || `Episode ${ep.episode_number}`}
-                                        </h4>
-
-                                        {/* Episode Description / Subtext */}
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                                            {lang === 'ar' ? (ep.description || ep.description_en) : (ep.description_en || ep.description)}
-                                        </p>
-
-                                        {/* Meta Info */}
-                                        <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray-500">
-                                            <span>{getRelativeTime(ep.created_at || new Date().toISOString(), lang)}</span>
-                                            {ep.views_count && (
-                                                <>
-                                                    <span className="text-gray-600">•</span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Eye className="w-3 h-3" />
-                                                        {ep.views_count}
-                                                    </span>
-                                                </>
-                                            )}
+                                            {/* Metadata */}
+                                            <div className="flex-1 flex flex-col items-start text-right py-0">
+                                                <h4 className={`font-bold text-gray-900 dark:text-white line-clamp-2 leading-tight text-sm mb-1`}>
+                                                    {renderEmojiContent(title)}
+                                                </h4>
+                                                {(ep.description || ep.description_en) && (
+                                                    <p className="text-[12.5px] text-gray-700 dark:text-gray-300 line-clamp-3 leading-snug text-start mb-1">
+                                                        {renderEmojiContent(lang === 'ar' ? (ep.description || ep.description_en) : (ep.description_en || ep.description))}
+                                                    </p>
+                                                )}
+                                                <p className="text-lg font-black text-gray-900 dark:text-white mt-1">
+                                                    {lang === 'ar' ? `الحلقة ${ep.episode_number}` : `Episode ${ep.episode_number}`}
+                                                </p>
+                                                <div className="flex items-center justify-center gap-3 pt-1">
+                                                    <div className="flex items-center gap-1.5 text-gray-900 dark:text-white transition-transform">
+                                                        <ThumbsUp className="w-4 h-4 fill-current" />
+                                                        <span className="text-xs font-black">{ep.likes_count || 0}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-gray-900 dark:text-white">
+                                                        <span className="text-xs font-black whitespace-nowrap uppercase tracking-wide">
+                                                            {ep.views_count || 0} {lang === 'ar' ? 'مشاهدة' : 'Views'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 )}

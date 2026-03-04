@@ -28,7 +28,7 @@ export const NewsTicker: React.FC = () => {
 
 
     return (
-        <div className="w-full bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2a2a2a] overflow-hidden py-2 sticky top-[60px] z-[40] group shadow-sm">
+        <div className="w-full bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2a2a2a] overflow-hidden py-2 sticky top-[60px] z-[48] group shadow-sm">
             <div className="max-w-[1800px] mx-auto flex items-center px-4">
                 {/* Fixed Label */}
                 <div className="flex items-center gap-2 bg-white dark:bg-black px-3 py-1 rounded-full border border-gray-200 dark:border-[#333] z-10 shadow-sm flex-shrink-0">

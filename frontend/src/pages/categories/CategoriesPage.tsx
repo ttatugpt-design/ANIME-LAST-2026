@@ -36,7 +36,9 @@ export default function CategoriesPage() {
     const [nameEn, setNameEn] = useState("");
     const [slug, setSlug] = useState("");
     const [description, setDescription] = useState("");
+    const [image, setImage] = useState("");
     const [status, setStatus] = useState("active");
+    const [uploading, setUploading] = useState(false);
 
     const [editingCategory, setEditingCategory] = useState<any>(null);
 
@@ -68,6 +70,7 @@ export default function CategoriesPage() {
                 name_en: nameEn,
                 slug,
                 description,
+                image,
                 status
             });
         },
@@ -96,11 +99,33 @@ export default function CategoriesPage() {
         }
     });
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        setUploading(true);
+        try {
+            const response = await api.post('/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setImage(response.data.url);
+            toast.success('Image uploaded successfully');
+        } catch (error) {
+            toast.error('Failed to upload image');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const resetForm = () => {
         setName("");
         setNameEn("");
         setSlug("");
         setDescription("");
+        setImage("");
         setStatus("active");
     };
 
@@ -110,6 +135,7 @@ export default function CategoriesPage() {
         setNameEn(category.name_en);
         setSlug(category.slug);
         setDescription(category.description);
+        setImage(category.image || "");
         setStatus(category.status);
         setIsEditModalOpen(true);
     };
@@ -126,6 +152,7 @@ export default function CategoriesPage() {
             name_en: nameEn,
             slug,
             description,
+            image,
             status
         });
     };
@@ -169,6 +196,12 @@ export default function CategoriesPage() {
                             <div className="grid gap-2">
                                 <Label htmlFor="description">Description</Label>
                                 <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="image">Image</Label>
+                                <Input id="image" type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                {uploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
+                                {image && <p className="text-sm text-green-600">Image uploaded: {image}</p>}
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="status">Status</Label>
@@ -216,6 +249,17 @@ export default function CategoriesPage() {
                         <div className="grid gap-2">
                             <Label htmlFor="edit-description">Description</Label>
                             <Input id="edit-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-image">Image</Label>
+                            <Input id="edit-image" type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                            {uploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
+                            {image && (
+                                <div className="flex items-center gap-2">
+                                    <img src={image} alt="Category" className="w-16 h-16 object-cover rounded" />
+                                    <p className="text-sm text-green-600">Current image</p>
+                                </div>
+                            )}
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="edit-status">Status</Label>

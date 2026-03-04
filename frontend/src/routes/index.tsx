@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -17,16 +18,20 @@ import SeasonsPage from '@/pages/seasons/SeasonsPage';
 import StudiosPage from '@/pages/studios/StudiosPage';
 import LanguagesPage from '@/pages/languages/LanguagesPage';
 import AnimesPage from '@/pages/animes/AnimesPage';
+import ForeignAnimesPage from '@/pages/animes/ForeignAnimesPage';
 import WatchPage from '@/pages/animes/WatchPage';
 import EpisodesPage from '@/pages/episodes/EpisodesPage';
+import ForeignEpisodesPage from '@/pages/episodes/ForeignEpisodesPage';
 import { HomeLayout } from '@/layouts/HomeLayout';
 import HomePage from '@/pages/home/HomePage';
 import AnimeBrowsePage from '@/pages/animes/AnimeBrowsePage';
 import AnimeDetailsPage from '@/pages/animes/AnimeDetailsPage';
 import UserLibraryPage from '@/pages/UserLibraryPage';
-import HistoryPage from '@/pages/HistoryPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import SearchPage from '@/pages/SearchPage';
+import HistoryBrowsePage from '@/pages/HistoryBrowsePage';
+import WatchlistBrowsePage from '@/pages/WatchlistBrowsePage';
+import NotificationsBrowsePage from '@/pages/NotificationsBrowsePage';
 import { LanguageWrapper } from '@/components/LanguageWrapper';
 import { RedirectToDefaultLang } from '@/components/RedirectToDefaultLang';
 import { RootRedirect } from '@/components/RootRedirect';
@@ -38,8 +43,21 @@ import UserSettingsPage from '@/pages/user-dashboard/UserSettingsPage';
 import DashboardReportsPage from '@/pages/dashboard/DashboardReportsPage';
 import DashboardAnalyticsPage from '@/pages/dashboard/DashboardAnalyticsPage';
 import DashboardCommentsPage from '@/pages/dashboard/DashboardCommentsPage';
+import QuickNewsPage from '@/pages/dashboard/QuickNewsPage';
+import PublicCategoriesPage from '@/pages/animes/PublicCategoriesPage';
+import BrowseAllAnimesPage from '@/pages/animes/BrowseAllAnimesPage';
+import DmcaPage from '@/pages/animes/DmcaPage';
+import ProfilePage from '@/pages/ProfilePage';
+import FriendsPage from '@/pages/dashboard/FriendsPage';
+import CommunityPage from '@/pages/social/CommunityPage';
+import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
+import { lazy } from 'react';
 
-export const router = createBrowserRouter([
+const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
+const UserInteractionsPage = lazy(() => import('@/pages/user-dashboard/UserInteractionsPage'));
+const ChatPage = lazy(() => import('@/pages/social/ChatPage'));
+
+export const routes = [
     {
         path: '/',
         element: (
@@ -75,61 +93,85 @@ export const router = createBrowserRouter([
                 path: 'auth',
                 element: <AuthLayout />,
                 children: [
-
                     {
                         path: 'login',
                         element: <LoginPage />,
                     },
                 ],
             },
+            // Public Home Routes
+            {
+                element: <HomeLayout />,
+                children: [
+                    {
+                        index: true,
+                        element: <HomePage />,
+                    },
+                    {
+                        path: 'animes',
+                        element: <AnimeBrowsePage />,
+                    },
+                    {
+                        path: 'browse',
+                        element: <BrowseAllAnimesPage />,
+                    },
+                    {
+                        path: 'dmca',
+                        element: <DmcaPage />,
+                    },
+                    {
+                        path: 'categories',
+                        element: <PublicCategoriesPage />,
+                    },
+                    {
+                        path: 'animes/:id/:slug?',
+                        element: <AnimeDetailsPage />,
+                    },
+                    {
+                        path: 'models/:id',
+                        element: <ModelViewerPage />,
+                    },
+                    {
+                        path: 'watch/:id/:episodeNum/:slug?',
+                        element: <WatchPage />,
+                    },
+                    {
+                        path: 'search',
+                        element: <SearchPage />,
+                    },
+                    {
+                        path: 'history',
+                        element: <HistoryBrowsePage />,
+                    },
+                    {
+                        path: 'watchlist',
+                        element: <WatchlistBrowsePage />,
+                    },
+                    {
+                        path: 'notifications',
+                        element: <NotificationsBrowsePage />,
+                    },
+                    {
+                        path: 'u/:userId/profile',
+                        element: <ProfilePage />,
+                    },
+                    {
+                        path: 'community',
+                        element: <CommunityPage />,
+                    },
+                    {
+                        path: 'movies-series',
+                        element: <ForeignMediaPage />,
+                    },
+                ],
+            },
+            // Protected Dashboard Routes
             {
                 element: <ProtectedRoute />,
                 children: [
-                    // Home Route (Gallery)
+                    // User Dashboard Route (Control Panel) - Primary with ID
                     {
-                        element: <HomeLayout />,
-                        children: [
-                            {
-                                index: true,
-                                element: <HomePage />,
-                            },
-                            {
-                                path: 'animes',
-                                element: <AnimeBrowsePage />,
-                            },
-                            {
-                                path: 'animes/:id',
-                                element: <AnimeDetailsPage />,
-                            },
-                            {
-                                path: 'models/:id',
-                                element: <ModelViewerPage />,
-                            },
-                            {
-                                path: 'watch/:animeId/:episodeNum',
-                                element: <WatchPage />,
-                            },
-                            {
-                                path: 'library',
-                                element: <UserLibraryPage />,
-                            },
-                            {
-                                path: 'history',
-                                element: <HistoryPage />,
-                            },
-                            {
-                                path: 'notifications',
-                                element: <NotificationsPage />,
-                            },
-                            {
-                                path: 'search',
-                                element: <SearchPage />,
-                            },
-                        ],
-                    },
-                    // User Dashboard Route (Control Panel) - /my/dashboard
-                    {
-                        path: 'my/dashboard',
+                        path: 'u/:id/dashboard',
                         element: <UserControlPanelLayout />,
                         children: [
                             {
@@ -144,8 +186,37 @@ export const router = createBrowserRouter([
                                 path: 'settings',
                                 element: <UserSettingsPage />,
                             },
+                            {
+                                path: 'library',
+                                element: <WatchlistBrowsePage />,
+                            },
+                            {
+                                path: 'history',
+                                element: <HistoryBrowsePage />,
+                            },
+                            {
+                                path: 'notifications',
+                                element: <NotificationsBrowsePage />,
+                            },
+                            {
+                                path: 'stats',
+                                element: <UserStatsPage />,
+                            },
+                            {
+                                path: 'interactions',
+                                element: <UserInteractionsPage />,
+                            },
+                            {
+                                path: 'friends',
+                                element: <FriendsPage />,
+                            },
+                            {
+                                path: 'messages',
+                                element: <ChatPage />,
+                            },
                         ]
                     },
+
                     // Admin Dashboard Route
                     {
                         path: 'dashboard',
@@ -166,10 +237,6 @@ export const router = createBrowserRouter([
                             {
                                 path: 'permissions',
                                 element: <PermissionsPage />,
-                            },
-                            {
-                                path: 'models',
-                                element: <ModelsPage />,
                             },
                             {
                                 path: 'models',
@@ -200,8 +267,16 @@ export const router = createBrowserRouter([
                                 element: <AnimesPage />,
                             },
                             {
+                                path: 'foreign-animes',
+                                element: <ForeignAnimesPage />,
+                            },
+                            {
                                 path: 'episodes',
                                 element: <EpisodesPage />,
+                            },
+                            {
+                                path: 'foreign-episodes',
+                                element: <ForeignEpisodesPage />,
                             },
                             {
                                 path: 'reports',
@@ -214,6 +289,10 @@ export const router = createBrowserRouter([
                             {
                                 path: 'comments',
                                 element: <DashboardCommentsPage />,
+                            },
+                            {
+                                path: 'quick-news',
+                                element: <QuickNewsPage />,
                             },
                             {
                                 path: 'settings',
@@ -233,4 +312,4 @@ export const router = createBrowserRouter([
         path: '*',
         element: <div>404 Not Found</div>,
     },
-]);
+];

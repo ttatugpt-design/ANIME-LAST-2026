@@ -22,6 +22,8 @@ export interface HistoryItem {
             title_en?: string;
             image?: string;
             cover?: string;
+            slug?: string;
+            slug_en?: string;
         };
     };
     anime_id?: number;
@@ -31,6 +33,8 @@ export interface HistoryItem {
         title_en?: string;
         image?: string;
         cover?: string;
+        slug?: string;
+        slug_en?: string;
     };
     comment_id?: number;
     comment?: any;

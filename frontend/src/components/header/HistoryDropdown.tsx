@@ -108,8 +108,8 @@ export const HistoryDropdown: React.FC = () => {
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
                             {isLoading ? (
-                                <div className="p-12 flex justify-center text-orange-500">
-                                    <Loader2 className="w-8 h-8 animate-spin" />
+                                <div className="p-12 flex justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-black dark:text-white" />
                                 </div>
                             ) : items.length === 0 ? (
                                 <div className="p-12 text-center text-gray-500">
@@ -148,7 +148,7 @@ export const HistoryDropdown: React.FC = () => {
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0 py-1">
-                                                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-orange-500 transition-colors mb-1">
+                                                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors mb-1">
                                                     {animeTitle}
                                                 </h4>
                                                 {item.episode && (
@@ -170,7 +170,7 @@ export const HistoryDropdown: React.FC = () => {
                             <Link
                                 to={`/${i18n.language}/history`}
                                 onClick={() => setIsOpen(false)}
-                                className="text-sm font-bold text-orange-500 hover:text-orange-600 hover:underline"
+                                className="text-sm font-bold text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300 hover:underline"
                             >
                                 {isRtl ? 'عرض كامل السجل' : 'View Full History'}
                             </Link>

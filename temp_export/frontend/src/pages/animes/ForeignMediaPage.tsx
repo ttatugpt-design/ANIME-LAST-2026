@@ -36,7 +36,7 @@ export default function ForeignMediaPage() {
         return () => clearTimeout(timer);
     }, []);
 
-    const seoTitle = i18n.language === 'ar' ? 'أفلام ومسلسلات أجنبية0 - AnimeLast' : 'Foreign Movies & Series - AnimeLast';
+    const seoTitle = i18n.language === 'ar' ? 'أفلام ومسلسلات أجنبية - AnimeLast' : 'Foreign Movies & Series - AnimeLast';
 
     return (
         <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300">
@@ -44,62 +44,54 @@ export default function ForeignMediaPage() {
                 <title>{seoTitle}</title>
             </Helmet>
 
-            <div className="w-full">
-                <NewsTicker />
+            <NewsTicker />
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto">
-
-                    {/* Sidebar - Positioned on the left - Stretching column */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
-                        <SocialNavSidebar />
-                    </div>
-
-                    {/* Main Content - Flex grow to fill remaining space */}
-                    <div className="col-span-1 lg:col-span-9 px-4 sm:px-6 md:px-8 pb-8">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center min-h-[60vh]">
-                                <div className="relative w-20 h-20">
-                                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto transition-all duration-300">
+                {/* Main Content - Full Width */}
+                <div className="px-4 sm:px-6 md:px-8 pb-8 transition-all duration-300 lg:col-span-12 col-span-1">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center min-h-[60vh]">
+                            <div className="relative w-20 h-20">
+                                <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
+                                <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                             </div>
-                        ) : (
-                            <div className="max-w-[1400px] mx-auto py-8">
-                                {/* Title Header */}
-                                <div className="mb-12 text-center">
-                                    <h1 className="text-3xl md:text-5xl font-black mb-4">
-                                        {i18n.language === 'ar' ? 'أفلام ومسلسلات أجنبية' : 'Foreign Movies & Series'}
-                                    </h1>
-                                    <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-                                        {i18n.language === 'ar'
-                                            ? 'استمتع بمجموعة مختارة من المسلسلات والأفلام الأجنبية المترجمة بأعلى جودة.'
-                                            : 'Enjoy a selected collection of translated foreign series and movies in high quality.'}
-                                    </p>
-                                </div>
-
-                                {/* Foreign Series Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'مسلسلات أجنبية' : 'Foreign Series'}
-                                    endpoint="/animes/type/tv_en"
-                                    type="anime"
-                                    limit={15}
-                                    lang={i18n.language}
-                                />
-
-                                {/* Foreign Movies Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أفلام أجنبية' : 'Foreign Movies'}
-                                    endpoint="/animes/type/moves_en"
-                                    type="movie"
-                                    limit={15}
-                                    lang={i18n.language}
-                                />
+                        </div>
+                    ) : (
+                        <div className="max-w-[1400px] mx-auto py-8">
+                            {/* Title Header */}
+                            <div className="mb-12 text-center">
+                                <h1 className="text-3xl md:text-5xl font-black mb-4">
+                                    {i18n.language === 'ar' ? 'أفلام ومسلسلات أجنبية' : 'Foreign Movies & Series'}
+                                </h1>
+                                <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+                                    {i18n.language === 'ar'
+                                        ? 'استمتع بمجموعة مختارة من المسلسلات والأفلام الأجنبية المترجمة بأعلى جودة.'
+                                        : 'Enjoy a selected collection of translated foreign series and movies in high quality.'}
+                                </p>
                             </div>
-                        )}
-                    </div>
+
+                            {/* Foreign Series Section */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'مسلسلات أجنبية' : 'Foreign Series'}
+                                endpoint="/animes/type/tv_en"
+                                type="anime"
+                                limit={15}
+                                lang={i18n.language}
+                            />
+
+                            {/* Foreign Movies Section */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'أفلام أجنبية' : 'Foreign Movies'}
+                                endpoint="/animes/type/moves_en"
+                                type="movie"
+                                limit={15}
+                                lang={i18n.language}
+                            />
+                        </div>
+                    )}
                 </div>
-                <Footer />
             </div>
+            <Footer />
         </div>
     );
 }

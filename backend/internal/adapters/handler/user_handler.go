@@ -19,13 +19,14 @@ func NewUserHandler(service *service.UserService) *UserHandler {
 
 func (h *UserHandler) GetAll(c *gin.Context) {
 	query := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
 	var users []domain.User
 	var err error
 
 	if query != "" {
 		users, err = h.service.Search(query)
 	} else {
-		users, err = h.service.GetAll()
+		users, err = h.service.GetAll(limit)
 	}
 
 	if err != nil {
@@ -150,9 +151,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		filename := strconv.FormatInt(int64(userID), 10) + "_" + strconv.FormatInt(int64(c.Writer.Status()), 10) + "_" + file.Filename
 		dst := "uploads/avatars/" + filename
 
-		// Ensure directory exists (optional, but good practice)
-		// os.MkdirAll("uploads/avatars", os.ModePerm)
-
 		if err := c.SaveUploadedFile(file, dst); err == nil {
 			avatarPath = "/uploads/avatars/" + filename
 		} else {
@@ -160,8 +158,19 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		}
 	}
 
+	// 3.5 Handle Cover Image File
+	var coverImagePath string
+	coverFile, err := c.FormFile("cover_image")
+	if err == nil {
+		filename := "cover_" + strconv.FormatInt(int64(userID), 10) + "_" + strconv.FormatInt(int64(c.Writer.Status()), 10) + "_" + coverFile.Filename
+		dst := "uploads/avatars/" + filename // storing in same folder for now
+		if err := c.SaveUploadedFile(coverFile, dst); err == nil {
+			coverImagePath = "/uploads/avatars/" + filename
+		}
+	}
+
 	// 4. Call Service
-	updatedUser, err := h.service.UpdateProfile(userID, name, currentPassword, newPassword, avatarPath)
+	updatedUser, err := h.service.UpdateProfile(userID, name, currentPassword, newPassword, avatarPath, coverImagePath)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error(), "error": err.Error()})
 		return
@@ -171,4 +180,306 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		"message": "Profile updated successfully",
 		"user":    updatedUser,
 	})
+}
+
+func (h *UserHandler) GetStats(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	stats, err := h.service.GetUserStats(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+func (h *UserHandler) GetInteractions(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Depending on middleware, it might be float64 (JWT default) or int/uint. Safe assertion:
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in context"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	interactionType := c.Query("type") // "comment", "reply", "like"
+
+	interactions, hasMore, err := h.service.GetPaginatedInteractions(userID, interactionType, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user interactions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":    interactions,
+		"has_more": hasMore,
+	})
+}
+
+func (h *UserHandler) GetByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	user, err := h.service.GetByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+// --- Friendship Handlers ---
+
+func (h *UserHandler) SendFriendRequest(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	if err := h.service.SendFriendRequest(userID, uint(targetID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Friend request sent"})
+}
+
+func (h *UserHandler) AcceptFriendRequest(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	if err := h.service.AcceptFriendRequest(userID, uint(targetID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Friend request accepted"})
+}
+
+func (h *UserHandler) RemoveFriend(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	if err := h.service.RejectFriendRequest(userID, uint(targetID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Removed/Rejected"})
+}
+
+func (h *UserHandler) GetFriendshipStatus(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	var userID uint
+	if exists {
+		// Handle type assertion safely as before
+		switch v := userIDVal.(type) {
+		case uint:
+			userID = v
+		case int:
+			userID = uint(v)
+		case float64:
+			userID = uint(v)
+		}
+	} else {
+		userID = 0 // Not logged in
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	status, err := h.service.GetFriendshipStatus(userID, uint(targetID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": status})
+}
+
+func (h *UserHandler) GetUserFriends(c *gin.Context) {
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	friends, err := h.service.GetUserFriends(uint(targetID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"friends": friends})
+}
+
+func (h *UserHandler) GetPendingRequests(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Robust ID retrieval
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	requests, err := h.service.GetPendingRequests(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"requests": requests})
+}
+
+// --- Block Handlers ---
+
+func (h *UserHandler) BlockUser(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	if err := h.service.BlockUser(userID, uint(targetID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "User blocked"})
+}
+
+func (h *UserHandler) UnblockUser(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
+		return
+	}
+
+	if err := h.service.UnblockUser(userID, uint(targetID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "User unblocked"})
 }

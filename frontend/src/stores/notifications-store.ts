@@ -17,6 +17,9 @@ interface NotificationsStore {
     markAsRead: (id: number) => Promise<void>;
     markAllAsRead: () => Promise<void>;
     addNotification: (notification: Notification) => void;
+    deleteNotification: (id: number) => Promise<void>;
+    deleteAll: () => Promise<void>;
+    deleteSelected: (ids: number[]) => Promise<void>;
 }
 
 export const useNotificationsStore = create<NotificationsStore>((set, get) => ({
@@ -63,5 +66,39 @@ export const useNotificationsStore = create<NotificationsStore>((set, get) => ({
         const notifications = [notification, ...get().notifications];
         const unreadCount = notifications.filter(n => !n.is_read).length;
         set({ notifications, unreadCount });
+    },
+
+    deleteNotification: async (id: number) => {
+        try {
+            const { deleteNotification: apiDelete } = await import('@/lib/notifications-api');
+            await apiDelete(id);
+            const notifications = get().notifications.filter(n => n.id !== id);
+            const unreadCount = notifications.filter(n => !n.is_read).length;
+            set({ notifications, unreadCount });
+        } catch (error: any) {
+            set({ error: error.message || 'Failed to delete notification' });
+        }
+    },
+
+    deleteAll: async () => {
+        try {
+            const { deleteAllNotifications: apiDeleteAll } = await import('@/lib/notifications-api');
+            await apiDeleteAll();
+            set({ notifications: [], unreadCount: 0 });
+        } catch (error: any) {
+            set({ error: error.message || 'Failed to delete all notifications' });
+        }
+    },
+
+    deleteSelected: async (ids: number[]) => {
+        try {
+            const { deleteSelectedNotifications: apiDeleteSelected } = await import('@/lib/notifications-api');
+            await apiDeleteSelected(ids);
+            const notifications = get().notifications.filter(n => !ids.includes(n.id));
+            const unreadCount = notifications.filter(n => !n.is_read).length;
+            set({ notifications, unreadCount });
+        } catch (error: any) {
+            set({ error: error.message || 'Failed to delete selected notifications' });
+        }
     },
 }));

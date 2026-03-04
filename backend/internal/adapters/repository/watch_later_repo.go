@@ -45,3 +45,8 @@ func (r *SQLiteRepository) IsWatchLater(userID uint, animeID *uint, episodeID *u
 	err := query.Count(&count).Error
 	return count > 0, err
 }
+func (r *SQLiteRepository) CountWatchLater(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.WatchLater{}).Where("user_id = ?", userID).Count(&count).Error
+	return count, err
+}

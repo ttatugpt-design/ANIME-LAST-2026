@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useTheme } from "@/components/theme-provider";
+import { cn } from "@/lib/utils";
 
 const BASE_URL = '';
 
@@ -82,103 +83,96 @@ export default function AnimeBrowsePage() {
                 <title>{seoTitle}</title>
             </Helmet>
 
-            <div className="w-full">
-                <NewsTicker />
-                {/* Modals */}
-                <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
-                <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
-                <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
-                <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
+            <NewsTicker />
 
-                {/* Main Layout with Sidebar */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible">
+            {/* Modals */}
+            <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
+            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
+            <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
+            <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
 
-                    {/* Left Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
-                        <SocialNavSidebar />
-                    </div>
-
-                    {/* Main Content - Flex grow to fill remaining space */}
-                    <div className="col-span-1 lg:col-span-9 px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center min-h-[60vh]">
-                                <div className="relative w-20 h-20">
-                                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                                </div>
+            {/* Main Layout - Centered with Wide Margins */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1200px] mx-auto transition-all duration-300">
+                {/* Main Content - Full Width */}
+                <div className="px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5 transition-all duration-300 col-span-1 lg:col-span-12">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center min-h-[60vh]">
+                            <div className="relative w-20 h-20">
+                                <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
+                                <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                             </div>
-                        ) : (
-                            <>
-                                {/* Latest Episodes Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أحدث الحلقات' : 'Latest Episodes'}
-                                    endpoint="/episodes/latest"
-                                    type="episode"
-                                    limit={15}
-                                    showActionButtons={true}
-                                    onSearchClick={() => setIsSearchModalOpen(true)}
-                                    onFilterClick={() => setIsFilterModalOpen(true)}
-                                    lang={i18n.language}
-                                />
+                        </div>
+                    ) : (
+                        <>
+                            {/* Latest Episodes Section */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'أحدث الحلقات' : 'Latest Episodes'}
+                                endpoint="/episodes/latest"
+                                type="episode"
+                                limit={15}
+                                showActionButtons={true}
+                                onSearchClick={() => setIsSearchModalOpen(true)}
+                                onFilterClick={() => setIsFilterModalOpen(true)}
+                                lang={i18n.language}
+                            />
 
-                                {/* Browse All Section */}
-                                <BrowseAllSection lang={i18n.language} isRtl={isRtl} />
+                            {/* Browse All Section */}
+                            <BrowseAllSection lang={i18n.language} isRtl={isRtl} />
 
-                                {/* Latest Animes Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أحدث الأنميات' : 'Latest Animes'}
-                                    endpoint="/animes/latest"
-                                    type="anime"
-                                    limit={12}
-                                    showActionButtons={true}
-                                    onSearchClick={() => setIsSearchAnimeModalOpen(true)}
-                                    onFilterClick={() => setIsFilterAnimeModalOpen(true)}
-                                    lang={i18n.language}
-                                />
+                            {/* Latest Animes Section */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'أحدث الأنميات' : 'Latest Animes'}
+                                endpoint="/animes/latest"
+                                type="anime"
+                                limit={12}
+                                showActionButtons={true}
+                                onSearchClick={() => setIsSearchAnimeModalOpen(true)}
+                                onFilterClick={() => setIsFilterAnimeModalOpen(true)}
+                                lang={i18n.language}
+                            />
 
-                                {/* Movies Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أفلام مختارة' : 'Selected Movies'}
-                                    endpoint="/animes/type/movie"
-                                    type="movie"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget={`/${i18n.language}/movies`}
-                                    lang={i18n.language}
-                                />
+                            {/* Movies Section */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'أفلام مختارة' : 'Selected Movies'}
+                                endpoint="/animes/type/movie"
+                                type="movie"
+                                limit={12}
+                                showLink={true}
+                                linkTarget={`/${i18n.language}/movies`}
+                                lang={i18n.language}
+                            />
 
-                                {/* TV Series Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'مسلسلات أنمي تلفزيونية' : 'TV Series'}
-                                    endpoint="/animes/type/TV"
-                                    type="anime"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget="/tv-series"
-                                    lang={i18n.language}
-                                />
+                            {/* TV Series Section */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'مسلسلات أنمي تلفزيونية' : 'TV Series'}
+                                endpoint="/animes/type/TV"
+                                type="anime"
+                                limit={12}
+                                showLink={true}
+                                linkTarget="/tv-series"
+                                lang={i18n.language}
+                            />
 
-                                {/* Top Animes */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أنميات بتقييم عالي' : 'High Rated Animes'}
-                                    endpoint="/animes/top-rated"
-                                    type="anime"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget={`/${i18n.language}/animes`}
-                                    lang={i18n.language}
-                                />
-                            </>
-                        )}
-                    </div>
-                    {/* End Main Content */}
-
+                            {/* Top Animes */}
+                            <Section
+                                title={i18n.language === 'ar' ? 'أنميات بتقييم عالي' : 'High Rated Animes'}
+                                endpoint="/animes/top-rated"
+                                type="anime"
+                                limit={12}
+                                showLink={true}
+                                linkTarget={`/${i18n.language}/animes`}
+                                lang={i18n.language}
+                            />
+                        </>
+                    )}
                 </div>
-                {/* End Main Layout with Sidebar */}
+                {/* End Main Content */}
 
-                {/* Advanced Footer */}
-                <Footer />
             </div>
+            {/* End Main Layout with Sidebar */}
+
+            {/* Advanced Footer */}
+            <Footer />
         </div>
     );
 }
@@ -281,13 +275,13 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                     count={limit}
                     isEpisode={type === 'episode'}
                     layout={window.innerWidth < 768 ? 'list' : 'grid'}
-                    gridClassName={type === 'episode' ? "flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-5"}
+                    gridClassName={type === 'episode' ? "flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-5" : "grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-5"}
                 />
             ) : items?.length > 0 ? (
                 <>
                     <div className={`
                         ${type === 'episode'
-                            ? 'flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-3'
+                            ? 'flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-5'
                             : 'grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-5'} 
                         relative z-0
                     `}>

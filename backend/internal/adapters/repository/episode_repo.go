@@ -6,15 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type EpisodeRepository interface {
-	Create(episode *domain.Episode) error
-	GetByID(id uint) (*domain.Episode, error)
-	GetAll() ([]domain.Episode, error)
-	Update(episode *domain.Episode) error
-	Delete(id uint) error
-	GetByAnimeID(animeID uint) ([]domain.Episode, error)
-	GetLatestEpisodes(limit int) ([]domain.Episode, error)
-}
+// EpisodeRepository implementation is in port.EpisodeRepository
 
 func (r *SQLiteRepository) CreateEpisode(episode *domain.Episode) error {
 	return r.db.Create(episode).Error
@@ -26,9 +18,38 @@ func (r *SQLiteRepository) GetEpisodeByID(id uint) (*domain.Episode, error) {
 	return &episode, err
 }
 
-func (r *SQLiteRepository) GetAllEpisodes() ([]domain.Episode, error) {
+func (r *SQLiteRepository) GetAllEpisodes(categoryID uint, letter string, animeType string, order string) ([]domain.Episode, error) {
 	var episodes []domain.Episode
-	err := r.db.Preload("Anime").Preload("Servers").Find(&episodes).Error
+	db := r.db.Preload("Anime").Preload("Servers")
+
+	if categoryID > 0 {
+		db = db.Joins("JOIN animes ON animes.id = episodes.anime_id").
+			Joins("JOIN anime_categories ON anime_categories.anime_id = animes.id").
+			Where("anime_categories.category_id = ?", categoryID)
+	}
+
+	if letter != "" {
+		db = db.Joins("LEFT JOIN animes as a2 ON a2.id = episodes.anime_id").
+			Where("(a2.title LIKE ? OR a2.title_en LIKE ?) AND a2.type NOT IN (?, ?)", letter+"%", letter+"%", "tv_en", "moves_en")
+	} else if animeType == "foreign" {
+		db = db.Joins("JOIN animes as a_isolation ON a_isolation.id = episodes.anime_id").
+			Where("a_isolation.type IN (?, ?)", "tv_en", "moves_en")
+	} else if animeType == "all_admin" {
+		// No isolation filter for episodes in admin
+		db = db.Joins("JOIN animes as a_isolation ON a_isolation.id = episodes.anime_id")
+	} else {
+		// Default isolation
+		db = db.Joins("JOIN animes as a_isolation ON a_isolation.id = episodes.anime_id").
+			Where("a_isolation.type NOT IN (?, ?)", "tv_en", "moves_en")
+	}
+
+	if order == "oldest" {
+		db = db.Order("episodes.created_at asc")
+	} else {
+		db = db.Order("episodes.created_at desc")
+	}
+
+	err := db.Find(&episodes).Error
 	return episodes, err
 }
 
@@ -52,8 +73,11 @@ func (r *SQLiteRepository) GetEpisodesByAnimeID(animeID uint) ([]domain.Episode,
 
 func (r *SQLiteRepository) GetLatestEpisodes(limit int) ([]domain.Episode, error) {
 	var episodes []domain.Episode
-	// Preload Anime and Servers
-	err := r.db.Preload("Anime").Preload("Servers").Order("created_at desc").Limit(limit).Find(&episodes).Error
+	// Preload Anime and Servers and exclude foreign media
+	err := r.db.Preload("Anime").Preload("Servers").
+		Joins("JOIN animes ON animes.id = episodes.anime_id").
+		Where("animes.type NOT IN (?, ?)", "tv_en", "moves_en").
+		Order("episodes.created_at desc").Limit(limit).Find(&episodes).Error
 	return episodes, err
 }
 
@@ -63,8 +87,8 @@ func (r *SQLiteRepository) SearchEpisodes(query string) ([]domain.Episode, error
 
 	err := r.db.Preload("Anime").Preload("Servers").
 		Joins("LEFT JOIN animes ON episodes.anime_id = animes.id").
-		Where("episodes.title LIKE ? OR episodes.title_en LIKE ? OR animes.title LIKE ? OR animes.title_en LIKE ? OR CAST(episodes.episode_number AS TEXT) LIKE ?",
-			searchPattern, searchPattern, searchPattern, searchPattern, searchPattern).
+		Where("(episodes.title LIKE ? OR episodes.title_en LIKE ? OR animes.title LIKE ? OR animes.title_en LIKE ? OR CAST(episodes.episode_number AS TEXT) LIKE ?) AND animes.type NOT IN (?, ?)",
+			searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, "tv_en", "moves_en").
 		Order("episodes.created_at desc").
 		Limit(50).
 		Find(&episodes).Error

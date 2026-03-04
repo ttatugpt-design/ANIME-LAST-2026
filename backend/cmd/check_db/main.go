@@ -27,11 +27,20 @@ type Anime struct {
 	Title   string
 	TitleEn string
 	Slug    string
+	SlugEn  string
+}
+
+type Episode struct {
+	ID            uint `gorm:"primaryKey"`
+	AnimeID       uint
+	EpisodeNumber int
+	Title         string
+	Slug          string
 }
 
 func main() {
 	// Open database
-	db, err := gorm.Open(sqlite.Open("../../saas.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("../server/saas.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
@@ -66,19 +75,59 @@ func main() {
 	fmt.Printf("\nAnimes count: %d\n", animeCount)
 
 	var animes []Anime
-	db.Limit(3).Find(&animes)
-	fmt.Println("\nFirst 3 Animes:")
+	db.Find(&animes)
+	fmt.Println("\nAll Animes:")
 	for _, a := range animes {
 		fmt.Printf("  ID: %d, Title: %s, TitleEn: %s, Slug: %s\n", a.ID, a.Title, a.TitleEn, a.Slug)
 	}
 
+	// Check Episodes
+	var episodeCount int64
+	db.Model(&Episode{}).Count(&episodeCount)
+	fmt.Printf("\nEpisodes count: %d\n", episodeCount)
+
+	var episodes []Episode
+	db.Limit(10).Find(&episodes)
+	fmt.Println("\nFirst 10 Episodes:")
+	for _, e := range episodes {
+		fmt.Printf("  ID: %d, AnimeID: %d, Ep: %d, Title: %s, Slug: %s\n", e.ID, e.AnimeID, e.EpisodeNumber, e.Title, e.Slug)
+	}
+
+	// Find animes with spaces in slugs
+	var malformedAnimes []Anime
+	db.Where("slug LIKE '% %' OR slug_en LIKE '% %' OR slug LIKE '%_%'").Find(&malformedAnimes)
+	fmt.Printf("\nAnimes with malformed slugs (spaces or underscores): %d\n", len(malformedAnimes))
+	for _, a := range malformedAnimes {
+		fmt.Printf("  ID: %d, Title: %s, Slug: '%s', SlugEn: '%s'\n", a.ID, a.Title, a.Slug, a.SlugEn)
+	}
+
+	// Find episodes with spaces in slugs
+	var malformedEpisodes []Episode
+	db.Where("slug LIKE '% %'").Find(&malformedEpisodes)
+	fmt.Printf("\nEpisodes with spaces in slugs: %d\n", len(malformedEpisodes))
+	for _, e := range malformedEpisodes {
+		fmt.Printf("  ID: %d, Title: %s, Slug: '%s'\n", e.ID, e.Title, e.Slug)
+	}
+
+	// Search for Jujutsu in episodes
+	var jujutsuEpisodes []Episode
+	db.Where("title LIKE ? OR slug LIKE ?", "%Jujutsu%", "%Jujutsu%").Find(&jujutsuEpisodes)
+	if len(jujutsuEpisodes) > 0 {
+		fmt.Println("\nJujutsu Episodes Found:")
+		for _, e := range jujutsuEpisodes {
+			fmt.Printf("  ID: %d, Title: %s, Slug: '%s'\n", e.ID, e.Title, e.Slug)
+		}
+	} else {
+		fmt.Println("\nNo Jujutsu episodes found.")
+	}
+
 	// Check table schema
-	fmt.Println("\n=== Categories Table Columns ===")
+	fmt.Println("\n=== Episodes Table Columns ===")
 	var columns []struct {
 		Name string
 		Type string
 	}
-	db.Raw("PRAGMA table_info(categories)").Scan(&columns)
+	db.Raw("PRAGMA table_info(episodes)").Scan(&columns)
 	for _, col := range columns {
 		fmt.Printf("  %s (%s)\n", col.Name, col.Type)
 	}

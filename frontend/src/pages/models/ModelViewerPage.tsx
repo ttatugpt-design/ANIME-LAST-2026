@@ -50,7 +50,7 @@ function Loader() {
     return (
         <Html center>
             <div className="flex flex-col items-center justify-center p-4 bg-black/80 rounded-lg backdrop-blur-md">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                <Loader2 className="w-8 h-8 animate-spin text-white mb-2" />
                 <span className="text-white font-medium">{progress.toFixed(0)}% Loaded</span>
             </div>
         </Html>

@@ -12,16 +12,18 @@ import (
 )
 
 type EpisodeHandler struct {
-	service  *service.EpisodeService
-	repo     *repository.SQLiteRepository
-	likeRepo *repository.EpisodeLikeRepository
+	service     *service.EpisodeService
+	repo        *repository.SQLiteRepository
+	likeRepo    *repository.EpisodeLikeRepository
+	commentRepo *repository.CommentRepository
 }
 
-func NewEpisodeHandler(service *service.EpisodeService, repo *repository.SQLiteRepository, likeRepo *repository.EpisodeLikeRepository) *EpisodeHandler {
+func NewEpisodeHandler(service *service.EpisodeService, repo *repository.SQLiteRepository, likeRepo *repository.EpisodeLikeRepository, commentRepo *repository.CommentRepository) *EpisodeHandler {
 	return &EpisodeHandler{
-		service:  service,
-		repo:     repo,
-		likeRepo: likeRepo,
+		service:     service,
+		repo:        repo,
+		likeRepo:    likeRepo,
+		commentRepo: commentRepo,
 	}
 }
 
@@ -103,8 +105,14 @@ func (h *EpisodeHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	// No filters, return all
-	episodes, err := h.service.GetAll()
+	// NEW: Support filtering by category, letter, type and order when not filtering by specific anime
+	categoryID, _ := strconv.Atoi(c.Query("category_id"))
+	letter := c.Query("letter")
+	animeType := c.Query("type")
+	order := c.Query("order")
+
+	// No specific anime filter, use general GetAll with filters
+	episodes, err := h.service.GetAll(uint(categoryID), letter, animeType, order)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -293,10 +301,16 @@ func (h *EpisodeHandler) GetStats(c *gin.Context) {
 		}
 	}
 
+	var commentsCount int64
+	if id > 0 {
+		commentsCount, _ = h.commentRepo.CountByEpisodeID(uint(id))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"views_count":    episode.ViewsCount,
 		"likes_count":    episode.LikesCount,
 		"dislikes_count": episode.DislikesCount,
+		"comments_count": commentsCount,
 		"user_reaction":  userReaction,
 	})
 }

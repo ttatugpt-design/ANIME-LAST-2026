@@ -52,6 +52,7 @@ export default function AnimesPage() {
         release_date: "",
         rating: 0,
         image: "",
+        icon_image: "", // New field
         cover: "",
         duration: 24,
         trailer: "",
@@ -78,7 +79,7 @@ export default function AnimesPage() {
 
     // Helper options
     const categoryOptions = categories?.map((c: any) => ({ label: c.title || c.name, value: c.id })) || [];
-    const typeOptions = types?.map((t: any) => ({ label: t.name, value: t.name })) || []; // Type is still string based on migration
+    const typeOptions = types?.map((t: any) => ({ label: t.name, value: t.slug || t.name })) || []; // Use slugs for stability
     const studioOptions = studios?.map((s: any) => ({ label: s.name, value: s.id })) || [];
     const languageOptions = languages?.map((l: any) => ({ label: l.name, value: l.id })) || [];
     const seasonOptions = seasons?.map((s: any) => ({ label: s.name, value: s.id })) || [];
@@ -157,12 +158,13 @@ export default function AnimesPage() {
         return res.data.url;
     };
 
-    const handleImageUpload = async (e: any, field: 'image' | 'cover') => {
+    const handleImageUpload = async (e: any, field: 'image' | 'cover' | 'icon_image') => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         if (field === 'image') setUploadingImage(true);
-        else setUploadingCover(true);
+        else if (field === 'cover') setUploadingCover(true);
+        // We can add simple loading state for icon if needed, or share
 
         try {
             const url = await uploadFile(file);
@@ -172,7 +174,7 @@ export default function AnimesPage() {
             toast.error("Upload failed");
         } finally {
             if (field === 'image') setUploadingImage(false);
-            else setUploadingCover(false);
+            else if (field === 'cover') setUploadingCover(false);
         }
     };
 
@@ -180,7 +182,7 @@ export default function AnimesPage() {
         setFormData({
             title: "", title_en: "", slug: "", slug_en: "", description: "", description_en: "",
             category_ids: [], seasons: 1, status: "Ongoing", release_date: "", rating: 0,
-            image: "", cover: "", duration: 24, trailer: "", type: "TV", is_active: true,
+            image: "", icon_image: "", cover: "", duration: 24, trailer: "", type: "TV", is_active: true,
             season_id: 0, studio_id: 0, language_id: 0
         });
     };
@@ -206,6 +208,7 @@ export default function AnimesPage() {
             release_date: anime.release_date ? anime.release_date.split('T')[0] : "",
             rating: anime.rating || 0,
             image: anime.image || "",
+            icon_image: anime.icon_image || "",
             cover: anime.cover || "",
             duration: anime.duration || 24,
             trailer: anime.trailer || "",
@@ -322,10 +325,25 @@ export default function AnimesPage() {
                                     <TableCell className="font-medium">{anime.id}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
-                                            {anime.image && <img src={anime.image} alt={anime.title} className="w-8 h-8 rounded object-cover" />}
+                                            <div className="flex -space-x-2">
+                                                {anime.icon_image && (
+                                                    <img
+                                                        src={anime.icon_image}
+                                                        alt="Icon"
+                                                        className="w-8 h-8 rounded-full border-2 border-background object-cover z-10"
+                                                    />
+                                                )}
+                                                {anime.image && (
+                                                    <img
+                                                        src={anime.image}
+                                                        alt={anime.title}
+                                                        className="w-8 h-12 rounded object-cover shadow-sm"
+                                                    />
+                                                )}
+                                            </div>
                                             <div className="flex flex-col">
-                                                <span>{anime.title}</span>
-                                                <span className="text-xs text-muted-foreground">{anime.title_en}</span>
+                                                <span className="font-bold text-sm">{anime.title}</span>
+                                                <span className="text-[10px] text-muted-foreground uppercase">{anime.type} • {anime.status}</span>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -362,7 +380,7 @@ export default function AnimesPage() {
 }
 
 // Subcomponent for reuse
-function AnimeFormContent({
+export function AnimeFormContent({
     formData, handleChange,
     categoryOptions, typeOptions, studioOptions, languageOptions, seasonOptions,
     handleImageUpload, uploadingImage, uploadingCover,
@@ -473,6 +491,13 @@ function AnimeFormContent({
                     </TabsContent>
 
                     <TabsContent value="media" className="space-y-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>Icon Image</Label>
+                            <div className="flex gap-2 items-center">
+                                <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'icon_image')} disabled={uploadingImage} />
+                            </div>
+                            {formData.icon_image && <img src={formData.icon_image} alt="Icon" className="h-10 w-10 object-cover rounded mt-2 border" />}
+                        </div>
                         <div className="grid gap-2">
                             <Label>Poster Image</Label>
                             <div className="flex gap-2 items-center">

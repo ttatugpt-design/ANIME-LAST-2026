@@ -23,42 +23,73 @@ func (r *CommentRepository) Create(comment *domain.Comment) error {
 // GetByID fetches a comment by ID
 func (r *CommentRepository) GetByID(id uint) (*domain.Comment, error) {
 	var comment domain.Comment
-	if err := r.db.Preload("User").First(&comment, id).Error; err != nil {
+	if err := r.db.Joins("User").Preload("Episode").Preload("Episode.Anime").First(&comment, id).Error; err != nil {
 		return nil, err
 	}
 	return &comment, nil
 }
 
-// GetByEpisodeID fetches comments for an episode, preload user and replies
-// Using a simple strategy: fetch top-level comments and their immediate children.
-// For deep nesting, a recursive strategy or fetching all and building tree in code is better.
-// Here we assume 1-level nesting for simplicity as per common UI patterns, or rely on Preload for a few levels.
 func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, error) {
-	var comments []domain.Comment
-	// Fetch top-level comments (ParentID is null)
-	// Order by CreatedAt desc
+	var allComments []domain.Comment
+	// Fetch all comments for this episode at once to build tree in memory
 	err := r.db.Preload("User").
-		Preload("Children", func(db *gorm.DB) *gorm.DB {
-			return db.Order("created_at asc").Preload("User") // Replies ordered chronologically
-		}).
-		Preload("Children.Children"). // Optional: if we want 2 levels deep
-		Where("episode_id = ? AND parent_id IS NULL", episodeID).
+		Where("episode_id = ?", episodeID).
 		Order("created_at desc").
-		Find(&comments).Error
+		Find(&allComments).Error
+	if err != nil {
+		return nil, err
+	}
 
-	return comments, err
+	// Build a map for O(1) lookups by ID
+	commentMap := make(map[uint]*domain.Comment)
+	for i := range allComments {
+		commentMap[allComments[i].ID] = &allComments[i]
+	}
+
+	var rootComments []domain.Comment
+	for i := range allComments {
+		comment := &allComments[i]
+		if comment.ParentID == nil || *comment.ParentID == 0 {
+			// Top-level comment
+			rootComments = append(rootComments, *comment)
+		} else {
+			// Nested reply
+			if parent, exists := commentMap[*comment.ParentID]; exists {
+				parent.Children = append(parent.Children, *comment)
+			}
+		}
+	}
+
+	// Note: rootComments contains copies. To ensure Children are correctly linked,
+	// we should either use pointers everywhere or re-assign from map.
+	// Let's refine rootComments to use the updated map entries.
+	var finalRoots []domain.Comment
+	for i := range allComments {
+		c := &allComments[i]
+		if c.ParentID == nil || *c.ParentID == 0 {
+			finalRoots = append(finalRoots, *commentMap[c.ID])
+		}
+	}
+
+	return finalRoots, nil
 }
 
 // GetAllComments fetches all comments for dashboard
-func (r *CommentRepository) GetAllComments() ([]domain.Comment, error) {
+func (r *CommentRepository) GetAllComments(limit int) ([]domain.Comment, error) {
 	var comments []domain.Comment
-	err := r.db.Preload("User").
+	query := r.db.Preload("User").
 		Preload("Episode").
 		Preload("Episode.Anime"). // To show Anime name if needed
 		Preload("Parent").
-		Preload("Parent.User").
-		Order("created_at desc").
-		Find(&comments).Error
+		Preload("Parent.User")
+
+	if limit > 0 {
+		query = query.Limit(limit).Order("created_at desc")
+	} else {
+		query = query.Order("created_at desc")
+	}
+
+	err := query.Find(&comments).Error
 	return comments, err
 }
 
@@ -127,4 +158,11 @@ func (r *CommentRepository) ToggleLike(userID, commentID uint, isLike bool) erro
 
 		return nil
 	})
+}
+
+// CountByEpisodeID returns the total number of comments for an episode
+func (r *CommentRepository) CountByEpisodeID(episodeID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.Comment{}).Where("episode_id = ?", episodeID).Count(&count).Error
+	return count, err
 }

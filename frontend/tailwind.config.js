@@ -1,3 +1,5 @@
+import tailwindAnimate from "tailwindcss-animate";
+
 /** @type {import('tailwindcss').Config} */
 export default {
     darkMode: ["class"],
@@ -5,7 +7,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Inter', 'sans-serif']
+                sans: ['"Plus Jakarta Sans"', 'sans-serif']
             },
             borderRadius: {
                 lg: 'var(--radius)',
@@ -56,5 +58,5 @@ export default {
             }
         }
     },
-    plugins: [require("tailwindcss-animate")],
+    plugins: [tailwindAnimate],
 }

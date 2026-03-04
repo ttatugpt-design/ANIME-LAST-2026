@@ -7,7 +7,7 @@ type Comment struct {
 	ID        uint      `json:"id" gorm:"primaryKey"`
 	Content   string    `json:"content" gorm:"type:text;not null"`
 	UserID    uint      `json:"user_id" gorm:"not null"`
-	User      *User     `json:"user" gorm:"foreignKey:UserID"`
+	User      *User     `json:"user" gorm:"foreignKey:UserID;references:ID"`
 	EpisodeID uint      `json:"episode_id" gorm:"not null"`
 	Episode   *Episode  `json:"episode" gorm:"foreignKey:EpisodeID"`
 	ParentID  *uint     `json:"parent_id,omitempty"` // For nested replies
@@ -24,7 +24,8 @@ type Comment struct {
 
 // CommentLike represents a user's reaction to a comment
 type CommentLike struct {
-	UserID    uint `json:"user_id" gorm:"primaryKey"`
-	CommentID uint `json:"comment_id" gorm:"primaryKey"`
-	IsLike    bool `json:"is_like"` // true = like, false = dislike
+	UserID    uint      `json:"user_id" gorm:"primaryKey"`
+	CommentID uint      `json:"comment_id" gorm:"primaryKey"`
+	IsLike    bool      `json:"is_like"` // true = like, false = dislike
+	CreatedAt time.Time `json:"created_at"`
 }

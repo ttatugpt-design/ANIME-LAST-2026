@@ -92,7 +92,7 @@ export default function EditProfilePage() {
             <div className="bg-[#111] overflow-hidden rounded-none relative">
 
                 {/* Banner Section */}
-                <div className="relative h-48 bg-gradient-to-r from-[#f47521] to-[#ff8c42] overflow-hidden group">
+                <div className="relative h-48 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-[#333] dark:to-[#1a1a1a] overflow-hidden group">
                     {/* decorative circles/pattern overlay */}
                     <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
                     <div className="absolute top-[-50%] left-[-10%] w-[500px] h-[500px] border border-white/10 rounded-full"></div>
@@ -226,7 +226,7 @@ export default function EditProfilePage() {
                 <Button
                     onClick={handleUpdateProfile}
                     disabled={isLoading}
-                    className="bg-[#f47521] hover:bg-[#ff8c42] text-black border border-[#f47521] px-8 h-12 text-lg font-bold min-w-[150px]"
+                    className="bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black border border-black dark:border-white px-8 h-12 text-lg font-bold min-w-[150px]"
                 >
                     {isLoading ? (
                         <>

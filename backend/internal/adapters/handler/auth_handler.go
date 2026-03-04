@@ -34,7 +34,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.authService.Register(req.Name, req.Email, req.Password); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()}) // Assuming conflict for now
+		if err.Error() == "user already exists" {
+			c.JSON(http.StatusConflict, gin.H{"error": "البريد الإلكتروني مستخدم بالفعل"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل في إنشاء الحساب: " + err.Error()})
+		}
 		return
 	}
 

@@ -55,3 +55,21 @@ export const renameFile = (file: File, newName: string): File => {
         lastModified: file.lastModified,
     });
 };
+
+export const getImageUrl = (path?: string | null) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+    // If it's a local upload, prepend the API URL if available
+    if (cleanPath.startsWith('/uploads/')) {
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        if (apiUrl) {
+            // Ensure no double slash if apiUrl ends with slash
+            const base = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+            return `${base}${cleanPath}`;
+        }
+    }
+
+    return cleanPath;
+};

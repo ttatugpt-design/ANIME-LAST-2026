@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Bookmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -13,14 +13,8 @@ import { ThemeToggle } from './ThemeToggle';
 import { WatchLaterDropdown } from './WatchLaterDropdown';
 import { HistoryDropdown } from './HistoryDropdown';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { MessagesDropdown } from './MessagesDropdown';
 import { UserDropdown } from './UserDropdown';
-
-// Define Prop Types
-interface LatestAnime {
-    latest_tv?: any;
-    latest_movie?: any;
-    latest_episode?: any;
-}
 
 export function Header() {
     const navigate = useNavigate();
@@ -29,40 +23,30 @@ export function Header() {
     const { user } = useAuthStore();
     const isRtl = i18n.language === 'ar';
 
-    // Latest Anime State with Cache
-    const [latestAnime, setLatestAnime] = useState<LatestAnime>({});
-    const CACHE_KEY = 'latest_anime_cache';
-    const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+    // Menu state management - coordinate mobile menu and user menu
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const [messagesMenuOpen, setMessagesMenuOpen] = useState(false);
+    const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
 
-    useEffect(() => {
-        const fetchLatestAnime = async () => {
-            try {
-                // Check Cache
-                const cached = sessionStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    const { data, timestamp } = JSON.parse(cached);
-                    if (Date.now() - timestamp < CACHE_DURATION) {
-                        setLatestAnime(data);
-                        return;
-                    }
-                }
+    // When one menu opens, close the others
+    const handleMobileMenuChange = (open: boolean) => {
+        setMobileMenuOpen(open);
+        if (open) {
+            setUserMenuOpen(false);
+            setMessagesMenuOpen(false);
+            setNotificationsMenuOpen(false);
+        }
+    };
 
-                // Fetch from API
-                const res = await api.get('/latest-tv-anime'); // Adjust endpoint if needed
-                setLatestAnime(res.data);
-
-                // Update Cache
-                sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-                    data: res.data,
-                    timestamp: Date.now()
-                }));
-            } catch (error) {
-                console.error('Failed to fetch latest anime', error);
-            }
-        };
-
-        fetchLatestAnime();
-    }, []);
+    const handleUserMenuChange = (open: boolean) => {
+        setUserMenuOpen(open);
+        if (open) {
+            setMobileMenuOpen(false);
+            setMessagesMenuOpen(false);
+            setNotificationsMenuOpen(false);
+        }
+    };
 
     // Scroll Effect (Optional, currently using simple sticky)
     // You can add logic to change background opacity on scroll if needed
@@ -73,14 +57,17 @@ export function Header() {
                 <div className="relative flex items-center h-[60px] px-4 mx-auto w-full max-w-[1800px]">
 
                     {/* Mobile Menu */}
-                    <MobileMenu latestAnime={latestAnime} />
+                    <MobileMenu
+                        isOpen={mobileMenuOpen}
+                        onOpenChange={handleMobileMenuChange}
+                    />
 
                     {/* Logo */}
                     <Link to={`/${i18n.language}`} className="flex items-center mr-4 transition-transform gap-x-2 hover:scale-105 rtl:ml-4 rtl:mr-0">
                         {logoUrl ? (
                             <img src={logoUrl} alt="Logo" className="w-auto h-9 object-contain" />
                         ) : (
-                            <div className="h-9 px-2 bg-primary rounded bg-orange-500 text-white flex items-center justify-center font-bold">
+                            <div className="h-9 px-2 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
                                 A
                             </div>
                         )}
@@ -88,7 +75,7 @@ export function Header() {
                     </Link>
 
                     {/* Desktop Navigation */}
-                    <DesktopNavigation latestAnime={latestAnime} />
+                    <DesktopNavigation />
 
                     {/* Right Side Actions */}
                     <div className="flex items-center gap-2 ml-auto lg:gap-3 rtl:ml-0 rtl:mr-auto">
@@ -96,7 +83,7 @@ export function Header() {
                         {/* Search Button */}
                         <Link
                             to={`/${i18n.language}/search`}
-                            className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-[#f47521]"
+                            className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
                         >
                             <Search className="w-6 h-6" />
                         </Link>
@@ -105,8 +92,23 @@ export function Header() {
                         <div className="flex items-center gap-2 lg:gap-3">
                             <ThemeToggle />
 
+                            <MessagesDropdown />
+
+                            <NotificationDropdown />
+
+                            <Link
+                                to={`/${i18n.language}/watchlist`}
+                                className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                                title={isRtl ? "قائمة المشاهدة" : "My Watchlist"}
+                            >
+                                <Bookmark className="w-6 h-6" />
+                            </Link>
+
                             {/* User Menu containing Notifications, History, etc. */}
-                            <UserDropdown />
+                            <UserDropdown
+                                isOpen={userMenuOpen}
+                                onOpenChange={handleUserMenuChange}
+                            />
                         </div>
                     </div>
 

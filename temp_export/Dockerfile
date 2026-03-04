@@ -4,7 +4,8 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
 COPY frontend ./
-RUN npm run build
+# User's local workflow: build client then build SSR
+RUN npm run build && npm run build:ssr
 
 # Stage 2: Build Go Backend
 FROM golang:1.24-alpine AS backend
@@ -22,35 +23,30 @@ RUN apk add --no-cache sqlite-libs ca-certificates
 
 # We must maintain the directory structure for the relative paths in main.go
 # main.go is in backend/cmd/server/
-# It expects:
-# - ./uploads
-# - ../../../frontend/dist/client/...
-# - ../../../emoji
 
-# Copy binary to the expected location
+# Copy binary
 WORKDIR /app/backend/cmd/server
 COPY --from=backend /app/server .
 
-# Copy uploads to the expected location
+# Copy uploads
 COPY --from=backend /app/uploads ./uploads
 
-# Copy frontend assets to the expected location
+# Copy frontend client and server builds (preserving structure)
 WORKDIR /app/frontend/dist
-COPY --from=frontend /app/dist .
+COPY --from=frontend /app/dist/client ./client
+COPY --from=frontend /app/dist/server ./server
 
-# Copy emoji directory to the expected location
+# Copy index.html to client (if not already there)
+# Note: relative paths in main.go: ../../../frontend/dist/client/index.html
+
+# Copy emoji directory
 WORKDIR /app/emoji
 COPY emoji .
 
-# Set WORKDIR back to where the binary is
+# Set WORKDIR back to binary location
 WORKDIR /app/backend/cmd/server
 
-# Environment setup
 ENV PORT=8080
 ENV GIN_MODE=release
-
-# Expose port
 EXPOSE 8080
-
-# Run the server
 CMD ["./server"]

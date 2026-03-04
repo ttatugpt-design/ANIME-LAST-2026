@@ -43,7 +43,10 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		&domain.Season{}, &domain.Studio{}, &domain.Language{},
 		&domain.Anime{}, &domain.Episode{}, &domain.EpisodeServer{}, &domain.EpisodeLike{},
 		&domain.Comment{}, &domain.CommentLike{}, &domain.Notification{},
-		&domain.WatchLater{}, &domain.History{},
+		&domain.WatchLater{}, &domain.History{}, &domain.QuickNews{},
+		&domain.Friendship{}, &domain.Block{},
+		&domain.Post{}, &domain.PostImage{}, &domain.PostLike{},
+		&domain.PostComment{}, &domain.PostCommentLike{},
 	)
 
 	if err != nil {
@@ -80,9 +83,13 @@ func (r *SQLiteRepository) GetUserByID(id uint) (*domain.User, error) {
 	return &user, nil
 }
 
-func (r *SQLiteRepository) GetAllUsers() ([]domain.User, error) {
+func (r *SQLiteRepository) GetAllUsers(limit int) ([]domain.User, error) {
 	var users []domain.User
-	if err := r.db.Preload("Role").Find(&users).Error; err != nil {
+	query := r.db.Preload("Role")
+	if limit > 0 {
+		query = query.Limit(limit).Order("created_at desc")
+	}
+	if err := query.Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil
@@ -94,6 +101,83 @@ func (r *SQLiteRepository) UpdateUser(user *domain.User) error {
 
 func (r *SQLiteRepository) DeleteUser(id uint) error {
 	return r.db.Delete(&domain.User{}, id).Error
+}
+
+// --- Friendship Repository ---
+
+func (r *SQLiteRepository) CreateFriendship(f *domain.Friendship) error {
+	return r.db.Create(f).Error
+}
+
+func (r *SQLiteRepository) UpdateFriendship(f *domain.Friendship) error {
+	return r.db.Save(f).Error
+}
+
+func (r *SQLiteRepository) DeleteFriendship(id uint) error {
+	return r.db.Delete(&domain.Friendship{}, id).Error
+}
+
+func (r *SQLiteRepository) GetFriendship(user1, user2 uint) (*domain.Friendship, error) {
+	var f domain.Friendship
+	// Check for existing friendship in either direction
+	err := r.db.Where("(requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)",
+		user1, user2, user2, user1).First(&f).Error
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (r *SQLiteRepository) GetFriends(userID uint) ([]domain.User, error) {
+	var friendships []domain.Friendship
+	// Find confirmed friendships involving the user
+	if err := r.db.Where("(requester_id = ? OR addressee_id = ?) AND status = 'accepted'", userID, userID).
+		Preload("Requester").Preload("Addressee").Find(&friendships).Error; err != nil {
+		return nil, err
+	}
+
+	var friends []domain.User
+	for _, f := range friendships {
+		if f.RequesterID == userID {
+			friends = append(friends, f.Addressee)
+		} else {
+			friends = append(friends, f.Requester)
+		}
+	}
+	return friends, nil
+}
+
+func (r *SQLiteRepository) GetPendingRequests(userID uint) ([]domain.Friendship, error) {
+	var requests []domain.Friendship
+	// Find pending requests sent TO the user
+	err := r.db.Where("addressee_id = ? AND status = 'pending'", userID).
+		Preload("Requester").Find(&requests).Error
+	return requests, err
+}
+
+// --- Block Repository ---
+
+func (r *SQLiteRepository) CreateBlock(b *domain.Block) error {
+	return r.db.Create(b).Error
+}
+
+func (r *SQLiteRepository) DeleteBlock(blockerID, blockedID uint) error {
+	return r.db.Where("blocker_id = ? AND blocked_id = ?", blockerID, blockedID).Delete(&domain.Block{}).Error
+}
+
+func (r *SQLiteRepository) IsBlocked(user1, user2 uint) (bool, error) {
+	var count int64
+	// Check if EITHER user has blocked the other
+	err := r.db.Model(&domain.Block{}).
+		Where("(blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?)",
+			user1, user2, user2, user1).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *SQLiteRepository) GetBlock(blockerID, blockedID uint) (*domain.Block, error) {
+	var b domain.Block
+	err := r.db.Where("blocker_id = ? AND blocked_id = ?", blockerID, blockedID).First(&b).Error
+	return &b, err
 }
 
 // --- Role Repository ---
@@ -193,6 +277,93 @@ func (r *SQLiteRepository) SearchPermissions(query string) ([]domain.Permission,
 	var perms []domain.Permission
 	err := r.db.Where("key LIKE ? OR description LIKE ?", "%"+query+"%", "%"+query+"%").Find(&perms).Error
 	return perms, err
+}
+
+func (r *SQLiteRepository) CountComments(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.Comment{}).Where("user_id = ? AND parent_id IS NULL", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *SQLiteRepository) CountReplies(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.Comment{}).Where("user_id = ? AND parent_id IS NOT NULL", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *SQLiteRepository) CountLikes(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.CommentLike{}).Where("user_id = ? AND is_like = ?", userID, true).Count(&count).Error
+	return count, err
+}
+
+func (r *SQLiteRepository) GetCommentsByUserID(userID uint) ([]domain.Comment, error) {
+	var comments []domain.Comment
+	err := r.db.Preload("User").
+		Preload("Episode").
+		Preload("Episode.Anime").
+		Preload("Parent").
+		Preload("Parent.User").
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&comments).Error
+	return comments, err
+}
+
+func (r *SQLiteRepository) GetLikedCommentsByUserID(userID uint) ([]domain.Comment, error) {
+	var comments []domain.Comment
+	err := r.db.Model(&domain.Comment{}).
+		Joins("JOIN comment_likes ON comment_likes.comment_id = comments.id").
+		Where("comment_likes.user_id = ? AND comment_likes.is_like = ?", userID, true).
+		Preload("User").
+		Preload("Episode").
+		Preload("Episode.Anime").
+		Order("comments.id desc").
+		Find(&comments).Error
+	return comments, err
+}
+
+func (r *SQLiteRepository) GetCommentsPaginated(userID uint, limit, offset int) ([]domain.Comment, error) {
+	var comments []domain.Comment
+	err := r.db.Preload("User").
+		Preload("Episode").
+		Preload("Episode.Anime").
+		Where("user_id = ? AND (parent_id IS NULL OR parent_id = 0)", userID).
+		Order("created_at desc").
+		Limit(limit).
+		Offset(offset).
+		Find(&comments).Error
+	return comments, err
+}
+
+func (r *SQLiteRepository) GetRepliesPaginated(userID uint, limit, offset int) ([]domain.Comment, error) {
+	var comments []domain.Comment
+	err := r.db.Preload("User").
+		Preload("Episode").
+		Preload("Episode.Anime").
+		Preload("Parent").
+		Preload("Parent.User").
+		Where("user_id = ? AND parent_id IS NOT NULL AND parent_id != 0", userID).
+		Order("created_at desc").
+		Limit(limit).
+		Offset(offset).
+		Find(&comments).Error
+	return comments, err
+}
+
+func (r *SQLiteRepository) GetLikedCommentsPaginated(userID uint, limit, offset int) ([]domain.Comment, error) {
+	var comments []domain.Comment
+	err := r.db.Model(&domain.Comment{}).
+		Joins("JOIN comment_likes ON comment_likes.comment_id = comments.id").
+		Where("comment_likes.user_id = ? AND comment_likes.is_like = ?", userID, true).
+		Preload("User").
+		Preload("Episode").
+		Preload("Episode.Anime").
+		Order("comment_likes.created_at desc"). // Use like timestamp for ordering
+		Limit(limit).
+		Offset(offset).
+		Find(&comments).Error
+	return comments, err
 }
 
 // Model Repository Implementation
@@ -366,9 +537,55 @@ func (r *SQLiteRepository) GetAnimeByID(id uint) (*domain.Anime, error) {
 	return &anime, err
 }
 
-func (r *SQLiteRepository) GetAllAnimes() ([]domain.Anime, error) {
+func (r *SQLiteRepository) GetAnimeBySlug(slug string) (*domain.Anime, error) {
+	var anime domain.Anime
+	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
+		Where("slug = ? OR slug_en = ?", slug, slug).First(&anime).Error
+	return &anime, err
+}
+
+func (r *SQLiteRepository) GetAllAnimes(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Anime, error) {
 	var animes []domain.Anime
-	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").Find(&animes).Error
+	db := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel")
+
+	if categoryID > 0 {
+		db = db.Joins("JOIN anime_categories ON anime_categories.anime_id = animes.id").
+			Where("anime_categories.category_id = ?", categoryID)
+	}
+
+	if letter != "" {
+		db = db.Where("title LIKE ? OR title_en LIKE ?", letter+"%", letter+"%")
+	}
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		db = db.Where("title LIKE ? OR title_en LIKE ?", searchPattern, searchPattern)
+	}
+
+	if animeType == "foreign" {
+		db = db.Where("type IN (?, ?)", "tv_en", "moves_en")
+	} else if animeType == "all_admin" {
+		// All types, no filter (for admin dashboard)
+	} else if animeType != "" && animeType != "All" {
+		db = db.Where("type = ?", animeType)
+	} else {
+		// Default: Exclude foreign media from general listings
+		db = db.Where("type NOT IN (?, ?)", "tv_en", "moves_en")
+	}
+
+	if order == "oldest" {
+		db = db.Order("created_at asc")
+	} else if order == "az" {
+		db = db.Order("title asc")
+	} else {
+		db = db.Order("created_at desc")
+	}
+
+	if limit > 0 {
+		db = db.Limit(limit).Offset(offset)
+	}
+
+	err := db.Find(&animes).Error
 	return animes, err
 }
 
@@ -382,7 +599,9 @@ func (r *SQLiteRepository) DeleteAnime(id uint) error {
 
 func (r *SQLiteRepository) GetLatestAnimes(limit int) ([]domain.Anime, error) {
 	var animes []domain.Anime
-	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").Order("created_at desc").Limit(limit).Find(&animes).Error
+	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
+		Where("type NOT IN (?, ?)", "tv_en", "moves_en").
+		Order("created_at desc").Limit(limit).Find(&animes).Error
 	return animes, err
 }
 
@@ -448,7 +667,10 @@ func (r *SQLiteRepository) GetGlobalStats(ctx context.Context) (map[string]int64
 
 func (r *SQLiteRepository) GetTopEpisodes(ctx context.Context, limit int) ([]domain.Episode, error) {
 	var episodes []domain.Episode
-	err := r.db.WithContext(ctx).Preload("Anime").Order("views_count desc").Limit(limit).Find(&episodes).Error
+	err := r.db.WithContext(ctx).Preload("Anime").
+		Joins("JOIN animes ON animes.id = episodes.anime_id").
+		Where("animes.type NOT IN (?, ?)", "tv_en", "moves_en").
+		Order("views_count desc").Limit(limit).Find(&episodes).Error
 	return episodes, err
 }
 

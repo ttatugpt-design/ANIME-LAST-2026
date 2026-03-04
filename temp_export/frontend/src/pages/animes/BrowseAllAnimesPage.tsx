@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, LayoutGrid } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -87,14 +87,9 @@ export default function BrowseAllAnimesPage() {
 
             <NewsTicker />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto">
-                {/* Left Sidebar */}
-                <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
-                    <SocialNavSidebar />
-                </div>
-
-                {/* Main Content */}
-                <div className="col-span-1 lg:col-span-9 px-3 md:px-8 pb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto transition-all duration-300">
+                {/* Main Content - Full Width */}
+                <div className="px-3 md:px-8 pb-8 transition-all duration-300 col-span-1 lg:col-span-12">
                     {/* Header Section */}
                     <div className="flex flex-col gap-8 mb-12">
                         {/* Top Bar: Filters & Title */}

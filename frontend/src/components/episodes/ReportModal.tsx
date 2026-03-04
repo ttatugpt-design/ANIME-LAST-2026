@@ -62,7 +62,7 @@ export function ReportModal({
                             <X className="w-4 h-4" />
                         </button>
                     </div>
-                    <div className="relative w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-red-100 flex items-center justify-center">
+                    <div className="relative w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-white/10 flex items-center justify-center">
                         {/* Use episode thumbnail if available, else show Flag icon */}
                         {thumbnail ? (
                             <img
@@ -71,7 +71,7 @@ export function ReportModal({
                                 className="w-full h-full object-cover"
                             />
                         ) : (
-                            <Flag className="w-6 h-6 text-red-600" />
+                            <Flag className="w-6 h-6 text-black dark:text-white" />
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -134,7 +134,7 @@ export function ReportModal({
                                     <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 border border-purple-500/20 backdrop-blur-sm">
                                         {lang === 'ar' ? 'أنمي' : 'ANIME'}
                                     </span>
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 border border-red-500/20 backdrop-blur-sm">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-black dark:text-white bg-black/10 dark:bg-white/10 px-2 py-0.5 border border-black/20 dark:border-white/20 backdrop-blur-sm">
                                         {lang === 'ar' ? `حلقة ${episode.episode_number}` : `EP ${episode.episode_number}`}
                                     </span>
                                     {episode.quality && (
@@ -150,7 +150,7 @@ export function ReportModal({
                                     <span className="truncate max-w-[65%] text-gray-200">{animeTitle}</span>
                                     <div className="flex items-center gap-2 shrink-0">
                                         <span className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-sm backdrop-blur-sm border border-white/5">
-                                            <Clock className="w-3 h-3 text-[#f47521]" />
+                                            <Clock className="w-3 h-3 text-white" />
                                             {episode.duration}m
                                         </span>
                                         {episode.release_date && (
@@ -166,8 +166,8 @@ export function ReportModal({
 
                     {/* Report Form */}
                     <div className="p-8">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                            <Flag className="w-6 h-6 text-red-500" />
+                        <h3 className="text-xl font-bold border-r-4 border-black dark:border-white pr-4 dark:text-white mb-6 flex items-center gap-3">
+                            <Flag className="w-6 h-6 text-black dark:text-white" />
                             {lang === 'ar' ? 'الإبلاغ عن مشكلة' : 'Report Issue'}
                         </h3>
 
@@ -197,7 +197,7 @@ export function ReportModal({
                                                         setIsDropdownOpen(false);
                                                     }}
                                                     className={`w-full text-left px-4 py-3 text-base font-medium transition-colors border-b border-gray-200 dark:border-gray-800 last:border-0 ${problemType === type.value
-                                                        ? 'bg-red-600 text-white'
+                                                        ? 'bg-black dark:bg-white text-white dark:text-black'
                                                         : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                                                         }`}
                                                 >
@@ -236,7 +236,7 @@ export function ReportModal({
                                 <Button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="flex-1 bg-red-600 border-2 border-red-600 text-white hover:bg-red-700 hover:border-red-700 font-bold py-3 rounded-none text-base"
+                                    className="flex-1 bg-black dark:bg-white border-2 border-black dark:border-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 hover:border-neutral-800 dark:hover:border-neutral-200 font-bold py-3 rounded-none text-base"
                                 >
                                     {isSubmitting ? (lang === 'ar' ? 'جاري الإرسال...' : 'Sending...') : (lang === 'ar' ? 'إرسال البلاغ' : 'Send Report')}
                                 </Button>

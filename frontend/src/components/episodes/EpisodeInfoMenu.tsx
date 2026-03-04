@@ -51,7 +51,7 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
                     <div className="flex flex-col items-center justify-center py-20 gap-4 min-h-[300px]">
                         <div className="relative w-12 h-12">
                             <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-t-[#f47521] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                         </div>
                         <p className="text-sm text-gray-400 font-medium animate-pulse">
                             {lang === 'ar' ? 'جاري التحميل...' : 'Loading info...'}
@@ -91,7 +91,7 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
                                     <span className="truncate max-w-[65%] text-gray-200">{animeTitle}</span>
                                     <div className="flex items-center gap-2 shrink-0">
                                         <span className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-sm backdrop-blur-sm border border-white/5">
-                                            <Clock className="w-3 h-3 text-[#f47521]" />
+                                            <Clock className="w-3 h-3 text-black dark:text-white" />
                                             {episode.duration}m
                                         </span>
                                         {episode.release_date && (

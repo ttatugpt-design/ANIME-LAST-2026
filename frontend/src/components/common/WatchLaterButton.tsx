@@ -69,7 +69,7 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
                             {episodeTitle || `Episode ${episodeNumber}`}
                         </p>
                         {episodeNumber && (
-                            <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-[#f47521]/10 text-[#f47521] rounded">
+                            <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-black/10 text-black dark:bg-white/10 dark:text-white rounded">
                                 EP {episodeNumber}
                             </span>
                         )}
@@ -87,13 +87,13 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
                 onClick={handleToggle}
                 className={cn(
                     "p-2 rounded-full transition-colors",
-                    saved ? "text-orange-500 bg-orange-50 dark:bg-orange-500/10" : "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300",
+                    saved ? "text-black dark:text-white bg-gray-100 dark:bg-white/10" : "text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300",
                     className
                 )}
                 title={saved ? "إزالة من المشاهدة لاحقا" : "مشاهدة لاحقا"}
                 disabled={loading}
             >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                {loading ? <Loader2 className="w-5 h-5 animate-spin text-black dark:text-white" /> : (
                     saved ? <BookmarkCheck className="w-5 h-5 fill-current" /> : <Bookmark className="w-5 h-5" />
                 )}
             </button>
@@ -106,13 +106,13 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
                 onClick={handleToggle}
                 className={cn(
                     "p-1.5 rounded-full transition-colors flex-shrink-0",
-                    saved ? "text-orange-500" : "text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400",
+                    saved ? "text-black dark:text-white" : "text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400",
                     className
                 )}
                 title={saved ? "إزالة من المشاهدة لاحقا" : "مشاهدة لاحقا"}
                 disabled={loading}
             >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                {loading ? <Loader2 className="w-4 h-4 animate-spin text-black dark:text-white" /> : (
                     saved ? <BookmarkCheck className="w-4 h-4 fill-current" /> : <Bookmark className="w-4 h-4" />
                 )}
             </button>
@@ -126,13 +126,13 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
             className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
                 saved
-                    ? "bg-orange-50 text-orange-600 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-900/50 dark:text-orange-500"
+                    ? "bg-gray-900 text-white border border-black dark:bg-white dark:text-black dark:border-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#1a1a1a] dark:text-gray-300 dark:hover:bg-[#252525]",
                 className
             )}
             disabled={loading}
         >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+            {loading ? <Loader2 className={cn("w-5 h-5 animate-spin", saved ? "text-white dark:text-black" : "text-black dark:text-white")} /> : (
                 saved ? <BookmarkCheck className="w-5 h-5 fill-current" /> : <Bookmark className="w-5 h-5" />
             )}
             {showLabel && (

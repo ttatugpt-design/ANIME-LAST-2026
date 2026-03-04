@@ -6,10 +6,32 @@ type UserRepository interface {
 	CreateUser(user *domain.User) error
 	GetByEmail(email string) (*domain.User, error)
 	GetUserByID(id uint) (*domain.User, error)
-	GetAllUsers() ([]domain.User, error)
+	GetAllUsers(limit int) ([]domain.User, error)
 	UpdateUser(user *domain.User) error
 	DeleteUser(id uint) error
 	SearchUsers(query string) ([]domain.User, error)
+	CountComments(userID uint) (int64, error)
+	CountReplies(userID uint) (int64, error)
+	CountLikes(userID uint) (int64, error)
+	GetCommentsByUserID(userID uint) ([]domain.Comment, error)
+	GetLikedCommentsByUserID(userID uint) ([]domain.Comment, error)
+	GetCommentsPaginated(userID uint, limit, offset int) ([]domain.Comment, error)
+	GetRepliesPaginated(userID uint, limit, offset int) ([]domain.Comment, error)
+	GetLikedCommentsPaginated(userID uint, limit, offset int) ([]domain.Comment, error)
+
+	// Friendship
+	CreateFriendship(f *domain.Friendship) error
+	UpdateFriendship(f *domain.Friendship) error
+	DeleteFriendship(id uint) error
+	GetFriendship(user1, user2 uint) (*domain.Friendship, error)
+	GetFriends(userID uint) ([]domain.User, error)
+	GetPendingRequests(userID uint) ([]domain.Friendship, error)
+
+	// Blocking
+	CreateBlock(b *domain.Block) error
+	DeleteBlock(blockerID, blockedID uint) error
+	IsBlocked(user1, user2 uint) (bool, error)
+	GetBlock(blockerID, blockedID uint) (*domain.Block, error)
 }
 
 type RoleRepository interface {
@@ -50,7 +72,8 @@ type CategoryRepository interface {
 type AnimeRepository interface {
 	CreateAnime(anime *domain.Anime) error
 	GetAnimeByID(id uint) (*domain.Anime, error)
-	GetAllAnimes() ([]domain.Anime, error)
+	GetAnimeBySlug(slug string) (*domain.Anime, error)
+	GetAllAnimes(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Anime, error)
 	GetLatestAnimes(limit int) ([]domain.Anime, error)
 	GetAnimesByType(animeType string, limit int) ([]domain.Anime, error)
 	UpdateAnime(anime *domain.Anime) error
@@ -96,6 +119,7 @@ type HistoryRepository interface {
 	GetUserHistoryByType(userID uint, activityType domain.ActivityType, limit int) ([]domain.History, error)
 	DeleteUserHistory(userID uint) error
 	DeleteOldHistory(days int) error
+	CountHistory(userID uint) (int64, error)
 }
 
 type WatchLaterRepository interface {
@@ -103,4 +127,45 @@ type WatchLaterRepository interface {
 	RemoveFromWatchLater(userID uint, animeID *uint, episodeID *uint) error
 	GetWatchLaterByUser(userID uint) ([]domain.WatchLater, error)
 	IsWatchLater(userID uint, animeID *uint, episodeID *uint) (bool, error)
+	CountWatchLater(userID uint) (int64, error)
+}
+
+type EpisodeRepository interface {
+	CreateEpisode(episode *domain.Episode) error
+	GetEpisodeByID(id uint) (*domain.Episode, error)
+	GetAllEpisodes(categoryID uint, letter string, animeType string, order string) ([]domain.Episode, error)
+	UpdateEpisode(episode *domain.Episode) error
+	DeleteEpisode(id uint) error
+	GetEpisodesByAnimeID(animeID uint) ([]domain.Episode, error)
+	GetLatestEpisodes(limit int) ([]domain.Episode, error)
+	SearchEpisodes(query string) ([]domain.Episode, error)
+	IncrementEpisodeViews(episodeID uint) error
+}
+
+type QuickNewsRepository interface {
+	Create(news *domain.QuickNews) error
+	GetByID(id uint) (*domain.QuickNews, error)
+	GetAll() ([]domain.QuickNews, error)
+	Update(news *domain.QuickNews) error
+	Delete(id uint) error
+}
+
+type NotificationRepository interface {
+	Create(notification *domain.Notification) error
+	GetUserNotifications(userID uint, limit int) ([]domain.Notification, error)
+	MarkRead(id uint, userID uint) error
+	MarkAllRead(userID uint) error
+	Delete(id uint, userID uint) error
+	DeleteAll(userID uint) error
+	DeleteSelected(userID uint, ids []uint) error
+	CountUnread(userID uint) (int64, error)
+	DeleteMutualFriendNotifications(user1, user2 uint) error
+}
+
+type MessageRepository interface {
+	SaveMessage(msg *domain.Message) error
+	GetChatHistory(user1, user2 uint, limit int) ([]domain.Message, error)
+	GetRecentConversations(userID uint) ([]domain.Message, error)
+	MarkAsRead(senderID, receiverID uint) error
+	CountUnreadBetweenUsers(senderID, receiverID uint) (int64, error)
 }

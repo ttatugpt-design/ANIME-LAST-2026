@@ -1,9 +1,11 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
     onNavigate?: () => void;
@@ -12,7 +14,7 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
     const { pathname } = useLocation();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const routes = [
         {
@@ -20,6 +22,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: LayoutDashboard,
             href: `/${lang}/dashboard`,
             active: pathname === `/${lang}/dashboard`,
+        },
+        {
+            label: t('common.friends', 'Friends'),
+            icon: Users, // Using Users for now as generic, or UserPlus if preferred
+            href: `/${lang}/dashboard/friends`,
+            active: pathname.startsWith(`/${lang}/dashboard/friends`),
         },
         {
             label: t('common.users'),
@@ -82,10 +90,22 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/animes`),
         },
         {
+            label: i18n.language === 'ar' ? 'أفلام ومسلسلات أجنبية' : 'Foreign Media',
+            icon: Film,
+            href: `/${lang}/dashboard/foreign-animes`,
+            active: pathname.startsWith(`/${lang}/dashboard/foreign-animes`),
+        },
+        {
             label: "Episodes",
             icon: Play,
             href: `/${lang}/dashboard/episodes`,
             active: pathname.startsWith(`/${lang}/dashboard/episodes`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'حلقات أجنبية' : 'Foreign Episodes',
+            icon: Play,
+            href: `/${lang}/dashboard/foreign-episodes`,
+            active: pathname.startsWith(`/${lang}/dashboard/foreign-episodes`),
         },
         {
             label: "3D AI Lab",
@@ -112,12 +132,31 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/comments`),
         },
         {
+            label: "Quick News",
+            icon: Newspaper,
+            href: `/${lang}/dashboard/quick-news`,
+            active: pathname.startsWith(`/${lang}/dashboard/quick-news`),
+        },
+        {
             label: t('common.settings'),
             icon: Settings,
             href: `/${lang}/dashboard/settings`,
             active: pathname.startsWith(`/${lang}/dashboard/settings`),
         },
     ];
+
+    const { data: latestAnimes } = useQuery({
+        queryKey: ['sidebar-latest-animes'],
+        queryFn: async () => (await api.get('/animes', { params: { limit: 1 } })).data,
+    });
+
+    const { data: latestEpisodes } = useQuery({
+        queryKey: ['sidebar-latest-episodes'],
+        queryFn: async () => (await api.get('/episodes', { params: { limit: 1 } })).data,
+    });
+
+    const latestAnime = latestAnimes?.[0];
+    const latestEpisode = latestEpisodes?.[0];
 
     return (
         <div className={cn("pb-12 h-full bg-background/95 border-r border-border/40", className)}>
@@ -160,7 +199,7 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
 
                 {/* Apps Section */}
                 <div className="px-3 py-1">
-                    <h2 className="mb-1 px-4 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                    <h2 className="mb-1 px-4 text-[10px] font-semibold text-muted-foreground/60 dark:text-white/60 uppercase tracking-wider">
                         {t('common.apps', { defaultValue: 'APPS' })}
                     </h2>
                     <div className="space-y-0.5">
@@ -168,17 +207,90 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
                             <Button
                                 key={route.href}
                                 variant={route.active ? "secondary" : "ghost"}
-                                className={cn("w-full justify-start text-[12px] font-normal h-8 px-4", route.active && "bg-primary/10 text-primary hover:bg-primary/20")}
+                                className={cn(
+                                    "w-full justify-start text-[12px] font-normal h-8 px-4",
+                                    route.active ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-black dark:text-white hover:text-black dark:hover:text-white"
+                                )}
                                 asChild
                             >
                                 <Link to={route.href} onClick={onNavigate}>
-                                    <route.icon className="mr-3 h-4 w-4 rtl:ml-3 rtl:mr-0 opacity-80" />
+                                    <route.icon className={cn("mr-3 h-4 w-4 rtl:ml-3 rtl:mr-0 opacity-80", !route.active && "text-black dark:text-white")} />
                                     {route.label}
                                 </Link>
                             </Button>
                         ))}
                     </div>
                 </div>
+
+                {/* Latest Updates Section */}
+                {(latestAnime || latestEpisode) && (
+                    <div className="px-3 py-4 space-y-4">
+                        <h2 className="px-4 text-[10px] font-semibold text-muted-foreground/60 dark:text-white/60 uppercase tracking-wider">
+                            {i18n.language === 'ar' ? 'آخر التحديثات' : 'LATEST UPDATES'}
+                        </h2>
+
+                        {latestAnime && (
+                            <div className="px-2">
+                                <p className="px-2 mb-2 text-[10px] font-medium text-muted-foreground dark:text-white/50 uppercase">
+                                    {i18n.language === 'ar' ? 'أحدث أنمي' : 'Latest Anime'}
+                                </p>
+                                <Link
+                                    to={`/${lang}/animes/${latestAnime.id}`}
+                                    className="flex gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group"
+                                    onClick={onNavigate}
+                                >
+                                    <div className="w-16 h-20 flex-shrink-0 bg-muted rounded overflow-hidden">
+                                        <img
+                                            src={latestAnime.image || latestAnime.cover}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0 py-1">
+                                        <h4 className="text-[12px] font-bold text-black dark:text-white line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                                            {i18n.language === 'ar' ? latestAnime.title : (latestAnime.title_en || latestAnime.title)}
+                                        </h4>
+                                        <p className="text-[10px] text-muted-foreground dark:text-white/50 mt-1 uppercase">
+                                            {latestAnime.type} • {latestAnime.status}
+                                        </p>
+                                    </div>
+                                </Link>
+                            </div>
+                        )}
+
+                        {latestEpisode && (
+                            <div className="px-2">
+                                <p className="px-2 mb-2 text-[10px] font-medium text-muted-foreground dark:text-white/50 uppercase">
+                                    {i18n.language === 'ar' ? 'أحدث حلقة' : 'Latest Episode'}
+                                </p>
+                                <Link
+                                    to={`/${lang}/watch/${latestEpisode.anime_id}/${latestEpisode.episode_number}`}
+                                    className="flex gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group"
+                                    onClick={onNavigate}
+                                >
+                                    <div className="w-16 h-12 flex-shrink-0 bg-muted rounded overflow-hidden relative">
+                                        <img
+                                            src={latestEpisode.thumbnail || latestEpisode.banner}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Play className="w-4 h-4 text-white fill-current" />
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-[11px] font-bold text-black dark:text-white line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                                            {i18n.language === 'ar' ? latestEpisode.title : (latestEpisode.title_en || latestEpisode.title)}
+                                        </h4>
+                                        <p className="text-[9px] text-muted-foreground dark:text-white/50 mt-0.5">
+                                            {i18n.language === 'ar' ? `الحلقة ${latestEpisode.episode_number}` : `Episode ${latestEpisode.episode_number}`}
+                                        </p>
+                                    </div>
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+                )}
 
             </div>
         </div>

@@ -9,9 +9,12 @@ import (
 )
 
 func SeedUsers(db *gorm.DB) {
-	// Create Admin Role
+	// Create Roles
 	adminRole := domain.Role{Name: "admin"}
 	db.Where("name = ?", "admin").FirstOrCreate(&adminRole)
+
+	userRole := domain.Role{Name: "User"}
+	db.Where("name = ?", "User").FirstOrCreate(&userRole)
 
 	// Create User
 	email := "aaaa@gmail.com"

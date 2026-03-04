@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { renderEmojiContent } from '@/utils/render-content';
 import { useTranslation } from 'react-i18next';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -87,25 +89,8 @@ export default function DashboardCommentsPage() {
     };
 
     // Render content with custom emojis (Reused logic from CommentItem)
-    const renderContent = (content: string) => {
-        // Parse ![emoji](/custom-emojis/filename.png) pattern
-        const parts = content.split(/(!\[emoji\]\(.*?\.(?:png|jpg|jpeg)\))/);
-        return parts.map((part, index) => {
-            const match = part.match(/!\[emoji\]\((.*?\.(?:png|jpg|jpeg))\)/);
-            if (match) {
-                const emojiUrl = match[1].replace('/storage/', '/');
-                return (
-                    <img
-                        key={index}
-                        src={emojiUrl}
-                        alt="emoji"
-                        className="inline-block w-6 h-6 align-middle mx-0.5"
-                    />
-                );
-            }
-            return <span key={index}>{part}</span>;
-        });
-    };
+    // Using centralized renderEmojiContent
+
 
     return (
         <div className="space-y-6">
@@ -161,9 +146,10 @@ export default function DashboardCommentsPage() {
                                             </TableCell>
                                             <TableCell className="max-w-[300px]">
                                                 <p className="truncate text-sm" title={comment.content}>
-                                                    {renderContent(comment.content)}
+                                                    {renderEmojiContent(comment.content)}
                                                 </p>
                                             </TableCell>
+
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="font-medium text-sm">

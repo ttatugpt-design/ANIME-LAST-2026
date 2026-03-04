@@ -22,6 +22,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		NameEn      string `json:"name_en"`
 		Slug        string `json:"slug" binding:"required"`
 		Description string `json:"description"`
+		Image       string `json:"image"`
 		Status      string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,7 +30,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	category, err := h.service.Create(req.Name, req.NameEn, req.Slug, req.Description, req.Status)
+	category, err := h.service.Create(req.Name, req.NameEn, req.Slug, req.Description, req.Image, req.Status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -53,6 +54,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 		NameEn      string `json:"name_en"`
 		Slug        string `json:"slug" binding:"required"`
 		Description string `json:"description"`
+		Image       string `json:"image"`
 		Status      string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,7 +62,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 		return
 	}
 
-	category, err := h.service.Update(uint(id), req.Name, req.NameEn, req.Slug, req.Description, req.Status)
+	category, err := h.service.Update(uint(id), req.Name, req.NameEn, req.Slug, req.Description, req.Image, req.Status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

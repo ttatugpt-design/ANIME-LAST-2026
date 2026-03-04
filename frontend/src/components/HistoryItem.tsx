@@ -97,7 +97,13 @@ export default function HistoryItem({ item, lang }: HistoryItemProps) {
             ? (lang === 'ar' ? `الحلقة ${(entity as any).episode_number}` : `Episode ${(entity as any).episode_number}`)
             : (lang === 'ar' ? 'مسلسل' : 'Anime');
 
-        const link = isEpisode ? `/${lang}/watch/${(entity as any).anime_id}/${(entity as any).episode_number}` : `/${lang}/animes/${entity.id}`;
+        const animeSlug = lang === 'ar'
+            ? (anime?.slug || (entity as any).anime_id || (entity as any).id)
+            : (anime?.slug_en || anime?.slug || (entity as any).anime_id || (entity as any).id);
+
+        const link = isEpisode
+            ? `/${lang}/watch/${animeSlug}/${(entity as any).episode_number}`
+            : `/${lang}/animes/${animeSlug}`;
 
         return (
             <div
@@ -233,13 +239,22 @@ export default function HistoryItem({ item, lang }: HistoryItemProps) {
                 {/* Context: Which Episode? */}
                 {item.episode && (
                     <div className="mt-auto pt-2 border-t border-gray-200 dark:border-gray-700 font-medium">
-                        <Link to={`/${lang}/watch/${item.episode.anime_id}/${item.episode.episode_number}`} className="flex items-center gap-1 text-xs text-[#f47521] hover:underline line-clamp-1">
-                            {lang === 'ar' ? 'في: ' : 'In: '}
-                            {lang === 'ar' ? item.episode.anime?.title : (item.episode.anime?.title_en || item.episode.anime?.title)}
-                            <span className="text-gray-400 font-normal">
-                                ({isRtl ? `حلقة ${item.episode.episode_number}` : `EP ${item.episode.episode_number}`})
-                            </span>
-                        </Link>
+                        {(() => {
+                            const animeObj = item.episode.anime;
+                            const animeSlug = lang === 'ar'
+                                ? (animeObj?.slug || item.episode.anime_id)
+                                : (animeObj?.slug_en || animeObj?.slug || item.episode.anime_id);
+
+                            return (
+                                <Link to={`/${lang}/watch/${animeSlug}/${item.episode.episode_number}`} className="flex items-center gap-1 text-xs text-black dark:text-white font-bold hover:underline line-clamp-1">
+                                    {lang === 'ar' ? 'في: ' : 'In: '}
+                                    {lang === 'ar' ? animeObj?.title : (animeObj?.title_en || animeObj?.title)}
+                                    <span className="text-gray-400 font-normal">
+                                        ({isRtl ? `حلقة ${item.episode.episode_number}` : `EP ${item.episode.episode_number}`})
+                                    </span>
+                                </Link>
+                            );
+                        })()}
                     </div>
                 )}
             </div>

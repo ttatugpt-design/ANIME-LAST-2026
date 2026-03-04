@@ -4,6 +4,8 @@ import (
 	"backend/config"
 	"backend/internal/adapters/handler"
 	"backend/internal/adapters/repository"
+	ws "backend/internal/adapters/ws"
+	"backend/internal/core/domain"
 	"backend/internal/core/service"
 	"backend/internal/middleware"
 	"backend/internal/migration"
@@ -11,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-contrib/cors"
@@ -51,9 +54,19 @@ func main() {
 		log.Printf("Warning: Failed to create reports table: %v", err)
 	}
 
+	// Auto-migrate
+	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{})
+
+	// Repositories (Special cases that need DB)
+	notifRepo := repository.NewNotificationRepository(repo.DB())
+
+	// WebSocket Hub
+	wsHub := ws.NewHub()
+	go wsHub.Run()
+
 	// Services
 	authService := service.NewAuthService(repo, repo, cfg)
-	userService := service.NewUserService(repo, repo)
+	userService := service.NewUserService(repo, repo, notifRepo, repo, repo, wsHub)
 	roleService := service.NewRoleService(repo, repo)
 	permService := service.NewPermissionService(repo)
 	typeService := service.NewTypeService(repo)
@@ -64,6 +77,7 @@ func main() {
 	episodeService := service.NewEpisodeService(repo)
 	modelService := service.NewModelService(repo)
 	categoryService := service.NewCategoryService(repo)
+	quickNewsService := service.NewQuickNewsService(repo)
 
 	exportService := service.NewExportService(cfg.BlenderPath, cfg.ExportDir, cfg.ExportTimeout)
 	watchLaterService := service.NewWatchLaterService(repo)
@@ -81,12 +95,13 @@ func main() {
 	animeHandler := handler.NewAnimeHandler(animeService)
 	// Create repositories first
 	commentRepo := repository.NewCommentRepository(repo.DB())
-	notifRepo := repository.NewNotificationRepository(repo.DB())
+	// notifRepo moved up
 	episodeLikeRepo := repository.NewEpisodeLikeRepository(repo.DB())
 	reportRepo := repository.NewReportRepository(repo.DB())
+	messageRepo := repository.NewMessageRepository(repo.DB())
 
 	// Then create handlers that depend on them
-	episodeHandler := handler.NewEpisodeHandler(episodeService, repo, episodeLikeRepo)
+	episodeHandler := handler.NewEpisodeHandler(episodeService, repo, episodeLikeRepo, commentRepo)
 	modelHandler := handler.NewModelHandler(modelService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 
@@ -96,14 +111,29 @@ func main() {
 	watchLaterHandler := handler.NewWatchLaterHandler(watchLaterService)
 	historyHandler := handler.NewHistoryHandler(historyService)
 
+	// Community Posts Services & Handlers
+	// Note: We use repo for port.PostRepository and uploadHandler/nil for file service depending on how uploads are handled
+	postService := service.NewPostService(repo)
+	postHandler := handler.NewPostHandler(postService, repo, notifRepo, wsHub) // Assuming file service logic will be integrated or ignored for MVP
+
 	// Comments & Notifications Handlers
-	commentHandler := handler.NewCommentHandler(commentRepo, notifRepo, historyService)
+	commentHandler := handler.NewCommentHandler(commentRepo, notifRepo, repo, historyService, wsHub)
 	notifHandler := handler.NewNotificationHandler(notifRepo)
+	wsHandler := handler.NewWSHandler(wsHub)
 	reportHandler := handler.NewReportHandler(reportRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(repo)
+	settingsHandler := handler.NewSettingsHandler(repo.DB())
+	quickNewsHandler := handler.NewQuickNewsHandler(quickNewsService)
+	sitemapHandler := handler.NewSitemapHandler(repo.DB())
+
+	messageService := service.NewMessageService(messageRepo, notifRepo, repo, wsHub)
+	messageHandler := handler.NewMessageHandler(messageService)
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 1024 << 20 // 1GB
+
+	// SEO Sitemap
+	r.GET("/sitemap.xml", sitemapHandler.GetSitemap)
 
 	// CORS Setup - PERMISSIVE MODE (Fix for network access)
 	r.Use(cors.New(cors.Config{
@@ -133,15 +163,36 @@ func main() {
 		}))
 	*/
 
-	r.Static("/uploads", "./uploads")
-	r.Static("/assets", "./dist/assets")
-	r.Static("/custom-emojis", "./emoji")
-	r.StaticFile("/favicon.ico", "./dist/favicon.ico")
+	// Helper to resolve and log static paths
+	resolve := func(path string) string {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			log.Printf("Warning: could not resolve path %s: %v", path, err)
+			return path
+		}
+		if _, err := os.Stat(abs); os.IsNotExist(err) {
+			log.Printf("Warning: Static path does not exist: %s", abs)
+		} else {
+			log.Printf("Static Path Resolved: %s -> %s", path, abs)
+		}
+		return abs
+	}
 
-	// SPA Handler: Serve index.html for unknown routes (except /api)
+	r.Static("/uploads", resolve("./uploads"))
+	r.Static("/assets", resolve("../../../frontend/dist/client/assets"))
+	r.Static("/custom-emojis", resolve("../../../emoji"))
+	r.StaticFile("/favicon.ico", resolve("../../../frontend/dist/client/favicon.ico"))
+	r.StaticFile("/vite.svg", resolve("../../../frontend/dist/client/vite.svg"))
+
+	// SSR Setup
+	ssrHandler := handler.NewSSRHandler()
+	// Optional: Start Node server automatically (or rely on external process)
+	ssrHandler.StartNodeServer()
+
+	// SSR Handler: Serve SSR for unknown routes (except /api)
 	r.NoRoute(func(c *gin.Context) {
 		if !strings.HasPrefix(c.Request.URL.Path, "/api") {
-			c.File("./dist/index.html")
+			ssrHandler.ServeSSR(c)
 		} else {
 			c.JSON(404, gin.H{"error": "API route not found"})
 		}
@@ -178,6 +229,7 @@ func main() {
 				animes.GET("/latest", animeHandler.GetLatest)
 				animes.GET("/type/:type", animeHandler.GetByType)
 				animes.GET("/search", animeHandler.Search)
+				animes.GET("/slug/:slug", animeHandler.GetBySlug)
 				animes.GET("/:id", animeHandler.GetByID)
 			}
 
@@ -211,6 +263,20 @@ func main() {
 
 			// Report Issue
 			public.POST("/reports", reportHandler.CreateReport)
+
+			// Settings (Read-Only Public)
+			public.GET("/settings", settingsHandler.GetSettings)
+			public.GET("/quick-news", quickNewsHandler.GetAll)
+
+			// NEW: Public Users and Comments for Sidebar
+			public.GET("/users", userHandler.GetAll)
+			public.GET("/users/:id", userHandler.GetByID)
+			public.GET("/comments", commentHandler.GetAllComments)
+
+			// Community Posts (Read-Only)
+			public.GET("/posts", postHandler.GetFeed)
+			public.GET("/posts/:id/comments", postHandler.GetPostComments)
+			public.GET("/posts/comments/:id/replies", postHandler.GetPostCommentReplies)
 		}
 
 		// --- Protected Routes (Auth Required) ---
@@ -218,13 +284,38 @@ func main() {
 		protected.Use(middleware.AuthMiddleware(cfg))
 		{
 			protected.GET("/me", func(c *gin.Context) {
-				userID, _ := c.Get("userID")
+				userID, _ := c.Get("user_id")
 				role, _ := c.Get("role")
 				c.JSON(200, gin.H{"id": userID, "role": role})
 			})
 
 			// User Profile Update
 			protected.POST("/user/profile/update", userHandler.UpdateProfile)
+			protected.GET("/user/stats", userHandler.GetStats)
+			protected.GET("/user/interactions", userHandler.GetInteractions)
+
+			// Friendship Routes
+			friends := protected.Group("/friends")
+			{
+				friends.POST("/request/:id", userHandler.SendFriendRequest)
+				friends.POST("/accept/:id", userHandler.AcceptFriendRequest)
+				friends.DELETE("/:id", userHandler.RemoveFriend)
+				friends.GET("/status/:id", userHandler.GetFriendshipStatus)
+				friends.GET("/list/:id", userHandler.GetUserFriends)
+				friends.GET("/requests/pending", userHandler.GetPendingRequests)
+			}
+
+			// Message Routes
+			messages := protected.Group("/messages")
+			{
+				messages.POST("/send", messageHandler.SendMessage)
+				messages.GET("/history/:userId", messageHandler.GetChatHistory)
+				messages.GET("/conversations", messageHandler.GetRecentConversations)
+			}
+
+			// Block Routes
+			protected.POST("/users/block/:id", userHandler.BlockUser)
+			protected.DELETE("/users/block/:id", userHandler.UnblockUser)
 
 			// Dashboard Routes
 			dashboard := protected.Group("/dashboard")
@@ -235,8 +326,11 @@ func main() {
 				dashboard.GET("/analytics/top", analyticsHandler.GetTopContent)
 			}
 
+			// Settings Update
+			protected.POST("/settings/update", settingsHandler.UpdateSettings)
+
 			// Admin/Protected Routes
-			protected.Group("/users").GET("", userHandler.GetAll).POST("", userHandler.Create).PUT("/:id", userHandler.Update).DELETE("/:id", userHandler.Delete)
+			protected.Group("/users").POST("", userHandler.Create).PUT("/:id", userHandler.Update).DELETE("/:id", userHandler.Delete)
 			protected.Group("/roles").GET("", roleHandler.GetAll).POST("", roleHandler.Create).PUT("/:id", roleHandler.Update).DELETE("/:id", roleHandler.Delete)
 			protected.Group("/permissions").GET("", permHandler.GetAll).POST("", permHandler.Create).PUT("/:id", permHandler.Update).DELETE("/:id", permHandler.Delete)
 			// protected.GET("/search", searchHandler.Search) // Search is public now
@@ -285,15 +379,32 @@ func main() {
 			protected.PUT("/comments/:id", commentHandler.Update)
 			protected.DELETE("/comments/:id", commentHandler.Delete)
 
+			// Community Posts Write Operations
+			protected.POST("/posts", postHandler.CreatePost)
+			protected.DELETE("/posts/:id", postHandler.DeletePost)
+			protected.POST("/posts/:id/like", postHandler.TogglePostLike)
+
+			// Community Posts Comment Write Operations
+			protected.POST("/posts/:id/comments", postHandler.CreatePostComment)
+			protected.DELETE("/posts/comments/:id", postHandler.DeletePostComment)
+			protected.POST("/posts/comments/:id/like", postHandler.ToggleCommentLike)
+
 			// Notification Routes (Personal)
 			protected.GET("/notifications", notifHandler.GetUserNotifications)
 			protected.POST("/notifications/:id/read", notifHandler.MarkRead)
 			protected.POST("/notifications/read-all", notifHandler.MarkAllRead)
+			protected.DELETE("/notifications/:id", notifHandler.Delete)
+			protected.DELETE("/notifications/clear-all", notifHandler.DeleteAll)
+			protected.POST("/notifications/delete-selected", notifHandler.DeleteSelected)
+			protected.GET("/ws", wsHandler.HandleWS)
 
 			// Episode Stats Routes
 			protected.POST("/episodes/:id/view", episodeHandler.TrackView)
 			protected.POST("/episodes/:id/reactions", episodeHandler.ToggleReaction)
 			protected.GET("/episodes/:id/stats", episodeHandler.GetStats)
+
+			// Quick News Admin Operations
+			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)
 		}
 	}
 

@@ -1,9 +1,11 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { replaceEmojiWithHtml } from '@/utils/render-content';
 
 interface RichTextInputProps {
     value: string;
     onChange: (value: string) => void;
     onFocus?: () => void;
+    onKeyDown?: (e: React.KeyboardEvent) => void;
     placeholder?: string;
     className?: string;
 }
@@ -12,20 +14,17 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
     value,
     onChange,
     onFocus,
+    onKeyDown,
     placeholder,
     className
 }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const isUpdatingRef = useRef(false);
 
-    // Render content with emoji images
+    // Render content with emoji images (Fallback, usually replaceEmojiWithHtml is used)
     const renderContent = (content: string) => {
         if (!content) return '';
-        // Convert ![emoji](url) to <img> tags
-        return content.replace(
-            /!\[emoji\]\((.*?\.(?:png|jpg|jpeg))\)/g,
-            '<img src="$1" alt="emoji" class="inline-block w-6 h-6 align-middle mx-0.5" draggable="false" />'
-        );
+        return replaceEmojiWithHtml(content);
     };
 
     // Extract plain text with emoji markers from HTML
@@ -36,10 +35,21 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
         // Convert <img> tags back to ![emoji](url) format
         const images = temp.querySelectorAll('img');
         images.forEach(img => {
-            const src = img.getAttribute('src');
-            if (src && src.includes('/custom-emojis/')) {
+            let src = img.getAttribute('src');
+            // Check if it's an emoji (either by class, alt, or path)
+            const isEmoji = img.classList.contains('inline-block') || img.alt === 'emoji' || (src && (src.includes('/custom-emojis/') || src.includes('/storage/')));
+
+            if (src && isEmoji) {
+                // Ensure we use the cleaned path for storage
+                let cleanSrc = src;
+                if (cleanSrc.includes('/custom-emojis/')) {
+                    cleanSrc = '/custom-emojis/' + cleanSrc.split('/custom-emojis/').pop();
+                } else if (cleanSrc.includes('/storage/')) {
+                    cleanSrc = '/' + cleanSrc.split('/storage/').pop();
+                }
+
                 const placeholder = document.createElement('span');
-                placeholder.textContent = `![emoji](${src})`;
+                placeholder.textContent = `![emoji](${cleanSrc})`;
                 img.replaceWith(placeholder);
             }
         });
@@ -54,7 +64,7 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
         if (editorRef.current && !isUpdatingRef.current) {
             const currentContent = extractContent(editorRef.current.innerHTML);
             if (currentContent !== value) {
-                const rendered = renderContent(value);
+                const rendered = replaceEmojiWithHtml(value);
                 editorRef.current.innerHTML = rendered || '';
             }
         }
@@ -110,6 +120,11 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
                 document.execCommand('insertText', false, text);
                 handleInput();
             }
+        },
+        focus: () => {
+            if (editorRef.current) {
+                editorRef.current.focus();
+            }
         }
     } as any));
 
@@ -119,6 +134,7 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
             contentEditable
             onInput={handleInput}
             onFocus={onFocus}
+            onKeyDown={onKeyDown}
             onPaste={handlePaste}
             data-placeholder={placeholder}
             className={`${className} [&:empty:before]:content-[attr(data-placeholder)] [&:empty:before]:text-gray-500 [&:empty:before]:dark:text-gray-600`}

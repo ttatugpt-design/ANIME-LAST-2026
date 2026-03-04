@@ -119,11 +119,17 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
 
                             <h4 className="text-white font-black text-3xl leading-tight line-clamp-2 drop-shadow-md mb-2">{title}</h4>
 
+                            <input
+                                type="text"
+                                value={shareUrl}
+                                readOnly
+                                className="w-full bg-transparent border-0 focus:ring-0 text-sm font-medium text-gray-900 dark:text-white"
+                            />
                             <div className="flex items-center justify-between text-gray-300 text-sm font-medium opacity-90">
                                 <span className="truncate max-w-[65%] text-gray-200">{animeTitle}</span>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-sm backdrop-blur-sm border border-white/5">
-                                        <Clock className="w-3 h-3 text-[#f47521]" />
+                                        <Clock className="w-3 h-3 text-white" />
                                         {episode.duration}m
                                     </span>
                                     {episode.release_date && (

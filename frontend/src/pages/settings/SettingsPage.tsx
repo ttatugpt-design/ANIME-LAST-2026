@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTheme } from "@/components/theme-provider";
@@ -21,24 +21,50 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
     const { t, i18n } = useTranslation();
-    const { appName, logoUrl, setAppName, setLogoUrl } = useSettingsStore();
+    const { appName, logoUrl, fetchSettings, updateSettings } = useSettingsStore();
     const { theme, setTheme } = useTheme();
 
     const [localAppName, setLocalAppName] = useState(appName);
     const [localLogoUrl, setLocalLogoUrl] = useState(logoUrl);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
-    const handleSaveGeneral = () => {
-        setAppName(localAppName);
-        setLogoUrl(localLogoUrl);
-        toast.success(t('common.save') + " " + t('common.settings.success', { defaultValue: 'Success' }));
+    useEffect(() => {
+        fetchSettings();
+    }, [fetchSettings]);
+
+    useEffect(() => {
+        setLocalAppName(appName);
+        setLocalLogoUrl(logoUrl);
+    }, [appName, logoUrl]);
+
+    const handleSaveGeneral = async () => {
+        setIsSaving(true);
+        try {
+            const formData = new FormData();
+            formData.append('app_name', localAppName);
+            if (logoFile) {
+                formData.append('logo', logoFile);
+            }
+
+            await updateSettings(formData);
+            toast.success(t('common.save') + " " + t('common.settings.success', { defaultValue: 'Success' }));
+            setLogoFile(null); // Reset file after upload
+        } catch (error) {
+            toast.error("Failed to save settings");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setLogoFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setLocalLogoUrl(reader.result as string);
@@ -100,7 +126,10 @@ export default function SettingsPage() {
                                     Upload an image or SVG file for your logo
                                 </p>
                             </div>
-                            <Button onClick={handleSaveGeneral}>{t('common.save')}</Button>
+                            <Button onClick={handleSaveGeneral} disabled={isSaving}>
+                                <Loader2 className="w-10 h-10 animate-spin text-black dark:text-white" />
+                                {t('common.save')}
+                            </Button>
                         </CardContent>
                     </Card>
                 </TabsContent>

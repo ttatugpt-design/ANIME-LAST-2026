@@ -10,25 +10,21 @@ import {
     List,
     History,
     Bell,
+    MessageCircle,
     Pen,
     User as UserIcon,
     Loader2,
     LayoutDashboard,
     Languages,
-    Check
+    Check,
+    ChevronRight
 } from 'lucide-react';
-import {
-    DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuSub,
-    DropdownMenuSubTrigger,
-    DropdownMenuSubContent
-} from '@/components/ui/dropdown-menu';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTheme } from '@/components/theme-provider';
+import { cn } from '@/lib/utils';
+import { useNotificationsStore } from '@/stores/notifications-store';
+import { slugify } from '@/utils/slug';
 
 interface UserMenuContentProps {
     user: any;
@@ -40,6 +36,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
     const location = useLocation();
     const { i18n } = useTranslation();
     const logout = useAuthStore((state) => state.logout);
+    const { unreadCount } = useNotificationsStore();
     const { theme, setTheme } = useTheme();
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -52,7 +49,13 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
         const fetchStats = async () => {
             try {
                 const response = await api.get('/user/stats');
-                setStats(response.data);
+                console.log('User Stats:', response.data);
+                const data = response.data;
+                setStats({
+                    notifications_count: data.notifications_count || 0,
+                    history_count: data.history_count || 0,
+                    watch_later_count: data.watch_later_count || 0
+                });
             } catch (error) {
                 console.error('Failed to fetch user stats', error);
             } finally {
@@ -83,6 +86,8 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
         if (onClose) onClose();
     };
 
+    const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+
     const handleLanguageSwitch = (newLang: string) => {
         const currentPath = location.pathname;
         const pathSegments = currentPath.split('/').filter(Boolean);
@@ -97,15 +102,16 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             navigate(`/${newLang}${currentPath}`);
         }
 
+        setShowLanguageMenu(false);
         if (onClose) onClose();
     };
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center flex-1 h-full py-20 gap-4 w-80">
+            <div className="flex flex-col items-center justify-center w-full h-[300px] gap-4">
                 <div className="relative w-16 h-16">
                     <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-t-[#f47521] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                 </div>
                 <p className="text-sm text-gray-400 font-medium">جاري التحميل...</p>
             </div>
@@ -113,17 +119,18 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
     }
 
     return (
-        <div className="flex flex-col w-96 max-h-[600px] overflow-y-auto custom-scrollbar min-h-[300px]">
+        <div className="flex flex-col w-full lg:w-96 max-h-[600px] overflow-y-auto custom-scrollbar min-h-[300px]">
             {/* Profile Header */}
-            <DropdownMenuLabel className="p-4 font-normal">
+            <div className="p-4 font-normal">
                 <div className="flex items-center justify-between">
                     {/* Edit Profile Icon (Left) */}
                     <button
-                        onClick={() => handleNavigation('/my/dashboard/edit')}
+                        onClick={() => handleNavigation(`/u/${user?.id}/dashboard/edit`)}
                         className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
                     >
                         <Pen className="w-5 h-5" />
                     </button>
+
 
                     {/* User Info (Center/Right) */}
                     <div className="flex items-center gap-4">
@@ -140,142 +147,179 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                                     className="object-cover w-full h-full"
                                 />
                             ) : (
-                                <div className="flex items-center justify-center w-full h-full bg-[#f47521] text-white font-bold text-xl">
+                                <div className="flex items-center justify-center w-full h-full bg-black dark:bg-white text-white dark:text-black font-bold text-xl">
                                     {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
-            </DropdownMenuLabel>
+            </div>
 
             {/* Premium/Trial Banner */}
             <div className="px-2 mb-2">
-                <div className="bg-[#f47521] rounded-none p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-[#ff8c42] transition-colors">
-                    <Crown className="w-5 h-5 text-black fill-current" />
-                    <span className="text-base font-black text-black uppercase tracking-wide">تجربة مجانية لـ 7 يومًا</span>
+                <div className="bg-black dark:bg-white rounded-none p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors text-white dark:text-black">
+                    <Crown className="w-5 h-5 fill-current" />
+                    <span className="text-base font-black uppercase tracking-wide">تجربة مجانية لـ 7 يومًا</span>
                 </div>
             </div>
 
-            <DropdownMenuSeparator className="bg-gray-200 dark:bg-[#333]" />
+            <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
 
             {/* Menu Group 1: Profile, Admin, Settings, Language */}
-            <DropdownMenuGroup className="py-1">
-                <DropdownMenuItem
-                    onClick={() => handleNavigation('/my/dashboard')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
+            <div className="py-1">
+                {/* Profile Link (New) */}
+                <button
+                    onClick={() => handleNavigation(`/u/${user?.id}/profile`)}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                >
+                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">الصفحة الشخصية</span>
+                    <UserIcon className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                </button>
+
+                <button
+                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard`)}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تغيير الملف الشخصي</span>
                     <ArrowRightLeft className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
+                </button>
+
 
                 {/* Admin Dashboard Link */}
-                <DropdownMenuItem
+                <button
                     onClick={() => handleNavigation('/dashboard')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">لوحة التحكم الأدمن</span>
                     <LayoutDashboard className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
+                </button>
 
-                <DropdownMenuItem
-                    onClick={() => handleNavigation('/my/dashboard/settings')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
+                {/* Personal User Dashboard Link */}
+                <button
+                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard`)}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                >
+                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">لوحة التحكم</span>
+                    <LayoutDashboard className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                </button>
+
+                <button
+                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard/messages`)}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                >
+                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">{i18n.language === 'ar' ? 'المراسلات' : 'Messages'}</span>
+                    <MessageCircle className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                </button>
+
+
+                <button
+                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard/settings`)}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">إعدادات</span>
                     <Settings className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
+                </button>
 
-                {/* Language Switcher Submenu */}
-                <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group">
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
-                            {i18n.language === 'ar' ? 'اللغة' : 'Language'}
-                        </span>
-                        <Languages className="w-5 h-5 ml-2 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                    </DropdownMenuSubTrigger>
 
-                    <DropdownMenuSubContent className="w-48 bg-white dark:bg-[#111] border-gray-100 dark:border-[#333]">
-                        <DropdownMenuItem
-                            onClick={() => handleLanguageSwitch('ar')}
-                            className="flex items-center justify-between cursor-pointer focus:bg-gray-100 dark:focus:bg-[#222]"
-                        >
-                            <span className="font-medium">العربية</span>
-                            {i18n.language === 'ar' && <Check className="w-4 h-4 text-[#f47521]" />}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => handleLanguageSwitch('en')}
-                            className="flex items-center justify-between cursor-pointer focus:bg-gray-100 dark:focus:bg-[#222]"
-                        >
-                            <span className="font-medium">English</span>
-                            {i18n.language === 'en' && <Check className="w-4 h-4 text-[#f47521]" />}
-                        </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                {/* Language Switcher */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                        className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showLanguageMenu && "rotate-90")} />
+                            <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
+                                {i18n.language === 'ar' ? 'اللغة' : 'Language'}
+                            </span>
+                        </div>
+                        <Languages className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                    </button>
 
-            </DropdownMenuGroup>
+                    {showLanguageMenu && (
+                        <div className="bg-gray-50 dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-[#333]">
+                            <button
+                                onClick={() => handleLanguageSwitch('ar')}
+                                className="flex items-center justify-between w-full px-8 py-2 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors cursor-pointer"
+                            >
+                                <span className="font-medium text-gray-700 dark:text-gray-200">العربية</span>
+                                {i18n.language === 'ar' && <Check className="w-4 h-4 text-black dark:text-white" />}
+                            </button>
+                            <button
+                                onClick={() => handleLanguageSwitch('en')}
+                                className="flex items-center justify-between w-full px-8 py-2 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors cursor-pointer"
+                            >
+                                <span className="font-medium text-gray-700 dark:text-gray-200">English</span>
+                                {i18n.language === 'en' && <Check className="w-4 h-4 text-black dark:text-white" />}
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-            <DropdownMenuSeparator className="bg-gray-200 dark:bg-[#333]" />
+            </div>
+
+            <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
 
             {/* Menu Group 2 */}
-            <DropdownMenuGroup className="py-1">
-                <DropdownMenuItem
-                    onClick={() => handleNavigation('/library')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
-                >
-                    <div className="flex items-center gap-2">
-                        {stats.watch_later_count > 0 && (
-                            <span className="text-xs font-bold text-white bg-red-600 px-1.5 py-0.5 rounded-full">{stats.watch_later_count}</span>
-                        )}
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قائمة المشاهدة</span>
-                    </div>
-                    <Bookmark className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                    onClick={() => handleNavigation('/library')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
-                >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قوائم كرانشي</span>
-                    <List className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
+            <div className="py-1">
+                <button
                     onClick={() => handleNavigation('/history')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                 >
                     <div className="flex items-center gap-2">
                         {stats.history_count > 0 && (
-                            <span className="text-xs font-bold text-white bg-red-600 px-1.5 py-0.5 rounded-full">{stats.history_count}</span>
+                            <span className="text-xs font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">{stats.history_count}</span>
                         )}
                         <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">السجل</span>
                     </div>
                     <History className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
-            </DropdownMenuGroup>
+                </button>
 
-            <DropdownMenuSeparator className="bg-gray-200 dark:bg-[#333]" />
-
-            {/* Menu Group 3 */}
-            <DropdownMenuGroup className="py-1">
-                <DropdownMenuItem
-                    onClick={() => handleNavigation('/notifications')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
+                <button
+                    onClick={() => handleNavigation('/watchlist')}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                 >
                     <div className="flex items-center gap-2">
-                        {stats.notifications_count > 0 && (
-                            <span className="text-xs font-bold text-white bg-red-600 px-1.5 py-0.5 rounded-full">{stats.notifications_count}</span>
+                        {stats.watch_later_count > 0 && (
+                            <span className="text-xs font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">{stats.watch_later_count}</span>
+                        )}
+                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قائمة المشاهدة</span>
+                    </div>
+                    <Bookmark className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                </button>
+
+                <button
+                    onClick={() => handleNavigation('/library')}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                >
+                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قوائم كرانشي</span>
+                    <List className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                </button>
+            </div>
+
+            <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
+
+            {/* Menu Group 3 */}
+            <div className="py-1">
+                <button
+                    onClick={() => handleNavigation('/notifications')}
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        {unreadCount > 0 && (
+                            <span className="text-xs font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">{unreadCount}</span>
                         )}
                         <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">إشعارات</span>
                     </div>
                     <Bell className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </DropdownMenuItem>
-            </DropdownMenuGroup>
+                </button>
+            </div>
 
-            <DropdownMenuSeparator className="bg-gray-200 dark:bg-[#333]" />
+            <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
 
             {/* Theme Toggle */}
-            <DropdownMenuGroup className="py-1">
+            <div className="py-1">
                 <div
                     className="flex items-center justify-between w-full px-5 py-2.5 hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors cursor-pointer"
                     onClick={(e) => {
@@ -284,8 +328,8 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                     }}
                 >
                     {/* Switch */}
-                    <div className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors duration-200 ease-in-out ${theme === 'dark' ? 'bg-[#f47521]' : 'bg-gray-200'}`}>
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out shadow-sm absolute top-1 ${theme === 'dark' ? 'left-1' : 'right-1'}`}></span>
+                    <div className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors duration-200 ease-in-out border border-gray-200 dark:border-transparent ${theme === 'dark' ? 'bg-white' : 'bg-gray-200'}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full transition duration-200 ease-in-out shadow-sm absolute top-1 ${theme === 'dark' ? 'bg-black left-1' : 'bg-white right-1'}`}></span>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -294,18 +338,18 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                         </span>
                     </div>
                 </div>
-            </DropdownMenuGroup>
+            </div>
 
-            <DropdownMenuSeparator className="bg-gray-200 dark:bg-[#333]" />
+            <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
 
             {/* Logout */}
-            <DropdownMenuItem
+            <button
                 onClick={handleLogout}
-                className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none mb-1 flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
+                className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none mb-1 flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
             >
                 <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تسجيل الخروج</span>
                 <LogOut className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-            </DropdownMenuItem>
+            </button>
         </div>
     );
 }

@@ -37,5 +37,9 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  ssr: {
+    noExternal: ['react-helmet-async']
   }
 })
+

@@ -80,7 +80,7 @@ export default function HomePage() {
         return (
             <div ref={elementRef as any} className="mb-12 min-h-[300px]">
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <span className="w-1 h-8 bg-primary inline-block" style={{ borderRadius: 0 }}></span>
+                    <span className="w-1 h-8 bg-black dark:bg-white inline-block" style={{ borderRadius: 0 }}></span>
                     {title}
                 </h2>
                 {isLoading ? (
@@ -95,7 +95,7 @@ export default function HomePage() {
                         {items.map((model: any) => (
                             <Card
                                 key={model.id}
-                                className="overflow-hidden cursor-pointer hover:shadow-xl group border-border/50 hover:border-primary/50"
+                                className="overflow-hidden cursor-pointer hover:shadow-xl group border-border/50 hover:border-black dark:hover:border-white"
                                 style={{ borderRadius: 0, transition: 'box-shadow 0.3s' }}
                                 onClick={() => handleModelClick(model)}
                             >
@@ -180,7 +180,10 @@ export default function HomePage() {
             {/* Initial Loading Spinner Overlay */}
             {initialLoading && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-xl transition-all duration-500">
-                    <div className="h-20 w-20 animate-spin rounded-full border-8 border-primary/30 border-t-primary shadow-2xl" style={{ borderRadius: '50%' }} />
+                    <div className="relative w-20 h-20">
+                        <div className="absolute inset-0 border-8 border-gray-200 dark:border-gray-800 rounded-full"></div>
+                        <div className="absolute inset-0 border-8 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    </div>
                 </div>
             )}
 
@@ -190,7 +193,7 @@ export default function HomePage() {
                     <div className="flex-1 w-full relative bg-black/5 overflow-hidden" style={{ borderRadius: 0 }}>
                         {isModelLoading && (
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm">
-                                <Loader2 className="h-10 w-10 animate-spin text-primary mb-2" />
+                                <Loader2 className="w-12 h-12 animate-spin text-black dark:text-white" />
                                 <span className="text-sm text-muted-foreground font-medium">Loading 3D Model...</span>
                             </div>
                         )}

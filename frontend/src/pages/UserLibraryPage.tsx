@@ -61,7 +61,7 @@ export default function UserLibraryPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100 font-sans animate-fade-in" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="w-full text-gray-900 dark:text-gray-100 font-sans animate-fade-in" dir={isRtl ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isRtl ? 'مكتبتي' : 'My Library'} - AnimeLast</title>
             </Helmet>
@@ -120,9 +120,14 @@ export default function UserLibraryPage() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                         {watchItems.map((item) => {
                                             const isEpisode = !!item.episode_id;
+                                            const animeObj = item.anime;
+                                            const animeSlug = isRtl
+                                                ? (animeObj?.slug || item.anime_id)
+                                                : (animeObj?.slug_en || animeObj?.slug || item.anime_id);
+
                                             const link = isEpisode
-                                                ? `/${i18n.language}/watch/${item.anime_id}/${item.episode?.episode_number}`
-                                                : `/${i18n.language}/anime/${item.anime_id}`;
+                                                ? `/${i18n.language}/watch/${animeSlug}/${item.episode?.episode_number}`
+                                                : `/${i18n.language}/animes/${animeSlug}`;
 
                                             const title = isEpisode
                                                 ? (isRtl ? item.episode?.title : item.episode?.title_en) || `Episode ${item.episode?.episode_number}`

@@ -1,135 +1,273 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Check, MessageCircle, Heart, Trash2 } from 'lucide-react';
+import { Bell, Check, MessageCircle, Heart, Inbox, PlayCircle, User, Trash2, UserPlus, UserCheck, UserX, ChevronLeft, ThumbsUp, X } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { ar, enUS } from 'date-fns/locale';
 import { useNotificationsStore } from '@/stores/notifications-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { renderEmojiContent } from '@/utils/render-content';
 import { Notification } from '@/lib/notifications-api';
-import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
 import api from '@/lib/api';
 
-// Helper to get user info from actor_id
-const useActorInfo = (actorId: number | undefined) => {
-    const [actorName, setActorName] = useState<string>('');
+import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
 
-    useEffect(() => {
-        if (!actorId) return;
-
-        const fetchActor = async () => {
-            try {
-                const response = await api.get(`/users/${actorId}`);
-                setActorName(response.data.name);
-            } catch (error) {
-                console.error('Failed to fetch actor info:', error);
-                setActorName('User');
-            }
-        };
-
-        fetchActor();
-    }, [actorId]);
-
-    return actorName;
+const getAvatarUrl = (avatar: string | null | undefined) => {
+    if (!avatar) return undefined;
+    if (avatar.startsWith('http')) return avatar;
+    // Check if it already has a slash
+    return avatar.startsWith('/') ? avatar : `/${avatar}`;
 };
 
-// Helper to get comment and episode info
-const useCommentInfo = (commentId: number | undefined) => {
-    const [info, setInfo] = useState<{ episodeId?: number; animeId?: number; commentContent?: string }>({});
-
-    useEffect(() => {
-        if (!commentId) return;
-
-        const fetchComment = async () => {
-            try {
-                // We need to fetch the comment to get episode_id
-                // Unfortunately the backend doesn't have a direct endpoint for a single comment
-                // We'll need to extract episode_id from the notification data if available
-                // For now, we'll rely on the data field in the notification
-            } catch (error) {
-                console.error('Failed to fetch comment info:', error);
-            }
-        };
-
-        fetchComment();
-    }, [commentId]);
-
-    return info;
+const getMediaImageUrl = (image: string | null | undefined) => {
+    if (!image) return undefined;
+    if (image.startsWith('http')) return image;
+    // If it starts with /uploads, it's already a relative path
+    if (image.startsWith('/uploads')) {
+        return `http://localhost:8080${image}`;
+    }
+    // Default to animes folder if just a filename
+    return `http://localhost:8080/uploads/animes/${image}`;
 };
+
+// Helper to format name and hide email if necessary
+const formatActorName = (name: string | null | undefined) => {
+    if (!name) return 'User';
+    if (name.includes('@')) {
+        return name.split('@')[0];
+    }
+    return name;
+};
+
+// Using centralized renderEmojiContent
+
 
 interface NotificationItemProps {
     notification: Notification;
     isRtl: boolean;
     onClick: () => void;
+    isSelected: boolean;
+    onSelect: (id: number) => void;
+    selectionMode: boolean;
 }
 
-function NotificationItem({ notification, isRtl, onClick }: NotificationItemProps) {
-    const actorName = useActorInfo(notification.data.actor_id);
-    const { i18n } = useTranslation();
+function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, selectionMode }: NotificationItemProps) {
+    const { t, i18n } = useTranslation();
+    const data = (notification.data || {}) as any;
 
-    const getNotificationContent = () => {
-        const name = actorName || (isRtl ? 'مستخدم' : 'User');
+    const navigate = useNavigate(); // Moved from NotificationsPage
 
+    const getNotificationTypeInfo = () => {
         switch (notification.type) {
             case 'like':
                 return {
-                    icon: <Heart className="w-5 h-5 text-red-500 fill-current" />,
-                    text: isRtl ? `أعجب ${name} بتعليقك` : `${name} liked your comment`,
-                    color: 'bg-red-50 dark:bg-red-900/10',
+                    icon: <Heart className="w-3.5 h-3.5 text-black dark:text-white fill-current" />,
+                    iconBg: 'bg-gray-100 dark:bg-white/10',
+                    actionText: isRtl ? 'أعجب بتعليقك' : 'liked your comment',
                 };
             case 'reply':
                 return {
-                    icon: <MessageCircle className="w-5 h-5 text-blue-500" />,
-                    text: isRtl ? `رد ${name} على تعليقك` : `${name} replied to your comment`,
-                    color: 'bg-blue-50 dark:bg-blue-900/10',
+                    icon: <MessageCircle className="w-3.5 h-3.5 text-black dark:text-white fill-current" />,
+                    iconBg: 'bg-gray-100 dark:bg-white/10',
+                    actionText: isRtl ? 'رد على تعليقك' : 'replied to your comment',
+                };
+            case 'friend_request':
+                return {
+                    icon: <UserPlus className="w-3.5 h-3.5 text-black dark:text-white" />,
+                    iconBg: 'bg-black dark:bg-white',
+                    actionText: isRtl ? 'أرسل لك طلب صداقة' : 'sent you a friend request',
+                };
+            case 'friend_request_accepted':
+                return {
+                    icon: <UserCheck className="w-3.5 h-3.5 text-white" />,
+                    iconBg: 'bg-green-500',
+                    actionText: isRtl ? 'قبل طلب صداقتك' : 'accepted your friend request',
+                };
+            case 'friend_request_rejected':
+                return {
+                    icon: <UserX className="w-3.5 h-3.5 text-white" />,
+                    iconBg: 'bg-red-500',
+                    actionText: isRtl ? 'رفض طلب صداقتك' : 'rejected your friend request',
+                };
+            case 'chat_message':
+                return {
+                    icon: <MessageCircle className="w-3.5 h-3.5 text-white fill-current" />,
+                    iconBg: 'bg-blue-500',
+                    actionText: isRtl ? 'أرسل لك رسالة' : 'sent you a message',
                 };
             default:
                 return {
-                    icon: <Bell className="w-5 h-5 text-gray-500" />,
-                    text: isRtl ? 'إشعار جديد' : 'New notification',
-                    color: 'bg-gray-50 dark:bg-gray-900/10',
+                    icon: <Bell className="w-3.5 h-3.5 text-black dark:text-white" />,
+                    iconBg: 'bg-gray-100 dark:bg-white/10',
+                    actionText: isRtl ? 'أرسل تنبيهاً' : 'sent a notification',
                 };
         }
     };
 
-    const content = getNotificationContent();
+    const typeInfo = getNotificationTypeInfo();
     const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
         addSuffix: true,
-        locale: isRtl ? ar : undefined,
+        locale: isRtl ? ar : enUS,
     });
+
+    const actorName = formatActorName(data.actor_name || data.requester_name || data.accepter_name || data.rejecter_name || data.sender_name);
+    const mediaImage = data.episode_image || data.anime_image; // Added mediaImage
+
+    const handleAction = async (e: React.MouseEvent, action: 'accept' | 'reject') => {
+        e.stopPropagation();
+        const requesterId = data.requester_id;
+        if (!requesterId) return;
+
+        try {
+            if (action === 'accept') {
+                await api.post(`/friends/accept/${requesterId}`);
+            } else {
+                await api.delete(`/friends/${requesterId}`);
+            }
+            // Mark the notification as read or handled locally if needed
+            // The store might need a refresh or specific update
+        } catch (error) {
+            console.error(`Failed to ${action} friend request:`, error);
+        }
+    };
 
     return (
         <div
-            onClick={onClick}
-            className={`
-                relative p-4 rounded-lg border cursor-pointer transition-all
-                ${notification.is_read
-                    ? 'bg-white dark:bg-[#111] border-gray-200 dark:border-[#333] hover:border-gray-300 dark:hover:border-[#444]'
-                    : `${content.color} border-${notification.type === 'like' ? 'red' : 'blue'}-200 dark:border-${notification.type === 'like' ? 'red' : 'blue'}-800 hover:shadow-md`
+            onClick={(e) => {
+                if (selectionMode) {
+                    onSelect(notification.id);
+                } else {
+                    onClick();
                 }
-            `}
+            }}
+            className={`group flex items-start gap-4 p-5 transition-all cursor-pointer relative ${notification.is_read ? 'bg-white dark:bg-[#0a0a0a]' : 'bg-gray-50 dark:bg-white/[0.03] border-s-4 border-black dark:border-white'} border-b border-gray-100 dark:border-[#111] hover:bg-gray-50 dark:hover:bg-[#111] ${isSelected ? 'ring-2 ring-black dark:ring-white bg-gray-50 dark:bg-white/[0.05]' : ''}`}
         >
-            {/* Unread indicator */}
-            {!notification.is_read && (
-                <div className={`absolute ${isRtl ? 'left-2' : 'right-2'} top-2 w-2 h-2 rounded-full ${notification.type === 'like' ? 'bg-red-500' : 'bg-blue-500'}`} />
+            {selectionMode && (
+                <div className="flex-shrink-0 pt-3">
+                    <div className={`w-5 h-5 border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-black dark:bg-white border-black dark:border-white' : 'border-gray-300 dark:border-gray-700'}`}>
+                        {isSelected && <Check className={`w-4 h-4 ${isRtl ? 'text-white dark:text-black' : 'text-white dark:text-black'}`} />}
+                    </div>
+                </div>
             )}
 
-            <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div className="flex-shrink-0 mt-1">
-                    {content.icon}
-                </div>
+            {!notification.is_read && !selectionMode && (
+                <div className={`absolute ${isRtl ? 'left-4' : 'right-4'} top-4 w-2 h-2 rounded-none bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
+            )}
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {content.text}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {timeAgo}
-                    </p>
+            {/* Actor Avatar */}
+            <div className="relative flex-shrink-0">
+                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white dark:border-[#1a1a1a] shadow-sm bg-gray-100 dark:bg-[#222]">
+                    {(data.actor_avatar || data.requester_avatar || data.accepter_avatar || data.rejecter_avatar || data.sender_avatar) ? (
+                        <img src={getAvatarUrl(data.actor_avatar || data.requester_avatar || data.accepter_avatar || data.rejecter_avatar || data.sender_avatar)} alt={actorName} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-purple-600 text-white font-bold">
+                            {actorName?.charAt(0).toUpperCase() || <User className="w-6 h-6" />}
+                        </div>
+                    )}
+                </div>
+                <div className={`absolute -bottom-1 -right-1 ${typeInfo.iconBg} p-1 rounded-full border-2 border-white dark:border-[#1a1a1a] shadow-sm`}>
+                    {typeInfo.icon}
                 </div>
             </div>
+
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+                <div className="flex flex-col gap-1">
+                    <p className="text-sm text-gray-900 dark:text-gray-100 leading-relaxed">
+                        <span className="font-bold hover:text-black dark:hover:text-white transition-colors">{actorName}</span>
+                        {' '}
+                        <span className="text-gray-500 dark:text-gray-400">{typeInfo.actionText}</span>
+                    </p>
+
+                    {/* Content Snippet Card */}
+                    {(data.comment_content || data.reply_content || data.message_content) && (
+                        <div className="mt-2 space-y-3">
+                            {notification.type === 'reply' ? (
+                                <div className="grid grid-cols-1 gap-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
+                                    <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-none relative">
+                                        <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-gray-400 uppercase">
+                                            {isRtl ? 'تعليقك' : 'YOUR COMMENT'}
+                                        </div>
+                                        <p className="text-xs text-gray-500 italic line-clamp-2">
+                                            "{renderEmojiContent(data.comment_content || '')}"
+                                        </p>
+                                    </div>
+                                    <div className="bg-black/5 dark:bg-white/10 p-3 rounded-none">
+                                        <div className="flex items-center gap-2 mb-1 text-black dark:text-white">
+                                            <MessageCircle className="w-3 h-3 fill-current" />
+                                            <span className="text-[10px] font-black uppercase">{isRtl ? 'الرد' : 'THE REPLY'}</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-3">
+                                            {renderEmojiContent(data.reply_content || '')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : notification.type === 'chat_message' ? (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 italic line-clamp-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
+                                    {renderEmojiContent(data.message_content)}
+                                </p>
+                            ) : (data.comment_content) ? (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 italic line-clamp-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
+                                    "{renderEmojiContent(data.comment_content)}"
+                                </p>
+                            ) : null}
+                        </div>
+                    )}
+
+                    {/* Friend Request Actions */}
+                    {notification.type === 'friend_request' && !notification.is_read && (
+                        <div className="flex gap-2 mt-3">
+                            <button
+                                onClick={(e) => handleAction(e, 'accept')}
+                                className="px-4 py-1.5 bg-black dark:bg-white text-white dark:text-black text-xs font-black uppercase rounded-none transition-colors hover:bg-neutral-800 dark:hover:bg-neutral-200"
+                            >
+                                {isRtl ? 'تأكيد' : 'Confirm'}
+                            </button>
+                            <button
+                                onClick={(e) => handleAction(e, 'reject')}
+                                className="px-4 py-1.5 bg-gray-100 dark:bg-[#1a1a1a] text-gray-900 dark:text-white text-xs font-bold rounded-none transition-colors border border-gray-200 dark:border-white/10"
+                            >
+                                {isRtl ? 'حذف' : 'Delete'}
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-3 mt-2 text-[11px]">
+                        <span className="text-gray-400 dark:text-gray-500">{timeAgo}</span>
+                        <div className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-700" />
+                        <span className="text-black dark:text-white font-bold uppercase tracking-wider">
+                            {notification.type}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Media Context Card (Anime/Episode) */}
+            {data.anime_title && (
+                <div className="hidden sm:flex flex-col items-center gap-2 w-24 flex-shrink-0 group-hover:opacity-100 opacity-80 transition-opacity">
+                    <div className="relative w-full aspect-video rounded-none overflow-hidden border border-gray-200 dark:border-[#333] shadow-sm bg-gray-100 dark:bg-[#111]">
+                        {mediaImage ? (
+                            <img src={getMediaImageUrl(mediaImage)} alt={data.anime_title} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-black dark:text-white opacity-40">
+                                <PlayCircle className="w-6 h-6" />
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <PlayCircle className="w-6 h-6 text-white" />
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 line-clamp-1 uppercase tracking-tight">
+                            {data.anime_title}
+                        </p>
+                        <p className="text-[9px] text-black dark:text-white font-black">
+                            {isRtl ? 'الحلقة' : 'EP'} {data.episode_number}
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -138,108 +276,205 @@ export default function NotificationsPage() {
     const { i18n } = useTranslation();
     const isRtl = i18n.language === 'ar';
     const navigate = useNavigate();
-    const { notifications, isLoading, fetchNotifications, markAsRead, markAllAsRead } = useNotificationsStore();
+    const {
+        notifications,
+        isLoading,
+        fetchNotifications,
+        markAsRead,
+        markAllAsRead,
+        deleteAll,
+        deleteSelected
+    } = useNotificationsStore();
+
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+    const toggleSelect = (id: number) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleDeleteSelected = async () => {
+        if (selectedIds.length === 0) return;
+        if (window.confirm(isRtl ? 'هل أنت متأكد من حذف الإشعارات المختارة؟' : 'Are you sure you want to delete selected notifications?')) {
+            await deleteSelected(selectedIds);
+            setSelectedIds([]);
+            setSelectionMode(false);
+        }
+    };
+
+    const handleDeleteAll = async () => {
+        if (window.confirm(isRtl ? 'هل أنت متأكد من حذف جميع الإشعارات؟' : 'Are you sure you want to delete all notifications?')) {
+            await deleteAll();
+        }
+    };
 
     useEffect(() => {
         fetchNotifications();
     }, [fetchNotifications]);
 
     const handleNotificationClick = async (notification: Notification) => {
-        // Mark as read
         if (!notification.is_read) {
             await markAsRead(notification.id);
         }
 
-        // Navigate to the episode if we have the data
-        if (notification.data.episode_id && notification.data.anime_id) {
-            // We need to find the episode number from episode_id
-            // For now, we'll navigate to the anime page
-            navigate(`/${i18n.language}/animes/${notification.data.anime_id}`);
-        } else if (notification.data.comment_id) {
-            // If we only have comment_id, we could try to fetch the comment
-            // But for now, we'll just mark it as read
-            console.log('Comment ID:', notification.data.comment_id);
+        const data = notification.data;
+        const lang = i18n.language || 'en';
+
+        // Custom Types Navigation
+        if (notification.type === 'friend_request' && data.requester_id) {
+            navigate(`/${lang}/u/${data.requester_id}/profile`);
+            return;
+        }
+        if (notification.type === 'friend_request_accepted' && data.accepter_id) {
+            navigate(`/${lang}/u/${data.accepter_id}/profile`);
+            return;
+        }
+        if (notification.type === 'friend_request_rejected' && data.rejecter_id) {
+            navigate(`/${lang}/u/${data.rejecter_id}/profile`);
+            return;
+        }
+        if (notification.type === 'chat_message' && data.sender_id) {
+            // Get current user id from store
+            const currentUserId = useAuthStore.getState().user?.id;
+            navigate(`/${lang}/u/${currentUserId}/dashboard/messages?userId=${data.sender_id}`);
+            return;
+        }
+
+        // Prepare query params for deep linking
+        const params = new URLSearchParams();
+        if (data.comment_id) params.append('commentId', data.comment_id.toString());
+        if (data.parent_id) params.append('parentId', data.parent_id.toString());
+        const queryString = params.toString() ? `?${params.toString()}` : '';
+
+        // The correct route is /:lang/watch/:animeId/:episodeNum
+        if (data.anime_id && data.episode_number) {
+            navigate(`/${i18n.language}/watch/${data.anime_id}/${data.episode_number}${queryString}`);
+        } else if (data.anime_id) {
+            const d = data as any;
+            const animeSlug = i18n.language === 'ar' ? (d.anime_slug || d.anime_id) : (d.anime_slug_en || d.anime_slug || d.anime_id);
+            navigate(`/${i18n.language}/animes/${animeSlug || data.anime_id}${queryString}`);
         }
     };
 
     const handleMarkAllAsRead = async () => {
-        if (window.confirm(isRtl ? 'هل تريد تعليم جميع الإشعارات كمقروءة؟' : 'Mark all notifications as read?')) {
-            await markAllAsRead();
-        }
+        if (notifications.filter(n => !n.is_read).length === 0) return;
+        await markAllAsRead();
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="w-full text-gray-900 dark:text-white transition-colors duration-300 pb-20" dir={isRtl ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isRtl ? 'الإشعارات' : 'Notifications'} - AnimeLast</title>
             </Helmet>
 
-            {isLoading ? (
-                <div className="flex items-center justify-center min-h-[80vh]">
-                    <div className="container px-4 sm:px-6 md:px-8 py-8 mx-auto max-w-4xl">
-                        <div className="space-y-4">
-                            <CrunchyrollSkeleton count={8} />
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <Bell className="w-8 h-8 text-black dark:text-white" />
+                            <h1 className="text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">
+                                {isRtl ? 'التنبيهات' : 'Notifications'}
+                            </h1>
                         </div>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">
+                            {notifications.length > 0
+                                ? (isRtl
+                                    ? `لديك ${notifications.length} إشعار في المجموع`
+                                    : `You have ${notifications.length} notifications in total`)
+                                : (isRtl ? 'لا توجد إشعارات جديدة حالياً' : 'No new notifications at the moment')}
+                        </p>
                     </div>
-                </div>
-            ) : (
-                <div className="w-full">
-                    <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Bell className="w-6 h-6 text-[#f47521]" />
-                                    {isRtl ? 'الإشعارات' : 'Notifications'}
-                                </h1>
-                                {notifications.length > 0 && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                        {notifications.filter(n => !n.is_read).length > 0
-                                            ? isRtl
-                                                ? `${notifications.filter(n => !n.is_read).length} غير مقروء`
-                                                : `${notifications.filter(n => !n.is_read).length} unread`
-                                            : isRtl
-                                                ? 'جميع الإشعارات مقروءة'
-                                                : 'All notifications read'
-                                        }
-                                    </p>
-                                )}
-                            </div>
-                            {notifications.filter(n => !n.is_read).length > 0 && (
-                                <button
-                                    onClick={handleMarkAllAsRead}
-                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#f47521] hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-md transition-colors"
-                                >
-                                    <Check className="w-4 h-4" />
-                                    {isRtl ? 'تعليم الكل كمقروء' : 'Mark all as read'}
-                                </button>
+
+                    {notifications.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            {selectionMode ? (
+                                <>
+                                    <button
+                                        onClick={handleDeleteSelected}
+                                        disabled={selectedIds.length === 0}
+                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50 text-sm font-bold text-white dark:text-black border-none rounded-none transition-all shadow-sm active:scale-95"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        {isRtl ? `حذف المختار (${selectedIds.length})` : `Delete Selected (${selectedIds.length})`}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSelectionMode(false);
+                                            setSelectedIds([]);
+                                        }}
+                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
+                                    >
+                                        {isRtl ? 'إلغاء' : 'Cancel'}
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => setSelectionMode(true)}
+                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
+                                    >
+                                        <Check className="w-4 h-4 text-black dark:text-white" />
+                                        {isRtl ? 'تحديد' : 'Select'}
+                                    </button>
+                                    <button
+                                        onClick={handleMarkAllAsRead}
+                                        disabled={notifications.filter(n => !n.is_read).length === 0}
+                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] disabled:opacity-50 text-sm font-bold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
+                                    >
+                                        <Check className="w-4 h-4 text-black dark:text-white" />
+                                        {isRtl ? 'تعليم الكل كمقروء' : 'Mark all as read'}
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteAll}
+                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-black dark:text-white border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
+                                    >
+                                        <Trash2 className="w-4 h-4 text-black dark:text-white" />
+                                        {isRtl ? 'حذف الكل' : 'Clear All'}
+                                    </button>
+                                </>
                             )}
                         </div>
-
-                        {/* Notifications List */}
-                        {notifications.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                                <Bell className="w-16 h-16 mb-4 opacity-20" />
-                                <p className="text-lg font-medium">{isRtl ? 'لا توجد إشعارات' : 'No notifications'}</p>
-                                <p className="text-sm text-gray-400 mt-2">
-                                    {isRtl ? 'سيتم إشعارك عندما يتفاعل شخص ما مع تعليقاتك' : 'You\'ll be notified when someone interacts with your comments'}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {notifications.map((notification) => (
-                                    <NotificationItem
-                                        key={notification.id}
-                                        notification={notification}
-                                        isRtl={isRtl}
-                                        onClick={() => handleNotificationClick(notification)}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
-            )}
+
+                {/* Notifications Content */}
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <CrunchyrollSkeleton count={6} />
+                    </div>
+                ) : notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-[#0a0a0a] rounded-none border border-dashed border-gray-200 dark:border-[#222]">
+                        <div className="w-24 h-24 bg-gray-50 dark:bg-[#111] rounded-none flex items-center justify-center mb-6">
+                            <Inbox className="w-12 h-12 text-black dark:text-white opacity-20" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                            {isRtl ? 'بريدك نظيف!' : 'Inbox is clean!'}
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-center max-w-xs leading-relaxed">
+                            {isRtl
+                                ? 'لا توجد إشعارات حالياً. سنخبرك عند حدوث أي تفاعل جديد.'
+                                : 'No notifications yet. We\'ll let you know when something happens.'}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="grid gap-3">
+                        {notifications.map((notification) => (
+                            <NotificationItem
+                                key={notification.id}
+                                notification={notification}
+                                isRtl={isRtl}
+                                onClick={() => handleNotificationClick(notification)}
+                                isSelected={selectedIds.includes(notification.id)}
+                                onSelect={toggleSelect}
+                                selectionMode={selectionMode}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

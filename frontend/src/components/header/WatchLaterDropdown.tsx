@@ -62,7 +62,7 @@ export const WatchLaterDropdown: React.FC = () => {
                 >
                     <Bookmark className="w-6 h-6" />
                     {items.length > 0 && (
-                        <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-black"></span>
+                        <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-black dark:bg-white rounded-full border-2 border-white dark:border-black"></span>
                     )}
                 </Link>
 
@@ -83,8 +83,8 @@ export const WatchLaterDropdown: React.FC = () => {
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
                             {isLoading && items.length === 0 ? (
-                                <div className="p-12 flex justify-center text-orange-500">
-                                    <Loader2 className="w-8 h-8 animate-spin" />
+                                <div className="p-12 flex justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-black dark:text-white" />
                                 </div>
                             ) : items.length === 0 ? (
                                 <div className="p-12 text-center text-gray-500">
@@ -123,7 +123,7 @@ export const WatchLaterDropdown: React.FC = () => {
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0 py-1">
-                                                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-relaxed mb-1 group-hover:text-orange-500 transition-colors">{title}</h4>
+                                                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-relaxed mb-1 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">{title}</h4>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">{subtitle}</p>
                                             </div>
                                             <button

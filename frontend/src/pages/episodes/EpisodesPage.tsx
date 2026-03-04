@@ -443,7 +443,7 @@ export default function EpisodesPage() {
 }
 
 // Subcomponent for Form Content to reuse
-function EpisodeFormContent({
+export function EpisodeFormContent({
     formData, handleChange, handleAnimeChange, animes,
     isUploading, handleImageUpload, addVideoUrl, removeVideoUrl, updateVideoUrl,
     onSubmit, isPending, onCancel, title

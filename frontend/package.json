@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build --outDir dist/client",
+    "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist/server",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -40,6 +41,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.17.1",
+    "framer-motion": "^11.18.2",
     "i18next": "^25.7.4",
     "i18next-browser-languagedetector": "^8.2.0",
     "lucide-react": "^0.562.0",

@@ -31,8 +31,8 @@ func (s *AnimeService) Create(anime *domain.Anime) (*domain.Anime, error) {
 	return anime, nil
 }
 
-func (s *AnimeService) GetAll() ([]domain.Anime, error) {
-	return s.repo.GetAllAnimes()
+func (s *AnimeService) GetAll(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Anime, error) {
+	return s.repo.GetAllAnimes(categoryID, letter, search, animeType, order, limit, offset)
 }
 
 func (s *AnimeService) GetLatest(limit int) ([]domain.Anime, error) {
@@ -45,6 +45,10 @@ func (s *AnimeService) GetByType(animeType string, limit int) ([]domain.Anime, e
 
 func (s *AnimeService) GetByID(id uint) (*domain.Anime, error) {
 	return s.repo.GetAnimeByID(id)
+}
+
+func (s *AnimeService) GetBySlug(slug string) (*domain.Anime, error) {
+	return s.repo.GetAnimeBySlug(slug)
 }
 
 func (s *AnimeService) Update(anime *domain.Anime) (*domain.Anime, error) {

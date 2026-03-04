@@ -9,6 +9,8 @@ import { NewsTicker } from '@/components/common/NewsTicker';
 import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
 import Footer from '@/components/common/Footer';
 import { PageLoader } from '@/components/ui/page-loader';
+import SpinnerImage from "@/components/ui/SpinnerImage";
+import { cn } from "@/lib/utils";
 
 export default function PublicCategoriesPage() {
     const { t, i18n } = useTranslation();
@@ -32,26 +34,19 @@ export default function PublicCategoriesPage() {
         navigate(`/${i18n.language}/browse?categoryId=${categoryId}`);
     };
 
-    if (isLoading) return <PageLoader />;
-
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black flex flex-col font-sans">
+        <div className="min-h-screen bg-gray-50 dark:bg-black flex flex-col font-sans" dir={isRtl ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isRtl ? 'تصفح التصنيفات - AnimeLast' : 'Browse Categories - AnimeLast'}</title>
             </Helmet>
 
             <NewsTicker />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto w-full">
-                {/* Left Sidebar */}
-                <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
-                    <SocialNavSidebar />
-                </div>
-
-                {/* Main Content */}
-                <div className="col-span-1 lg:col-span-9 flex flex-col min-h-screen">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto w-full transition-all duration-300">
+                {/* Main Content - Full Width */}
+                <div className="flex flex-col min-h-screen transition-all duration-300 col-span-1 lg:col-span-12">
                     {/* Hero & Search Section */}
-                 
+
 
                     {/* Categories Grid */}
                     <div className="container -mt-8 mx-auto px-4 max-w-7xl py-16 flex-1">
