@@ -1,52 +1,62 @@
 # Stage 1: Build React Frontend
 FROM node:22-alpine AS frontend
 WORKDIR /app
-COPY frontend/package*.json ./
+# Copy the frontend folder into /app/frontend to maintain structure
+COPY frontend ./frontend
+WORKDIR /app/frontend
 RUN npm install --legacy-peer-deps
-COPY frontend ./
-# User's local workflow: build client then build SSR
 RUN npm run build && npm run build:ssr
 
 # Stage 2: Build Go Backend
 FROM golang:1.24-alpine AS backend
 RUN apk add --no-cache gcc musl-dev
 WORKDIR /app
-COPY backend/go.mod backend/go.sum ./
+# Copy the backend folder into /app/backend to maintain structure
+COPY backend ./backend
+WORKDIR /app/backend
 RUN go mod download
-COPY backend ./
 RUN CGO_ENABLED=1 GOOS=linux go build -o server ./cmd/server/main.go
 
 # Stage 3: Final Production Image
-FROM alpine:latest
+# Using node image to have Node.js available for SSR sidecar
+FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache sqlite-libs ca-certificates
 
-# We must maintain the directory structure for the relative paths in main.go
-# main.go is in backend/cmd/server/
+# We recreate the exact structure Go expects via runtime.Caller and relative paths
+# Binary location: /app/backend/cmd/server/server
+# backendRoot (3 levels up): /app/backend
+# From backendRoot:
+#   - uploads: ./uploads -> /app/backend/uploads
+#   - assets: ../frontend/dist/client/assets -> /app/frontend/dist/client/assets
+#   - custom-emojis: ../emoji -> /app/emoji
 
-# Copy binary
+# 1. Copy Backend Binary
 WORKDIR /app/backend/cmd/server
-COPY --from=backend /app/server .
+COPY --from=backend /app/backend/server .
 
-# Copy uploads
-COPY --from=backend /app/uploads ./uploads
+# 2. Copy Backend Uploads (structure)
+WORKDIR /app/backend/uploads
+COPY --from=backend /app/backend/uploads .
 
-# Copy frontend client and server builds (preserving structure)
-WORKDIR /app/frontend/dist
-COPY --from=frontend /app/dist/client ./client
-COPY --from=frontend /app/dist/server ./server
+# 3. Copy Frontend Assets & SSR Sidecar
+WORKDIR /app/frontend
+COPY --from=frontend /app/frontend/dist ./dist
+COPY --from=frontend /app/frontend/server.js .
+COPY --from=frontend /app/frontend/package.json .
+# Install only production dependencies (express) for the sidecar
+RUN npm install --production
 
-# Copy index.html to client (if not already there)
-# Note: relative paths in main.go: ../../../frontend/dist/client/index.html
-
-# Copy emoji directory
+# 4. Copy Emoji Directory
 WORKDIR /app/emoji
 COPY emoji .
 
-# Set WORKDIR back to binary location
+# Set WORKDIR back to binary location for start
 WORKDIR /app/backend/cmd/server
 
 ENV PORT=8080
 ENV GIN_MODE=release
 EXPOSE 8080
+
+# This CMD will be used if startCommand is not set or overridden
 CMD ["./server"]
