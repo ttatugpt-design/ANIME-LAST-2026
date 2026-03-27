@@ -38,9 +38,9 @@ func (r *SQLiteRepository) DB() *gorm.DB {
 func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 	dsn := dbUrl
 	if !strings.Contains(dsn, "?") {
-		dsn += "?_busy_timeout=15000&_journal_mode=WAL&_sync=NORMAL"
+		dsn += "?_busy_timeout=15000&_journal_mode=DELETE"
 	} else {
-		dsn += "&_busy_timeout=15000&_journal_mode=WAL&_sync=NORMAL"
+		dsn += "&_busy_timeout=15000&_journal_mode=DELETE"
 	}
 	
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
