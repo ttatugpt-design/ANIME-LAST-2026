@@ -18,13 +18,14 @@ temp_export/
 *.dll
 *.so
 *.dylib
+backend/main
+backend/server
+backend/test
+backend/tmp_build
 **/main.exe
 **/server.exe
 **/test.exe
-**/main
-**/server
-**/test
-**/tmp_build
+**/tmp_build.exe
 
 # Database (do NOT commit the database, Railway uses its own)
 backend/saas.db
