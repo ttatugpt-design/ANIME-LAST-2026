@@ -455,11 +455,11 @@ export default function WatchPage() {
             setUserReaction(updatedStats.user_reaction || null);
         } catch (err: any) {
             console.error('Failed to toggle reaction:', err);
-            const errorMsg = err.response?.data?.error || err.message;
+            const errorMsg = err?.response?.data?.error || err?.message || 'Unknown error';
             // Revert on error
             setUserReaction(previousReaction);
             setStats(previousCounts as any);
-            toast.error(lang === 'ar' ? 'فشل التفاعل' : 'Failed to react');
+            toast.error(`${lang === 'ar' ? 'فشل التفاعل' : 'Failed to react'}: ${errorMsg}`);
         }
     };
 
