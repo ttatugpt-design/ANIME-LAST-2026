@@ -287,8 +287,9 @@ const ChatPage: React.FC = () => {
                 content: text
             });
             // Handled via WebSocket
-        } catch (err) {
-            toast.error(isRtl ? 'فشل إرسال الرسالة' : 'Failed to send message');
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            toast.error(`${isRtl ? 'فشل إرسال الرسالة' : 'Failed to send message'}: ${errorMsg}`);
             setInputText(text);
         }
     };

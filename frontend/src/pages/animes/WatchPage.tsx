@@ -453,8 +453,9 @@ export default function WatchPage() {
             const updatedStats = await toggleEpisodeReaction(currentEpisode.id, reactionType);
             setStats(prev => ({ ...prev, ...updatedStats }));
             setUserReaction(updatedStats.user_reaction || null);
-        } catch (error) {
-            console.error('Failed to toggle reaction:', error);
+        } catch (err: any) {
+            console.error('Failed to toggle reaction:', err);
+            const errorMsg = err.response?.data?.error || err.message;
             // Revert on error
             setUserReaction(previousReaction);
             setStats(previousCounts as any);

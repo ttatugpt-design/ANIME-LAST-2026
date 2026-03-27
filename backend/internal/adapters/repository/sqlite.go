@@ -40,6 +40,13 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		return nil, err
 	}
 
+	// Optimize SQLite for concurrent access
+	sqlDB, err := db.DB()
+	if err == nil {
+		sqlDB.Exec("PRAGMA busy_timeout = 5000") // 5 seconds wait before giving up on locked DB
+		sqlDB.SetMaxOpenConns(1)                 // SQLite only supports one concurrent writer anyway
+	}
+
 	// Auto Migrate
 	err = db.AutoMigrate(
 		&domain.User{}, &domain.Role{}, &domain.Permission{},
@@ -65,6 +72,19 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		sql    string
 	}{
 		{"comments", "mention_user_id", "ALTER TABLE comments ADD COLUMN mention_user_id INTEGER"},
+		{"comments", "loves", "ALTER TABLE comments ADD COLUMN loves INTEGER DEFAULT 0"},
+		{"comments", "sads", "ALTER TABLE comments ADD COLUMN sads INTEGER DEFAULT 0"},
+		{"comments", "angrys", "ALTER TABLE comments ADD COLUMN angrys INTEGER DEFAULT 0"},
+		{"comments", "wows", "ALTER TABLE comments ADD COLUMN wows INTEGER DEFAULT 0"},
+		{"comments", "hahas", "ALTER TABLE comments ADD COLUMN hahas INTEGER DEFAULT 0"},
+		{"comments", "super_sads", "ALTER TABLE comments ADD COLUMN super_sads INTEGER DEFAULT 0"},
+		{"post_comments", "likes", "ALTER TABLE post_comments ADD COLUMN likes INTEGER DEFAULT 0"},
+		{"post_comments", "loves", "ALTER TABLE post_comments ADD COLUMN loves INTEGER DEFAULT 0"},
+		{"post_comments", "sads", "ALTER TABLE post_comments ADD COLUMN sads INTEGER DEFAULT 0"},
+		{"post_comments", "angrys", "ALTER TABLE post_comments ADD COLUMN angrys INTEGER DEFAULT 0"},
+		{"post_comments", "wows", "ALTER TABLE post_comments ADD COLUMN wows INTEGER DEFAULT 0"},
+		{"post_comments", "hahas", "ALTER TABLE post_comments ADD COLUMN hahas INTEGER DEFAULT 0"},
+		{"post_comments", "super_sads", "ALTER TABLE post_comments ADD COLUMN super_sads INTEGER DEFAULT 0"},
 		{"episodes", "loves_count", "ALTER TABLE episodes ADD COLUMN loves_count INTEGER DEFAULT 0"},
 		{"episodes", "hahas_count", "ALTER TABLE episodes ADD COLUMN hahas_count INTEGER DEFAULT 0"},
 		{"episodes", "wows_count", "ALTER TABLE episodes ADD COLUMN wows_count INTEGER DEFAULT 0"},

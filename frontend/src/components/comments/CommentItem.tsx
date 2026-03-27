@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ThumbsUp, ThumbsDown, Smile, Sparkles, MoreVertical, Edit2, Trash2, CornerDownRight, ChevronDown, ChevronUp, Loader2, SendHorizontal, X, Heart } from 'lucide-react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -342,7 +343,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 ? `/comments/${comment.id}/like`
                 : `/posts/comments/${comment.id}/like`;
             await api.post(url, { type: reactionKey });
-        } catch (error) {
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            toast.error(`${isAr ? 'فشل تحديث التفاعل' : 'Failed to update reaction'}: ${errorMsg}`);
+            // Revert optimistic update
             setUserReaction(previousReaction);
             setReactionCounts(previousCounts);
         }
@@ -550,10 +554,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             }, 500);
             
             onReplySuccess();
-        } catch (error) {
-            console.error("Failed to reply", error);
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            toast.error(`${isAr ? 'فشل إرسال الرد' : 'Failed to send reply'}: ${errorMsg}`);
         } finally {
-            setIsSubmitting(false);
+            setIsSubmitting(false); // Reverted to original logic for setIsSubmitting
+            setIsReplying(false); // Added from instruction
         }
     };
 
@@ -566,8 +572,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             const res = await api.put(url, { content: editText });
             setIsEditing(false);
             onUpdateSuccess(res.data);
-        } catch (error) {
-            console.error("Failed to update", error);
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            toast.error(`${isAr ? 'فشل تحديث التعليق' : 'Failed to update comment'}: ${errorMsg}`);
         }
     };
 
@@ -579,8 +586,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 : `/posts/comments/${comment.id}`;
             await api.delete(url);
             onDeleteSuccess(comment.id);
-        } catch (error) {
-            console.error("Failed to delete", error);
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            toast.error(`${isAr ? 'فشل حذف التعليق' : 'Failed to delete comment'}: ${errorMsg}`);
         }
     };
 

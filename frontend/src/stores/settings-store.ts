@@ -15,8 +15,8 @@ import api from '@/lib/api';
 export const useSettingsStore = create<SettingsState>()(
     // Removed persist middleware to rely on backend source of truth
     (set) => ({
-        appName: 'SaaS Platform',
-        logoUrl: '',
+        appName: 'ANIME LAST',
+        logoUrl: '/uploads/settings/logo_8d118394-7aaa-469a-8e03-3fa43420fadd.png',
         setAppName: (name: string) => set({ appName: name }), // Optimistic update
         setLogoUrl: (url: string) => set({ logoUrl: url }),   // Optimistic update
 

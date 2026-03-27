@@ -2,6 +2,7 @@ package handler
 
 import (
 	"backend/internal/core/service"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -31,7 +32,8 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 
 	msg, err := h.svc.SendMessage(senderID, req.ReceiverID, req.Content, req.ParentID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
+		log.Printf("[SendMessage ERROR] sender: %d, receiver: %d, error: %v", senderID, req.ReceiverID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message: " + err.Error()})
 		return
 	}
 
