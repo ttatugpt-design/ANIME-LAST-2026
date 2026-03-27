@@ -111,15 +111,29 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 }
 
 func (r *SQLiteRepository) Reopen(dbUrl string) error {
-	sqlDB, err := r.db.DB()
-	if err == nil {
-		sqlDB.Close()
+	return r.ReopenWithDSN(dbUrl)
+}
+
+// ReopenWithDSN closes the current DB and opens a fresh connection with the same DSN pragmas.
+// All sub-repositories that share the same *gorm.DB pointer will automatically use the new connection.
+func (r *SQLiteRepository) ReopenWithDSN(dbUrl string) error {
+	dsn := dbUrl
+	if !strings.Contains(dsn, "?") {
+		dsn += "?_busy_timeout=15000&_journal_mode=DELETE"
+	} else {
+		dsn += "&_busy_timeout=15000&_journal_mode=DELETE"
 	}
 
-	newDB, err := gorm.Open(sqlite.Open(dbUrl), &gorm.Config{})
+	newDB, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return err
 	}
+
+	sqlDB, err := newDB.DB()
+	if err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
+
 	r.db = newDB
 	return nil
 }

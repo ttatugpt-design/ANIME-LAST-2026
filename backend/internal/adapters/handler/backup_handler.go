@@ -162,26 +162,38 @@ func (h *BackupHandler) UploadAndRestore(c *gin.Context) {
 }
 
 func (h *BackupHandler) performRestore(backupPath string) error {
-	// 1. Close current DB
-	err := h.repo.Reopen(h.cfg.DBUrl) // This is just to ensure it's re-openable, but wait
-	// Actually, we must CLOSE it, then COPY, then REOPEN.
-	
-	// Let's get the underlying SQL DB to close it
-	sqlDB, _ := h.repo.DB().DB()
-	if sqlDB != nil {
-		sqlDB.Close()
-	}
-
-	// 2. Overwrite saas.db with backup
-	err = h.copyFile(backupPath, h.cfg.DBUrl)
+	// Get the underlying *sql.DB
+	sqlDB, err := h.repo.DB().DB()
 	if err != nil {
-		return fmt.Errorf("failed to copy backup file to live DB: %v", err)
+		return fmt.Errorf("failed to get DB instance: %v", err)
 	}
 
-	// 3. Re-open connection in repository
-	// We need a way to tell the repo to re-open. I added Reopen method.
-	// But since I closed it manually above, I just need to call Reopen with the same path.
-	return h.repo.Reopen(h.cfg.DBUrl)
+	// 1. Flush all pending connections so file is not locked
+	// Set max open conns to 0 to drain them, then reset to 1
+	sqlDB.SetMaxOpenConns(0)
+
+	// 2. Close the underlying connection pool
+	if err := sqlDB.Close(); err != nil {
+		log.Printf("Warning: failed to close DB before restore: %v", err)
+	}
+
+	// 3. Overwrite the live DB file with the backup
+	if err := h.copyFile(backupPath, h.cfg.DBUrl); err != nil {
+		// Try to reopen regardless so the server doesn't stay broken
+		rerr := h.repo.ReopenWithDSN(h.cfg.DBUrl)
+		if rerr != nil {
+			log.Printf("[RESTORE CRITICAL] Failed to reopen DB after failed restore: %v", rerr)
+		}
+		return fmt.Errorf("failed to copy backup to live DB: %v", err)
+	}
+
+	// 4. Reopen the connection with the same pragmas
+	if err := h.repo.ReopenWithDSN(h.cfg.DBUrl); err != nil {
+		return fmt.Errorf("failed to reopen DB after restore: %v", err)
+	}
+
+	log.Printf("[RESTORE] Database restored successfully from %s", backupPath)
+	return nil
 }
 
 func (h *BackupHandler) copyFile(src, dst string) error {
