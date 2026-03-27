@@ -112,14 +112,12 @@ export function Header() {
 
                     {/* Logo */}
                     <Link to={`/${i18n.language}`} className="flex items-center mr-4 transition-transform gap-x-2 hover:scale-105 rtl:ml-4 rtl:mr-0">
-                        {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="w-auto h-9 object-contain" />
-                        ) : (
-                            <div className="h-9 px-2 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold">
-                                A
-                            </div>
-                        )}
-                        <span className="font-bold text-gray-900 dark:text-white hidden sm:block text-xl">{appName || 'ANIME LAST'}</span>
+                        <img 
+                            src="/uploads/settings/logo_8d118394-7aaa-469a-8e03-3fa43420fadd.png" 
+                            alt="Logo" 
+                            className="w-auto h-9 object-contain" 
+                        />
+                        <span className="font-bold text-gray-900 dark:text-white hidden sm:block text-xl uppercase">ANIME LAST</span>
                     </Link>
 
                     {/* Mobile Home & Community Icons - Placed immediately after logo */}
