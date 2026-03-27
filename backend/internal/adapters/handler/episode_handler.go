@@ -4,6 +4,7 @@ import (
 	"backend/internal/adapters/repository"
 	"backend/internal/core/domain"
 	"backend/internal/core/service"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -276,14 +277,16 @@ func (h *EpisodeHandler) ToggleReaction(c *gin.Context) {
 	}
 
 	if err := h.likeRepo.ToggleLike(userID, uint(id), input.Type); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle reaction"})
+		log.Printf("[ToggleReaction ERROR] userID=%d episodeID=%d type=%s err=%v", userID, id, input.Type, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	// Fetch updated episode stats
 	episode, err := h.service.GetByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats"})
+		log.Printf("[ToggleReaction GetByID ERROR] episodeID=%d err=%v", id, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -319,7 +322,8 @@ func (h *EpisodeHandler) GetStats(c *gin.Context) {
 
 	episode, err := h.service.GetByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
+		log.Printf("[GetStats ERROR] episodeID=%d err=%v", id, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"backend/internal/core/port"
 	"backend/internal/core/service"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -91,7 +92,8 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.repo.Create(&comment); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create comment"})
+		log.Printf("[CreateComment ERROR] userID=%d episodeID=%d err=%v", userID, comment.EpisodeID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -354,7 +356,8 @@ func (h *CommentHandler) ToggleLike(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
 	if err := h.repo.ToggleLike(uint(userID), uint(commentID), input.Type); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle reaction"})
+		log.Printf("[ToggleLike ERROR] userID=%d commentID=%d type=%s err=%v", userID, commentID, input.Type, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
