@@ -116,8 +116,8 @@ export function ReportModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={closeModal}>
-            <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border-2 border-gray-900 dark:border-white p-0 gap-0 rounded-none">
-                <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-gray-900 border-2 border-gray-900 dark:border-white p-0 gap-0 rounded-none md:rounded-xl overflow-hidden">
+                <div className="h-full md:max-h-[600px] overflow-y-auto custom-scrollbar">
                     {/* Header with Image and Title */}
                     {episode && (
                         <div className="relative h-64 w-full bg-gray-900 group shrink-0">

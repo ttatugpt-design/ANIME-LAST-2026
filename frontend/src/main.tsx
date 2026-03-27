@@ -18,13 +18,11 @@ flagIconsLink.rel = 'stylesheet';
 flagIconsLink.href = `${apiBase}/flag-icons/css/flag-icons.min.css`;
 document.head.appendChild(flagIconsLink);
 
-import "@fontsource/plus-jakarta-sans/400.css";
-import "@fontsource/plus-jakarta-sans/500.css";
-import "@fontsource/plus-jakarta-sans/600.css";
-import "@fontsource/plus-jakarta-sans/700.css";
+
 
 import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "@/components/theme-provider"
+import { CookieConsent } from "@/components/common/CookieConsent"
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -33,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
           <RouterProvider router={router} />
           <Toaster />
+          <CookieConsent />
         </ThemeProvider>
       </HelmetProvider>
     </QueryClientProvider>

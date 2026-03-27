@@ -25,6 +25,10 @@ func (h *UploadHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
+	// Optional parameters
+	subFolder := c.Query("folder")        // e.g. "manga/Berserk/Chapter 1"
+	useOriginal := c.Query("use_original") // "true" or ""
+
 	// Validate extension
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" && ext != ".gif" {
@@ -32,22 +36,38 @@ func (h *UploadHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
-	// Create uploads directory if not exists
+	// Create uploads directory
 	uploadDir := "./uploads"
+	if subFolder != "" {
+		uploadDir = filepath.Join(uploadDir, subFolder)
+	}
+
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		os.MkdirAll(uploadDir, 0755)
 	}
 
-	// Generate unique filename
-	filename := fmt.Sprintf("%d_%s%s", time.Now().Unix(), uuid.New().String(), ext)
-	filepath := filepath.Join(uploadDir, filename)
+	// Generate filename
+	var filename string
+	if useOriginal == "true" {
+		filename = file.Filename
+	} else {
+		filename = fmt.Sprintf("%d_%s%s", time.Now().Unix(), uuid.New().String(), ext)
+	}
+	
+	destPath := filepath.Join(uploadDir, filename)
 
-	if err := c.SaveUploadedFile(file, filepath); err != nil {
+	if err := c.SaveUploadedFile(file, destPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
-	// Return relative URL
-	url := fmt.Sprintf("/uploads/%s", filename)
-	c.JSON(http.StatusOK, gin.H{"url": url})
+	// Return relative URL (use forward slashes for URLs)
+	finalUrl := ""
+	if subFolder != "" {
+		finalUrl = fmt.Sprintf("/uploads/%s/%s", strings.ReplaceAll(subFolder, "\\", "/"), filename)
+	} else {
+		finalUrl = fmt.Sprintf("/uploads/%s", filename)
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"url": finalUrl})
 }

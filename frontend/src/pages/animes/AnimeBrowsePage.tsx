@@ -3,7 +3,9 @@ import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useTranslation } from "react-i18next";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown } from "lucide-react";
+import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown, List, Share2, Play, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
+import { WatchLaterButton } from "@/components/common/WatchLaterButton";
 import AnimeListHoverCard from "@/components/AnimeListHoverCard";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -29,6 +31,7 @@ import {
 
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { CategoriesMenuContent } from '@/components/header/CategoriesMenuContent';
 
 import { getImageUrl } from '@/utils/image-utils';
 
@@ -37,19 +40,13 @@ export default function AnimeBrowsePage() {
     const { theme, setTheme } = useTheme();
     const isRtl = i18n.language === 'ar';
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(true);
-    const [search, setSearch] = useState("");
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isSearchAnimeModalOpen, setIsSearchAnimeModalOpen] = useState(false);
     const [isFilterAnimeModalOpen, setIsFilterAnimeModalOpen] = useState(false);
 
-    // Simulate initial loading to match Vue
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsLoading(false);
-        }, 1200);
-        return () => clearTimeout(timer);
+        window.scrollTo(0, 0);
     }, []);
 
     const scrollToTop = () => {
@@ -73,8 +70,8 @@ export default function AnimeBrowsePage() {
     const seoTitle = i18n.language === 'ar' ? 'الرئيسية - AnimeLast' : 'Home - AnimeLast';
 
     return (
-        <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white font-sans transition-colors duration-300">
-            <Helmet>
+        <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white transition-colors duration-300 font-sans">
+            <Helmet htmlAttributes={{ lang: i18n.language }} defer={false}>
                 <title>{seoTitle}</title>
             </Helmet>
 
@@ -98,17 +95,8 @@ export default function AnimeBrowsePage() {
                         <SocialNavSidebar />
                     </div>
 
-                    {/* Main Content - wider width */}
-                    <div className="min-w-0 w-full px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center min-h-[60vh]">
-                                <div className="relative w-20 h-20">
-                                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                                </div>
-                            </div>
-                        ) : (
-                            <>
+                    <div className="min-w-0 w-full px-1.5 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5">
+                        <>
                                 {/* Latest Episodes Section - List Design */}
                                 <BrowseSection
                                     title={i18n.language === 'ar' ? 'تصفح انميات الجديدة' : 'Browse New Animes'}
@@ -138,10 +126,21 @@ export default function AnimeBrowsePage() {
                                     lang={i18n.language}
                                 />
 
+                                {/* Latest Manga Section */}
+                                <Section
+                                    title={i18n.language === 'ar' ? 'أحدث المانجا' : 'Latest Manga'}
+                                    endpoint="/animes/type/manga"
+                                    type="manga"
+                                    limit={12}
+                                    showLink={true}
+                                    linkTarget={`/${i18n.language}/mangas`}
+                                    lang={i18n.language}
+                                />
+
                                 {/* Movies Section */}
                                 <Section
                                     title={i18n.language === 'ar' ? 'أفلام مختارة' : 'Selected Movies'}
-                                    endpoint="/animes/type/movie"
+                                    endpoint="/animes/type/Movie"
                                     type="movie"
                                     limit={12}
                                     showLink={true}
@@ -170,8 +169,7 @@ export default function AnimeBrowsePage() {
                                     linkTarget={`/${i18n.language}/animes`}
                                     lang={i18n.language}
                                 />
-                            </>
-                        )}
+                        </>
                     </div>
                     {/* End Main Content */}
                 </div>
@@ -179,7 +177,7 @@ export default function AnimeBrowsePage() {
             </div>
 
             {/* Advanced Footer */}
-            <Footer />
+            {<Footer />}
         </div>
     );
 }
@@ -230,9 +228,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
     const canLoadMore = (type === 'episode' || type === 'anime') && items && items.length >= displayLimit;
 
     const isEpisode = type === 'episode';
-    const gridCols = isEpisode
-        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-6"
-        : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8";
+    const gridCols = "grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-1.5 sm:gap-x-4 gap-y-5 sm:gap-y-8";
 
     return (
         <section className="mb-10" ref={elementRef as React.RefObject<HTMLDivElement>}>
@@ -283,19 +279,17 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
             </div>
 
             {isLoading ? (
-                window.innerWidth < 768 ? (
-                    <AnimeBrowseMobileSkeleton
-                        type={type === 'episode' ? 'episode' : 'anime'}
-                        count={limit}
-                    />
-                ) : (
-                    <CrunchyrollSkeleton
-                        count={limit}
-                        isEpisode={type === 'episode'}
-                        layout="grid"
-                        gridClassName={gridCols}
-                    />
-                )
+                <div className={cn(gridCols, "relative z-0")}>
+                    {Array.from({ length: limit }).map((_, i) => (
+                        <div key={i} className="flex flex-col w-full h-full animate-pulse">
+                            <div className="relative flex-shrink-0 w-full aspect-[3/4] bg-gray-200 dark:bg-neutral-800 rounded-md"></div>
+                            <div className="mt-2.5 flex flex-col items-center flex-1 w-full px-1 gap-2">
+                                <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-800 rounded"></div>
+                                <div className="h-3 w-1/2 bg-gray-200 dark:bg-neutral-800 rounded"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             ) : items?.length > 0 ? (
                 <>
                     <div className={cn(gridCols, "relative z-0")}>
@@ -320,7 +314,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                             <button
                                 onClick={handleLoadMore}
                                 disabled={isLoadingMore}
-                                className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-medium hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-full"
+                                className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
                             >
                                 {isLoadingMore ? (
                                     <div className="flex items-center gap-2">
@@ -346,12 +340,27 @@ import { slugify } from "@/utils/slug";
 // ─── Component: Browse Section ──────────────────────────────────────────────────
 
 function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: string; endpoint: string; lang: string; isRtl: boolean; isEpisodes?: boolean }) {
+    const { elementRef, hasIntersected } = useIntersectionObserver({ threshold: 0.05 });
     const [selectedType, setSelectedType] = useState<'All' | 'TV' | 'Movie'>('All');
     const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
     const [searchQuery] = useState('');
+    const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+    const filterMenuRef = useRef<HTMLDivElement>(null);
 
     const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isFilterMenuOpen && filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+                setIsFilterMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isFilterMenuOpen]);
 
     const handleMouseEnter = (index: number) => {
         if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -374,7 +383,7 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
         queryFn: async ({ pageParam = 1 }) => {
             const params: any = {
                 page: pageParam,
-                limit: 10,
+                limit: 12,
                 letter: selectedLetter || '',
                 search: searchQuery,
                 type: selectedType === 'All' ? '' : selectedType,
@@ -383,10 +392,15 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
             return response.data;
         },
         initialPageParam: 1,
-        getNextPageParam: (lastPage: any, allPages: any[]) =>
-            lastPage.length === 10 ? allPages.length + 1 : undefined,
+        enabled: hasIntersected,
+        getNextPageParam: (lastPage: any, allPages: any[]) => {
+            if (!lastPage || lastPage.length < 12) return undefined;
+            return allPages.length + 1;
+        },
         staleTime: 5 * 60 * 1000,
     });
+
+    const isLoadingState = (!hasIntersected || isLoading) && !data;
 
     const allItems = useMemo(() => data?.pages.flat() || [], [data]);
 
@@ -394,27 +408,71 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
     const lettersDisplay = ALPHABET;
 
     return (
-        <section className="mb-14">
+        <div ref={elementRef as React.RefObject<HTMLDivElement>}>
+        <section className="mb-14" ref={filterMenuRef}>
             {/* Header */}
             <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-6 text-base font-bold">
-                    <button className="flex items-center gap-2 text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                    <button
+                        onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                        className={cn("flex items-center gap-2 text-gray-900 dark:text-white transition-colors", isFilterMenuOpen ? "text-blue-500" : "hover:text-gray-600 dark:hover:text-gray-300")}
+                    >
                         <Filter className="w-5 h-5" />
                         <span>{isRtl ? 'فلتر' : 'Filter'}</span>
+                        <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isFilterMenuOpen && "rotate-180")} />
                     </button>
                     <button className="flex items-center gap-2 text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                         <ArrowUpDown className="w-5 h-5" />
                         <span>{isRtl ? 'أبجدي' : 'Alphabetical'}</span>
                     </button>
+                    {isEpisodes && (
+                        <div className="flex items-center bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-lg">
+                            <button
+                                onClick={() => setLayout('grid')}
+                                className={cn(
+                                    "p-1.5 rounded-md transition-colors",
+                                    layout === 'grid' ? "bg-white dark:bg-[#2a2a2a] shadow-sm text-black dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                )}
+                                title={lang === 'ar' ? "شبكة" : "Grid"}
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setLayout('list')}
+                                className={cn(
+                                    "p-1.5 rounded-md transition-colors",
+                                    layout === 'list' ? "bg-white dark:bg-[#2a2a2a] shadow-sm text-black dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                )}
+                                title={lang === 'ar' ? "قائمة" : "List"}
+                            >
+                                <List className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
                     {title}
                 </h2>
             </div>
 
+            {/* Categories Mega Menu - appears BELOW header row */}
+            <div
+                className={cn(
+                    "w-full z-50 bg-white dark:bg-[#0a0a0a] shadow-2xl border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all duration-300 mb-4",
+                    isFilterMenuOpen
+                        ? "max-h-[800px] opacity-100"
+                        : "max-h-0 opacity-0 pointer-events-none border-transparent dark:border-transparent"
+                )}
+            >
+                <CategoriesMenuContent
+                    onClose={() => setIsFilterMenuOpen(false)}
+                    isVisible={isFilterMenuOpen}
+                />
+            </div>
+
             {/* Alphabet Bar */}
             <div className="w-full border-b border-gray-200 dark:border-neutral-800 py-3 flex justify-center sticky top-[60px] z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md mb-6">
-                <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-sm md:text-base font-bold text-gray-500 dark:text-gray-500 uppercase">
+                <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-sm md:text-base font-bold font-sans text-gray-500 dark:text-gray-500 uppercase">
                     <button
                         onClick={() => setSelectedLetter(null)}
                         className={`hover:text-black dark:hover:text-white transition-colors ${selectedLetter === null ? 'text-black dark:text-white underline decoration-2' : ''}`}
@@ -434,28 +492,52 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
             </div>
 
             {/* Content List */}
-            <div className={isEpisodes ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-6" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8"}>
-                {isLoading ? (
-                    window.innerWidth < 768 ? (
-                        <AnimeBrowseMobileSkeleton type={isEpisodes ? 'episode' : 'anime'} count={12} />
+            <div className={layout === 'list' && isEpisodes ? "flex flex-col gap-2 relative z-0" : "grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-1.5 sm:gap-x-4 gap-y-5 sm:gap-y-8 relative z-0"}>
+                {isLoadingState ? (
+                    layout === 'list' && isEpisodes ? (
+                        Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 animate-pulse">
+                                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-md bg-gray-200 dark:bg-neutral-800 ml-3 rtl:ml-0 rtl:mr-3"></div>
+                                <div className="flex-1 px-2 md:px-3 flex flex-col gap-2">
+                                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-800 rounded"></div>
+                                    <div className="h-3 w-1/2 bg-gray-200 dark:bg-neutral-800 rounded"></div>
+                                </div>
+                            </div>
+                        ))
                     ) : (
-                        <CrunchyrollSkeleton count={12} isEpisode={isEpisodes} layout="grid" className="!bg-transparent" />
+                        Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="flex flex-col w-full h-full animate-pulse">
+                                <div className="relative flex-shrink-0 w-full aspect-[3/4] bg-gray-200 dark:bg-neutral-800 rounded-md"></div>
+                                <div className="mt-2.5 flex flex-col items-center flex-1 w-full px-1 gap-2">
+                                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-800 rounded"></div>
+                                    <div className="h-3 w-1/2 bg-gray-200 dark:bg-neutral-800 rounded"></div>
+                                </div>
+                            </div>
+                        ))
                     )
                 ) : allItems.length > 0 ? (
                     allItems.map((item: any, index: number) => (
-                        <CardItem
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            type={isEpisodes ? 'episode' : 'anime'}
-                            lang={lang}
-                            isHovered={hoveredCardIndex === index}
-                            onMouseEnter={() => handleMouseEnter(index)}
-                            onMouseLeave={handleMouseLeave}
-                            keepCardOpen={() => {
-                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                            }}
-                        />
+                        layout === 'list' && isEpisodes ? (
+                            <ListItem
+                                key={item.id}
+                                item={item}
+                                lang={lang}
+                            />
+                        ) : (
+                            <CardItem
+                                key={item.id}
+                                item={item}
+                                index={index}
+                                type={isEpisodes ? 'episode' : 'anime'}
+                                lang={lang}
+                                isHovered={hoveredCardIndex === index}
+                                onMouseEnter={() => handleMouseEnter(index)}
+                                onMouseLeave={handleMouseLeave}
+                                keepCardOpen={() => {
+                                    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                                }}
+                            />
+                        )
                     ))
                 ) : (
                     <div className="col-span-full text-center py-10 text-gray-500">
@@ -470,7 +552,7 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
                     <button
                         onClick={() => fetchNextPage()}
                         disabled={isFetchingNextPage}
-                        className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black font-bold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
+                        className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
                     >
                         {isFetchingNextPage ? (
                             <>
@@ -484,6 +566,7 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
                 </div>
             )}
         </section>
+        </div>
     );
 }
 
@@ -551,6 +634,87 @@ const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLea
                     />
                 </div>
             )}
+        </div>
+    );
+};
+
+// ─── List Item Design ──────────────────────────────────────────────────────────
+
+const ListItem = ({ item, lang }: any) => {
+    const animeObj = item.anime || item.series;
+    const image = animeObj?.cover || item.cover || item.image || item.banner || item.thumbnail;
+    const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
+    const displayTitle = title || (lang === 'ar' ? 'عنوان غير متوفر' : 'No Title Available');
+
+    // Anime title for subtext and slug
+    const animeTitle = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);
+
+    // SubText is episode number and series title
+    const subText = `${animeTitle} - ${lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`}`;
+
+    const animeId = animeObj?.id || item.anime_id || item.id;
+    const slug = slugify(animeTitle);
+
+    const targetLink = `/${lang}/watch/${animeId}/${item.episode_number}/${slug}`;
+
+    const handleShare = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const url = `${window.location.origin}${targetLink}`;
+        navigator.clipboard.writeText(url);
+        toast.success(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
+    };
+
+    return (
+        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-gray-50 dark:hover:bg-[#222]">
+            <Link to={targetLink} className="flex-1 flex items-center min-w-0">
+                {/* Thumbnail */}
+                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-gray-100 dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative">
+                    <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md fill-white" />
+                    </div>
+                </div>
+
+                {/* Center: Title */}
+                <div className="flex-1 min-w-0 px-2 md:px-3">
+                    <h4 className="text-sm md:text-base font-bold text-gray-900 dark:text-white truncate group-hover:text-blue-500 transition-colors">
+                        {renderEmojiContent(displayTitle)}
+                    </h4>
+                    <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+                        {renderEmojiContent(subText)}
+                    </p>
+                </div>
+            </Link>
+
+            {/* Right: Duration/Number and Actions */}
+            <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end ml-2 rtl:ml-0 rtl:mr-2">
+                {/* Default: Duration or episode number - Hidden on hover */}
+                <span className="text-xs text-gray-400 group-hover:hidden whitespace-nowrap font-medium">
+                    {lang === 'ar' ? `حلقة ${item.episode_number}` : `Ep ${item.episode_number}`}
+                </span>
+
+                {/* Hover Actions - Visible only on hover */}
+                <div className="hidden group-hover:flex items-center gap-1">
+                    <WatchLaterButton
+                        animeId={Number(animeId)}
+                        episodeId={Number(item.id)}
+                        episodeTitle={displayTitle}
+                        episodeNumber={item.episode_number}
+                        episodeImage={getImageUrl(image)}
+                        variant="default"
+                        className="p-1.5 h-8 w-8 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0"
+                        showLabel={false}
+                    />
+                    <button
+                        onClick={handleShare}
+                        className="p-1.5 h-8 w-8 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-colors"
+                        title={lang === 'ar' ? 'نسخ الرابط' : 'Copy Link'}
+                    >
+                        <Share2 className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

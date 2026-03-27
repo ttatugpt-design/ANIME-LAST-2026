@@ -3,8 +3,14 @@ import api from './api';
 export interface EpisodeStats {
     views_count: number;
     likes_count: number;
+    loves_count: number;
+    hahas_count: number;
+    wows_count: number;
+    sads_count: number;
+    angrys_count: number;
+    super_sads_count: number;
     dislikes_count: number;
-    user_reaction?: 'like' | 'dislike' | null;
+    user_reaction?: string | null;
 }
 
 /**
@@ -20,14 +26,14 @@ export const trackEpisodeView = async (episodeId: number): Promise<void> => {
 };
 
 /**
- * Toggle like/dislike reaction for an episode
+ * Toggle reaction for an episode
  */
 export const toggleEpisodeReaction = async (
     episodeId: number,
-    isLike: boolean
+    reactionType: string
 ): Promise<EpisodeStats> => {
     const response = await api.post(`/episodes/${episodeId}/reactions`, {
-        is_like: isLike,
+        type: reactionType,
     });
     return response.data;
 };

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"backend/internal/core/domain"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -14,75 +15,85 @@ func NewEpisodeLikeRepository(db *gorm.DB) *EpisodeLikeRepository {
 	return &EpisodeLikeRepository{db: db}
 }
 
-// ToggleLike toggles the user's like/dislike for an episode
-// If switching from like to dislike or vice versa, it updates both counts
+// ToggleLike toggles the user's reaction for an episode
+// If switching reaction types, it updates both counts
 // If clicking the same reaction twice, it removes the reaction
-func (r *EpisodeLikeRepository) ToggleLike(userID, episodeID uint, isLike bool) error {
+func (r *EpisodeLikeRepository) ToggleLike(userID, episodeID uint, reactionType string) error {
 	var existing domain.EpisodeLike
 	err := r.db.Where("user_id = ? AND episode_id = ?", userID, episodeID).First(&existing).Error
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Helper to get column name for a reaction type
+		getColumnName := func(rtype string) string {
+			switch rtype {
+			case "like":
+				return "likes_count"
+			case "love":
+				return "loves_count"
+			case "haha":
+				return "hahas_count"
+			case "wow":
+				return "wows_count"
+			case "sad":
+				return "sads_count"
+			case "angry":
+				return "angrys_count"
+			case "super_sad":
+				return "super_sads_count"
+			case "dislike":
+				return "dislikes_count"
+			default:
+				return "likes_count"
+			}
+		}
+
 		if err == gorm.ErrRecordNotFound {
 			// No existing reaction - create new one
 			if err := tx.Create(&domain.EpisodeLike{
 				UserID:    userID,
 				EpisodeID: episodeID,
-				IsLike:    isLike,
+				Type:      reactionType,
 			}).Error; err != nil {
 				return err
 			}
 
-			// Increment appropriate counter
-			if isLike {
-				return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-					UpdateColumn("likes_count", gorm.Expr("likes_count + 1")).Error
-			} else {
-				return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-					UpdateColumn("dislikes_count", gorm.Expr("dislikes_count + 1")).Error
-			}
+			// Increment counter
+			column := getColumnName(reactionType)
+			return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
+				UpdateColumn(column, gorm.Expr(column+" + 1")).Error
 		}
 
 		// Existing reaction found
-		if existing.IsLike == isLike {
+		if existing.Type == reactionType {
 			// Clicking same button - remove reaction
 			if err := tx.Delete(&existing).Error; err != nil {
 				return err
 			}
 
-			// Decrement appropriate counter
-			if isLike {
-				return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-					UpdateColumn("likes_count", gorm.Expr("CASE WHEN likes_count > 0 THEN likes_count - 1 ELSE 0 END")).Error
-			} else {
-				return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-					UpdateColumn("dislikes_count", gorm.Expr("CASE WHEN dislikes_count > 0 THEN dislikes_count - 1 ELSE 0 END")).Error
-			}
+			// Decrement counter
+			column := getColumnName(reactionType)
+			return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
+				UpdateColumn(column, gorm.Expr(fmt.Sprintf("CASE WHEN %s > 0 THEN %s - 1 ELSE 0 END", column, column))).Error
 		}
 
-		// Switching from like to dislike or vice versa
-		existing.IsLike = isLike
+		// Switching reaction types
+		oldType := existing.Type
+		existing.Type = reactionType
 		if err := tx.Save(&existing).Error; err != nil {
 			return err
 		}
 
 		// Update both counters
-		if isLike {
-			// Switching to like: increment likes, decrement dislikes
-			if err := tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-				UpdateColumn("likes_count", gorm.Expr("likes_count + 1")).Error; err != nil {
-				return err
-			}
-			return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-				UpdateColumn("dislikes_count", gorm.Expr("CASE WHEN dislikes_count > 0 THEN dislikes_count - 1 ELSE 0 END")).Error
-		} else {
-			// Switching to dislike: increment dislikes, decrement likes
-			if err := tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-				UpdateColumn("dislikes_count", gorm.Expr("dislikes_count + 1")).Error; err != nil {
-				return err
-			}
-			return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
-				UpdateColumn("likes_count", gorm.Expr("CASE WHEN likes_count > 0 THEN likes_count - 1 ELSE 0 END")).Error
+		oldColumn := getColumnName(oldType)
+		newColumn := getColumnName(reactionType)
+
+		if err := tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
+			UpdateColumn(oldColumn, gorm.Expr(fmt.Sprintf("CASE WHEN %s > 0 THEN %s - 1 ELSE 0 END", oldColumn, oldColumn))).Error; err != nil {
+			return err
 		}
+
+		return tx.Model(&domain.Episode{}).Where("id = ?", episodeID).
+			UpdateColumn(newColumn, gorm.Expr(newColumn+" + 1")).Error
 	})
 }
 

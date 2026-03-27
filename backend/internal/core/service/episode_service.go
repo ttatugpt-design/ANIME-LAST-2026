@@ -17,12 +17,16 @@ func (s *EpisodeService) Create(episode *domain.Episode) error {
 	return s.repo.CreateEpisode(episode)
 }
 
-func (s *EpisodeService) GetAll(categoryID uint, letter string, animeType string, order string) ([]domain.Episode, error) {
-	return s.repo.GetAllEpisodes(categoryID, letter, animeType, order)
+func (s *EpisodeService) GetAll(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Episode, error) {
+	return s.repo.GetAllEpisodes(categoryID, letter, search, animeType, order, limit, offset)
 }
 
-func (s *EpisodeService) GetLatest(limit int) ([]domain.Episode, error) {
-	return s.repo.GetLatestEpisodes(limit)
+func (s *EpisodeService) Count(categoryID uint, letter string, search string, animeType string) (int64, error) {
+	return s.repo.CountEpisodes(categoryID, letter, search, animeType)
+}
+
+func (s *EpisodeService) GetLatest(limit, offset int) ([]domain.Episode, error) {
+	return s.repo.GetLatestEpisodes(limit, offset)
 }
 
 func (s *EpisodeService) GetByID(id uint) (*domain.Episode, error) {

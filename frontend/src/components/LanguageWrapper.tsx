@@ -31,7 +31,7 @@ export function LanguageWrapper() {
     useEffect(() => {
         if (lang) {
             if (lang !== 'ar' && lang !== 'en') {
-                const newPath = location.pathname.replace(/^\/[^/]+/, '/en');
+                const newPath = location.pathname.replace(/^\/[^/]+/, '/ar');
                 navigate(newPath, { replace: true });
                 return;
             }

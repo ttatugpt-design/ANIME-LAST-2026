@@ -88,8 +88,8 @@ export default function WatchPage() {
 
     // Episode Stats State
     const [stats, setStats] = useState<EpisodeStats | null>(null);
-    const [userReaction, setUserReaction] = useState<'like' | 'dislike' | null>(null);
-    const [isAnimating, setIsAnimating] = useState<'like' | 'dislike' | null>(null);
+    const [userReaction, setUserReaction] = useState<string | null>(null);
+    const [isAnimating, setIsAnimating] = useState<string | null>(null);
     const [isTheaterMode, setIsTheaterMode] = useState(false);
     const [isPlayerStarted, setIsPlayerStarted] = useState(false);
 
@@ -335,7 +335,7 @@ export default function WatchPage() {
         return () => clearTimeout(timer);
     }, []);
 
-    const handleReaction = async (type: 'like' | 'dislike') => {
+    const handleReaction = async (type: string) => {
         if (!currentEpisode?.id) return;
 
         setIsAnimating(type);
@@ -351,7 +351,7 @@ export default function WatchPage() {
             // relying on API response is safer but slower. 
             // For now, let's just wait for API response which is safer.
 
-            const newStats = await toggleEpisodeReaction(currentEpisode.id, isLike);
+            const newStats = await toggleEpisodeReaction(currentEpisode.id, type);
             setStats(prev => ({ ...prev, ...newStats }));
             setUserReaction(newStats.user_reaction || null);
         } catch (error) {

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash, Check, X as XIcon } from "lucide-react";
+import { Plus, Pencil, Trash, Check, X as XIcon, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,11 +29,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export default function AnimesPage() {
     const queryClient = useQueryClient();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    // Pagination & Search State
+    const [page, setPage] = useState(1);
+    const limit = 20;
+    const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearch = useDebounce(searchQuery, 300);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -57,7 +64,7 @@ export default function AnimesPage() {
         duration: 24,
         trailer: "",
         type: "TV",
-        is_active: true
+        is_published: true
     });
 
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -66,10 +73,25 @@ export default function AnimesPage() {
     const [editingAnime, setEditingAnime] = useState<any>(null);
 
     // Queries
-    const { data: animes, isLoading: isLoadingAnimes } = useQuery({
-        queryKey: ["animes"],
-        queryFn: async () => (await api.get("/animes")).data,
+    const { data: animesData, isLoading: isLoadingAnimes } = useQuery({
+        queryKey: ["animes", "all_admin_anime", page, limit, debouncedSearch],
+        queryFn: async () => {
+            const params = new URLSearchParams({
+                type: "all_admin_anime",
+                page: page.toString(),
+                limit: limit.toString(),
+                paginate: "true"
+            });
+            if (debouncedSearch) {
+                params.append("search", debouncedSearch);
+            }
+            return (await api.get(`/animes?${params.toString()}`)).data;
+        },
+        placeholderData: keepPreviousData,
     });
+
+    const animes = animesData?.data || [];
+    const totalPages = animesData?.last_page || 1;
 
     const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: async () => (await api.get("/categories")).data });
     const { data: types } = useQuery({ queryKey: ["types"], queryFn: async () => (await api.get("/types")).data });
@@ -136,6 +158,38 @@ export default function AnimesPage() {
         },
     });
 
+    const togglePublishedMutation = useMutation({
+        mutationFn: async (anime: any) => {
+            const payload = { ...anime };
+            
+            // Clean up relationships before sending to API
+            delete payload.categories;
+            delete payload.season;
+            delete payload.studio;
+            delete payload.language_rel;
+            
+            payload.is_published = !anime.is_published;
+            
+            // Ensure proper types
+            payload.seasons = parseInt(payload.seasons as any) || 1;
+            payload.rating = parseFloat(payload.rating as any) || 0;
+            payload.duration = parseInt(payload.duration as any) || 24;
+            payload.season_id = parseInt(payload.season_id as any) || 0;
+            payload.studio_id = parseInt(payload.studio_id as any) || 0;
+            payload.language_id = parseInt(payload.language_id as any) || 0;
+            payload.category_ids = anime.categories ? anime.categories.map((c: any) => c.id) : [];
+
+            return await api.put(`/animes/${anime.id}`, payload);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["animes"] });
+            toast.success("Publication status updated");
+        },
+        onError: (err: any) => {
+            toast.error("Failed to update status: " + (err.response?.data?.error || err.message));
+        },
+    });
+
     const deleteMutation = useMutation({
         mutationFn: async (id: number) => {
             await api.delete(`/animes/${id}`);
@@ -152,9 +206,7 @@ export default function AnimesPage() {
     const uploadFile = async (file: File) => {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await api.post("/upload", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+        const res = await api.post("/upload", formData);
         return res.data.url;
     };
 
@@ -182,7 +234,7 @@ export default function AnimesPage() {
         setFormData({
             title: "", title_en: "", slug: "", slug_en: "", description: "", description_en: "",
             category_ids: [], seasons: 1, status: "Ongoing", release_date: "", rating: 0,
-            image: "", icon_image: "", cover: "", duration: 24, trailer: "", type: "TV", is_active: true,
+            image: "", icon_image: "", cover: "", duration: 24, trailer: "", type: "TV", is_published: true,
             season_id: 0, studio_id: 0, language_id: 0
         });
     };
@@ -213,7 +265,7 @@ export default function AnimesPage() {
             duration: anime.duration || 24,
             trailer: anime.trailer || "",
             type: anime.type || "TV",
-            is_active: anime.is_active !== undefined ? anime.is_active : true,
+            is_published: anime.is_published !== undefined ? anime.is_published : true,
             season_id: seasonId,
             studio_id: studioId,
             language_id: languageId
@@ -235,7 +287,11 @@ export default function AnimesPage() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    if (isLoadingAnimes) return <PageLoader />;
+    // Reset page to 1 when search changes
+    const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchQuery(e.target.value);
+        setPage(1);
+    };
 
     return (
         <div className="space-y-6">
@@ -244,38 +300,49 @@ export default function AnimesPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Animes</h2>
                     <p className="text-muted-foreground">Manage anime library.</p>
                 </div>
-                <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={resetForm}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Anime
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col">
-                        <DialogHeader>
-                            <DialogTitle>Add Anime</DialogTitle>
-                            <DialogDescription>
-                                Add a new anime to the database.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <AnimeFormContent
-                            formData={formData}
-                            handleChange={handleChange}
-                            categoryOptions={categoryOptions}
-                            typeOptions={typeOptions}
-                            studioOptions={studioOptions}
-                            languageOptions={languageOptions}
-                            seasonOptions={seasonOptions}
-                            handleImageUpload={handleImageUpload}
-                            uploadingImage={uploadingImage}
-                            uploadingCover={uploadingCover}
-                            onSubmit={handleCreate}
-                            isPending={createMutation.isPending}
-                            onCancel={() => setIsAddModalOpen(false)}
-                            submitLabel="Create Anime"
+                <div className="flex items-center gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search animes..."
+                            className="pl-8 w-[250px]"
+                            value={searchQuery}
+                            onChange={onSearchChange}
                         />
-                    </DialogContent>
-                </Dialog>
+                    </div>
+                    <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                        <DialogTrigger asChild>
+                            <Button onClick={resetForm}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Anime
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col">
+                            <DialogHeader>
+                                <DialogTitle>Add Anime</DialogTitle>
+                                <DialogDescription>
+                                    Add a new anime to the database.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <AnimeFormContent
+                                formData={formData}
+                                handleChange={handleChange}
+                                categoryOptions={categoryOptions}
+                                typeOptions={typeOptions}
+                                studioOptions={studioOptions}
+                                languageOptions={languageOptions}
+                                seasonOptions={seasonOptions}
+                                handleImageUpload={handleImageUpload}
+                                uploadingImage={uploadingImage}
+                                uploadingCover={uploadingCover}
+                                onSubmit={handleCreate}
+                                isPending={createMutation.isPending}
+                                onCancel={() => setIsAddModalOpen(false)}
+                                submitLabel="Create Anime"
+                            />
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             {/* Edit Modal */}
@@ -308,78 +375,120 @@ export default function AnimesPage() {
                     <CardTitle>All Animes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>ID</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Rating</TableHead>
-                                <TableHead>Active</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {animes?.map((anime: any) => (
-                                <TableRow key={anime.id}>
-                                    <TableCell className="font-medium">{anime.id}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex -space-x-2">
-                                                {anime.icon_image && (
-                                                    <img
-                                                        src={anime.icon_image}
-                                                        alt="Icon"
-                                                        className="w-8 h-8 rounded-full border-2 border-background object-cover z-10"
-                                                    />
-                                                )}
-                                                {anime.image && (
-                                                    <img
-                                                        src={anime.image}
-                                                        alt={anime.title}
-                                                        className="w-8 h-12 rounded object-cover shadow-sm"
-                                                    />
-                                                )}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-sm">{anime.title}</span>
-                                                <span className="text-[10px] text-muted-foreground uppercase">{anime.type} • {anime.status}</span>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{anime.status}</TableCell>
-                                    <TableCell>{anime.rating}</TableCell>
-                                    <TableCell>
-                                        {anime.is_active ? <Check className="text-green-500 h-4 w-4" /> : <XIcon className="text-red-500 h-4 w-4" />}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(anime)}>
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteClick(anime.id)}>
-                                                <Trash className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {animes?.length === 0 && (
+                    <div className="rounded-md border relative">
+                        {isLoadingAnimes && animes.length === 0 && (
+                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm h-[400px]">
+                                <PageLoader />
+                            </div>
+                        )}
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">
-                                        No animes found.
-                                    </TableCell>
+                                    <TableHead>ID</TableHead>
+                                    <TableHead>Title</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Rating</TableHead>
+                                    <TableHead>Published</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {animes?.map((anime: any) => (
+                                    <TableRow key={anime.id}>
+                                        <TableCell className="font-medium">{anime.id}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex -space-x-2">
+                                                    {anime.icon_image && (
+                                                        <img
+                                                            src={anime.icon_image}
+                                                            alt="Icon"
+                                                            className="w-8 h-8 rounded-full border-2 border-background object-cover z-10"
+                                                        />
+                                                    )}
+                                                    {anime.image && (
+                                                        <img
+                                                            src={anime.image}
+                                                            alt={anime.title}
+                                                            className="w-8 h-12 rounded object-cover shadow-sm"
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm">{anime.title}</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase">{anime.type} • {anime.status}</span>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{anime.status}</TableCell>
+                                        <TableCell>{anime.rating}</TableCell>
+                                        <TableCell>
+                                            {anime.is_published ? <Check className="text-green-500 h-4 w-4" /> : <XIcon className="text-red-500 h-4 w-4" />}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className={anime.is_published ? "text-red-500 hover:text-red-600" : "text-green-500 hover:text-green-600"}
+                                                    onClick={() => togglePublishedMutation.mutate(anime)}
+                                                    disabled={togglePublishedMutation.isPending}
+                                                >
+                                                    {anime.is_published ? "Draft" : "Publish"}
+                                                </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(anime)}>
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteClick(anime.id)}>
+                                                    <Trash className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {animes?.length === 0 && !isLoadingAnimes && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center h-24">
+                                            No animes found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t">
+                        <p className="text-sm text-muted-foreground">
+                            Page {page} of {totalPages}
+                        </p>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                            >
+                                Next <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Card>
         </div>
     );
 }
 
 // Subcomponent for reuse
+
 export function AnimeFormContent({
     formData, handleChange,
     categoryOptions, typeOptions, studioOptions, languageOptions, seasonOptions,
@@ -545,11 +654,11 @@ export function AnimeFormContent({
                                 </select>
                             </div>
                             <div className="flex items-center gap-2 mt-6">
-                                <Label>Is Active?</Label>
+                                <Label>Is Published?</Label>
                                 <input
                                     type="checkbox"
-                                    checked={formData.is_active}
-                                    onChange={(e) => handleChange('is_active', e.target.checked)}
+                                    checked={formData.is_published}
+                                    onChange={(e) => handleChange('is_published', e.target.checked)}
                                     className="h-4 w-4"
                                 />
                             </div>

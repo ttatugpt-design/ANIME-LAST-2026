@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useSocketStore } from '@/stores/socket-store';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useMessagingStore } from '@/stores/messaging-store';
 
 interface Friend {
     id: number;
@@ -14,14 +15,111 @@ interface Friend {
     avatar?: string;
 }
 
+interface Message {
+    id: number;
+    sender_id: number;
+    receiver_id: number;
+    content: string;
+    is_read: boolean;
+    created_at: string;
+}
+
+interface Conversation {
+    other_user: { id: number; name: string; avatar: string };
+    last_message: Message;
+    unread_count?: number;
+}
+
 import { getImageUrl } from '@/utils/image-utils';
+import { renderEmojiContent } from '@/utils/render-content';
+import { useState, useEffect } from 'react';
 
 export const FriendsSidebar: React.FC = () => {
     const { i18n } = useTranslation();
     const isAr = i18n.language === 'ar';
     const navigate = useNavigate();
     const { user } = useAuthStore();
-    const { onlineUsers } = useSocketStore();
+    const { onlineUsers, typingStatus } = useSocketStore();
+    const { openMessagingModal } = useMessagingStore();
+    const [conversations, setConversations] = useState<Record<number, Conversation>>({});
+
+    const fetchConversations = async () => {
+        if (!user) return;
+        try {
+            const res = await api.get('/messages/conversations');
+            const convs: Conversation[] = res.data.conversations || [];
+            const convMap: Record<number, Conversation> = {};
+            convs.forEach(c => {
+                convMap[c.other_user.id] = c;
+            });
+            setConversations(convMap);
+        } catch (err) {
+            console.error('Failed to fetch conversations for sidebar', err);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchConversations();
+        }
+    }, [user]);
+
+    useEffect(() => {
+        const handleNewMessage = (event: CustomEvent) => {
+            const newMsg = event.detail as Message;
+            const otherUserId = newMsg.sender_id === user?.id ? newMsg.receiver_id : newMsg.sender_id;
+
+            setConversations(prev => {
+                const existing = prev[otherUserId];
+                const updatedConv: Conversation = {
+                    other_user: existing?.other_user || (newMsg.sender_id === user?.id ? (newMsg as any).receiver : (newMsg as any).sender),
+                    last_message: newMsg,
+                    unread_count: (existing?.unread_count || 0) + (newMsg.sender_id === user?.id ? 0 : 1)
+                };
+                return { ...prev, [otherUserId]: updatedConv };
+            });
+        };
+
+        const handleReadReceipt = (event: CustomEvent) => {
+            const { receiver_id } = event.detail;
+            setConversations(prev => {
+                const conv = prev[receiver_id];
+                if (conv && conv.last_message.sender_id === user?.id) {
+                    return {
+                        ...prev,
+                        [receiver_id]: {
+                            ...conv,
+                            last_message: { ...conv.last_message, is_read: true }
+                        }
+                    };
+                }
+                return prev;
+            });
+        };
+
+        const handleConversationRead = (event: CustomEvent) => {
+            const { userId } = event.detail;
+            setConversations(prev => {
+                const conv = prev[userId];
+                if (conv) {
+                    return {
+                        ...prev,
+                        [userId]: { ...conv, unread_count: 0 }
+                    };
+                }
+                return prev;
+            });
+        };
+
+        window.addEventListener('app:chat_message' as any, handleNewMessage as any);
+        window.addEventListener('app:read_receipt' as any, handleReadReceipt as any);
+        window.addEventListener('app:conversation_read' as any, handleConversationRead as any);
+        return () => {
+            window.removeEventListener('app:chat_message' as any, handleNewMessage as any);
+            window.removeEventListener('app:read_receipt' as any, handleReadReceipt as any);
+            window.removeEventListener('app:conversation_read' as any, handleConversationRead as any);
+        };
+    }, [user]);
 
     const { data: friends, isLoading } = useQuery({
         queryKey: ['friends-sidebar', user?.id],
@@ -57,8 +155,8 @@ export const FriendsSidebar: React.FC = () => {
         <div className="flex flex-col h-full">
             <div className="p-4 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-emerald-500" />
-                    <h3 className="font-bold text-gray-900 dark:text-white uppercase tracking-wider text-sm">
+                    <Users className="w-5 h-5 text-black dark:text-white" />
+                    <h3 className="font-bold font-sans text-gray-900 dark:text-white uppercase tracking-wider text-sm">
                         {isAr ? 'الأصدقاء' : 'Friends'}
                     </h3>
                 </div>
@@ -89,11 +187,16 @@ export const FriendsSidebar: React.FC = () => {
                     <div className="space-y-1">
                         {friends.map((friend: Friend) => {
                             const isOnline = onlineUsers.has(friend.id);
+                            const conv = conversations[friend.id];
+                            const lastMsg = conv?.last_message;
+                            const unreadCount = conv?.unread_count || 0;
+                            const isMe = lastMsg?.sender_id === user.id;
+
                             return (
                                 <div
                                     key={friend.id}
-                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer"
-                                    onClick={() => navigate(`/${i18n.language}/u/${user.id}/dashboard/messages?userId=${friend.id}`)}
+                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer relative"
+                                    onClick={() => openMessagingModal(friend)}
                                 >
                                     <div className="relative shrink-0">
                                         <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 dark:bg-[#222]">
@@ -109,19 +212,51 @@ export const FriendsSidebar: React.FC = () => {
                                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#1a1a1a] rounded-full" />
                                         )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                            {friend.name}
-                                        </p>
-                                        <p className={cn(
-                                            "text-[10px] font-medium",
-                                            isOnline ? "text-green-500" : "text-gray-500"
-                                        )}>
-                                            {isOnline ? (isAr ? 'نشط الآن' : 'Active now') : (isAr ? 'غير متصل' : 'Offline')}
-                                        </p>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                        <div className="flex justify-between items-center">
+                                            <p className="text-[17px] font-black font-sans text-gray-900 dark:text-white truncate tracking-tight">
+                                                {friend.name}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1 overflow-visible mt-0.5">
+                                            <div className={cn(
+                                                "text-[16px] truncate flex items-center gap-1.5 min-w-0 flex-1 transition-colors [&_img]:w-6 [&_img]:h-6 [&_img]:shrink-0 [&_img]:align-middle",
+                                                unreadCount > 0 ? "text-black dark:text-white font-bold" : "text-gray-500 dark:text-gray-400 font-medium"
+                                            )}>
+                                                {typingStatus[friend.id] ? (
+                                                    <span className="text-blue-500 font-bold animate-pulse text-[14px]">
+                                                        {isAr ? 'يكتب الآن...' : 'typing now...'}
+                                                    </span>
+                                                ) : lastMsg ? (
+                                                    <>
+                                                        <span className="truncate">
+                                                            {renderEmojiContent(lastMsg.content)}
+                                                        </span>
+                                                        {isMe && lastMsg.is_read && (
+                                                            <div className="shrink-0 w-3.5 h-3.5 rounded-full overflow-hidden border border-white dark:border-[#1a1a1a] shadow-sm opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                <img src={getImageUrl(friend.avatar)} alt="" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className={cn(
+                                                        "transition-colors text-[10px]",
+                                                        isOnline ? "text-green-500" : "text-gray-500"
+                                                    )}>
+                                                        {isOnline ? (isAr ? 'نشط الآن' : 'Active now') : (isAr ? 'غير متصل' : 'Offline')}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {unreadCount > 0 && (
+                                                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-full shadow-sm animate-in zoom-in duration-300">
+                                                    {unreadCount}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <button
-                                        className="p-2 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-500 transition-all"
+                                        className="p-1 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-blue-500 transition-all absolute top-2 left-2"
                                         title={isAr ? 'مراسلة' : 'Message'}
                                     >
                                         <MessageCircle className="w-4 h-4" />
@@ -145,7 +280,7 @@ export const FriendsSidebar: React.FC = () => {
             <div className="p-3 border-t border-gray-100 dark:border-white/5">
                 <button
                     onClick={() => navigate(`/${i18n.language}/u/${user.id}/dashboard/friends`)}
-                    className="w-full py-2 text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors"
+                    className="w-full py-2 text-xs font-bold font-sans text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors"
                 >
                     {isAr ? 'عرض جميع الأصدقاء' : 'View all friends'}
                 </button>

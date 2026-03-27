@@ -8,6 +8,7 @@ import { usePreviewStore } from "@/stores/preview-store";
 import { renderEmojiContent } from "@/utils/render-content";
 import { slugify } from "@/utils/slug";
 import { getImageUrl } from '@/utils/image-utils';
+import { getDetailsUrl } from "@/utils/navigation";
 
 interface AnimeHoverCardProps {
     data: any;
@@ -47,7 +48,7 @@ export default function AnimeHoverCard({ data, lang, onMouseEnter, onMouseLeave,
             const animeId = data.anime_id || data.series_id || data.anime?.id || data.series?.id;
             navigate(`/${lang}/watch/${animeId}/${data.episode_number}/${slug}`);
         } else {
-            navigate(`/${lang}/animes/${data.id}/${slug}`);
+            navigate(getDetailsUrl(data, lang));
         }
     };
 

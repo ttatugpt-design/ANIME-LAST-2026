@@ -70,8 +70,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                             detail: message.data
                         });
                         window.dispatchEvent(customEvent);
-                    } else if (message.type === 'chat_message' || message.type === 'user_blocked' || message.type === 'comment' || message.type === 'comment_like') {
-                        // Dispatch a global event (without adding to notification store)
+                    } else if (['chat_message', 'message_edited', 'message_deleted', 'message_reacted', 'chat_cleared', 'user_blocked', 'comment', 'comment_like'].includes(message.type)) {
+                        // Dispatch global events for these notification/sync types
                         const eventName = message.type === 'user_blocked' ? 'app:user_blocked' : `app:${message.type}`;
                         const customEvent = new CustomEvent(eventName, {
                             detail: message.data

@@ -100,7 +100,7 @@ export default function EpisodesModal({
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent
-                className="max-w-4xl h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222] rounded-none"
+                className="max-w-4xl w-full h-full md:h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222] rounded-none md:rounded-xl"
                 onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 <DialogHeader className="p-4 border-b border-gray-200 dark:border-[#222]">

@@ -200,16 +200,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                     <Sparkles className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
                                 </button>
 
-                                {/* Foreign Media Link */}
-                                <button
-                                    onClick={() => handleNavigation('/movies-series')}
-                                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
-                                >
-                                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
-                                        {isRtl ? 'أفلام ومسلسلات أجنبية' : 'Foreign Media'}
-                                    </span>
-                                    <Film className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                                </button>
+
 
                                 {/* Anime Content (Always Visible) */}
                                 <div className="flex flex-col bg-gray-50 dark:bg-[#151515] pb-4">

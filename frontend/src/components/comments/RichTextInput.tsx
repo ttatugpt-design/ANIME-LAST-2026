@@ -1,11 +1,14 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { replaceEmojiWithHtml } from '@/utils/render-content';
+import { useTranslation } from 'react-i18next';
 
 interface RichTextInputProps {
     value: string;
     onChange: (value: string) => void;
     onFocus?: () => void;
+    onBlur?: () => void;
     onKeyDown?: (e: React.KeyboardEvent) => void;
+    onEnter?: () => void;
     placeholder?: string;
     className?: string;
 }
@@ -14,12 +17,40 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
     value,
     onChange,
     onFocus,
+    onBlur,
     onKeyDown,
+    onEnter,
     placeholder,
     className
 }, ref) => {
+    const { i18n } = useTranslation();
+    const lang = i18n.language;
     const editorRef = useRef<HTMLDivElement>(null);
     const isUpdatingRef = useRef(false);
+    const savedRangeRef = useRef<Range | null>(null);
+
+    const saveSelection = () => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0 && editorRef.current) {
+            const range = selection.getRangeAt(0);
+            if (editorRef.current.contains(range.commonAncestorContainer)) {
+                savedRangeRef.current = range.cloneRange();
+            }
+        }
+    };
+
+    // Save selection on global mousedown so the cursor position is captured
+    // the instant the user clicks away (before blur fires and browser moves focus).
+    useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            // Only relevant when the editor currently has focus
+            if (document.activeElement === editorRef.current) {
+                saveSelection();
+            }
+        };
+        document.addEventListener('mousedown', handleMouseDown, true);
+        return () => document.removeEventListener('mousedown', handleMouseDown, true);
+    }, []);
 
     // Render content with emoji images (Fallback, usually replaceEmojiWithHtml is used)
     const renderContent = (content: string) => {
@@ -36,11 +67,9 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
         const images = temp.querySelectorAll('img');
         images.forEach(img => {
             let src = img.getAttribute('src');
-            // Check if it's an emoji (either by class, alt, or path)
             const isEmoji = img.classList.contains('inline-block') || img.alt === 'emoji' || (src && (src.includes('/custom-emojis/') || src.includes('/storage/')));
 
             if (src && isEmoji) {
-                // Ensure we use the cleaned path for storage
                 let cleanSrc = src;
                 if (cleanSrc.includes('/custom-emojis/')) {
                     cleanSrc = '/custom-emojis/' + cleanSrc.split('/custom-emojis/').pop();
@@ -48,13 +77,34 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
                     cleanSrc = '/' + cleanSrc.split('/storage/').pop();
                 }
 
-                const placeholder = document.createElement('span');
-                placeholder.textContent = `![emoji](${cleanSrc})`;
+                const placeholder = document.createTextNode(`![emoji](${cleanSrc})`);
                 img.replaceWith(placeholder);
             }
         });
 
-        const result = temp.textContent || '';
+        // Handle newlines for <div> (Chrome style) and <br>
+        const processNode = (node: Node): string => {
+            let text = '';
+            node.childNodes.forEach((child) => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    text += child.textContent;
+                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                    const el = child as HTMLElement;
+                    if (el.tagName === 'BR') {
+                        text += '\n';
+                    } else if (el.tagName === 'DIV' || el.tagName === 'P') {
+                        const content = processNode(el);
+                        if (content) text += '\n' + content;
+                        else text += '\n';
+                    } else {
+                        text += processNode(el);
+                    }
+                }
+            });
+            return text;
+        };
+
+        const result = processNode(temp).replace(/^\n/, ''); // Remove leading newline if any
         console.log('Extracted content:', result);
         return result;
     };
@@ -91,24 +141,50 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
     useImperativeHandle(ref, () => ({
         insertEmoji: (emojiUrl: string) => {
             if (editorRef.current) {
-                editorRef.current.focus();
                 const img = document.createElement('img');
                 img.src = emojiUrl;
                 img.alt = 'emoji';
                 img.className = 'inline-block w-6 h-6 align-middle mx-0.5';
                 img.draggable = false;
 
+                // Focus the editor first
+                editorRef.current.focus();
+
                 const selection = window.getSelection();
-                if (selection && selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    range.insertNode(img);
-                    range.setStartAfter(img);
-                    range.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                } else {
-                    editorRef.current.appendChild(img);
+                let range = savedRangeRef.current;
+
+                // Validate or get current selection
+                if (!range || !editorRef.current.contains(range.commonAncestorContainer)) {
+                    if (selection && selection.rangeCount > 0 && editorRef.current.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+                        range = selection.getRangeAt(0);
+                    } else {
+                        // Create a range at the end if none exists
+                        range = document.createRange();
+                        range.selectNodeContents(editorRef.current);
+                        range.collapse(false);
+                    }
+                }
+
+                if (range) {
+                    try {
+                        range.deleteContents();
+                        range.insertNode(img);
+                        
+                        // Create new range precisely after the image
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(img);
+                        newRange.collapse(true);
+                        
+                        selection?.removeAllRanges();
+                        selection?.addRange(newRange);
+                        savedRangeRef.current = newRange.cloneRange();
+                        
+                        // Force focus again to ensure cursor is visible
+                        editorRef.current.focus();
+                    } catch (e) {
+                        console.error("Error inserting emoji", e);
+                        editorRef.current.appendChild(img);
+                    }
                 }
 
                 handleInput();
@@ -117,7 +193,22 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
         insertText: (text: string) => {
             if (editorRef.current) {
                 editorRef.current.focus();
+                
+                const selection = window.getSelection();
+                let range = savedRangeRef.current;
+
+                if (range && selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+                
                 document.execCommand('insertText', false, text);
+                
+                if (selection && selection.rangeCount > 0) {
+                    savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+                }
+                
+                editorRef.current.focus();
                 handleInput();
             }
         },
@@ -144,13 +235,31 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
         <div
             ref={editorRef}
             contentEditable
+            dir="auto"
             onInput={handleInput}
-            onFocus={onFocus}
-            onKeyDown={onKeyDown}
+            onFocus={(e) => {
+                saveSelection();
+                if (onFocus) onFocus();
+            }}
+            onBlur={(e) => {
+                saveSelection();
+                if (onBlur) onBlur();
+            }}
+            onKeyDown={(e) => {
+                saveSelection();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (onEnter) onEnter();
+                    return;
+                }
+                if (onKeyDown) onKeyDown(e);
+            }}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
             onPaste={handlePaste}
             data-placeholder={placeholder}
-            className={`${className} [&:empty:before]:content-[attr(data-placeholder)] [&:empty:before]:text-gray-500 [&:empty:before]:dark:text-gray-600`}
-            style={{ minHeight: '50px', maxHeight: '200px', overflowY: 'auto' }}
+            className={`${className} outline-none focus:outline-none [&:empty:before]:content-[attr(data-placeholder)] [&:empty:before]:text-gray-500 [&:empty:before]:dark:text-gray-600`}
+            style={{ overflowY: 'auto' }}
         />
     );
 });

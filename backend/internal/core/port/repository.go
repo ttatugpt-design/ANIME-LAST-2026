@@ -80,6 +80,7 @@ type AnimeRepository interface {
 	UpdateAnime(anime *domain.Anime) error
 	DeleteAnime(id uint) error
 	SearchAnimes(query string) ([]domain.Anime, error)
+	CountAnimes(categoryID uint, letter string, search string, animeType string) (int64, error)
 }
 
 type TypeRepository interface {
@@ -134,11 +135,12 @@ type WatchLaterRepository interface {
 type EpisodeRepository interface {
 	CreateEpisode(episode *domain.Episode) error
 	GetEpisodeByID(id uint) (*domain.Episode, error)
-	GetAllEpisodes(categoryID uint, letter string, animeType string, order string) ([]domain.Episode, error)
+	GetAllEpisodes(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Episode, error)
+	CountEpisodes(categoryID uint, letter string, search string, animeType string) (int64, error)
 	UpdateEpisode(episode *domain.Episode) error
 	DeleteEpisode(id uint) error
 	GetEpisodesByAnimeID(animeID uint) ([]domain.Episode, error)
-	GetLatestEpisodes(limit int) ([]domain.Episode, error)
+	GetLatestEpisodes(limit, offset int) ([]domain.Episode, error)
 	SearchEpisodes(query string) ([]domain.Episode, error)
 	IncrementEpisodeViews(episodeID uint) error
 }
@@ -165,10 +167,16 @@ type NotificationRepository interface {
 
 type MessageRepository interface {
 	SaveMessage(msg *domain.Message) error
-	GetChatHistory(user1, user2 uint, limit int) ([]domain.Message, error)
+	GetMessageByID(id uint) (*domain.Message, error)
+	GetChatHistory(user1, user2 uint, limit, offset int) ([]domain.Message, error)
 	GetRecentConversations(userID uint) ([]domain.Message, error)
 	MarkAsRead(senderID, receiverID uint) error
 	CountUnreadBetweenUsers(senderID, receiverID uint) (int64, error)
+	UpdateMessage(msg *domain.Message) error
+	DeleteMessage(id uint) error
+	SaveReaction(reaction *domain.MessageReaction) error
+	DeleteReaction(messageID, userID uint) error
+	DeleteAllMessagesBetweenUsers(user1, user2 uint) error
 }
 type CountryRepository interface {
 	CreateCountry(country *domain.Country) error
@@ -185,4 +193,15 @@ type ServerRepository interface {
 	GetAllServers(search string) ([]domain.Server, error)
 	UpdateServer(server *domain.Server) error
 	DeleteServer(id uint) error
+}
+
+type ChapterRepository interface {
+	CreateChapter(chapter *domain.Chapter) error
+	GetChapterByID(id uint) (*domain.Chapter, error)
+	GetAllChapters(animeID uint, search string, limit int, offset int) ([]domain.Chapter, error)
+	CountChapters(animeID uint, search string) (int64, error)
+	UpdateChapter(chapter *domain.Chapter) error
+	DeleteChapter(id uint) error
+	GetChaptersByAnimeID(animeID uint) ([]domain.Chapter, error)
+	IncrementChapterViews(chapterID uint) error
 }

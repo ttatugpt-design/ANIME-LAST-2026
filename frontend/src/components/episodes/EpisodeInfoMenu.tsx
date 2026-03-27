@@ -19,18 +19,6 @@ interface EpisodeInfoMenuProps {
 export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare, isOpen, onClose }: EpisodeInfoMenuProps) {
     const { i18n } = useTranslation();
     const lang = i18n.language;
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Simulate loading effect when opened
-    useEffect(() => {
-        if (isOpen) {
-            setIsLoading(true);
-            const timer = setTimeout(() => {
-                setIsLoading(false);
-            }, 800); // 0.8s loading animation
-            return () => clearTimeout(timer);
-        }
-    }, [isOpen]);
 
     const title = (lang === 'ar' ? episode.title : episode.title_en) || `Episode ${episode.episode_number}`;
     const animeTitle = anime.title;
@@ -40,19 +28,8 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 gap-0 rounded-none">
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-4 min-h-[300px]">
-                        <div className="relative w-12 h-12">
-                            <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                        </div>
-                        <p className="text-sm text-gray-400 font-medium animate-pulse">
-                            {lang === 'ar' ? 'جاري التحميل...' : 'Loading info...'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 gap-0 rounded-none md:rounded-xl overflow-hidden">
+                <div className="h-full md:max-h-[600px] overflow-y-auto custom-scrollbar">
                         {/* Header with Image and Title - reused logic */}
                         <div className="relative h-64 w-full bg-gray-900 group shrink-0">
                             <img
@@ -144,7 +121,6 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
                             </button>
                         </div>
                     </div>
-                )}
             </DialogContent>
         </Dialog>
     );

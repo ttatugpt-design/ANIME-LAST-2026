@@ -108,18 +108,42 @@ func (h *EpisodeHandler) GetAll(c *gin.Context) {
 	// NEW: Support filtering by category, letter, type and order when not filtering by specific anime
 	categoryID, _ := strconv.Atoi(c.Query("category_id"))
 	letter := c.Query("letter")
+	search := c.Query("search")
 	animeType := c.Query("type")
 	order := c.Query("order")
 
+	// Pagination
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	offset := 0
+	if limit > 0 {
+		offset = (page - 1) * limit
+	}
+
 	// No specific anime filter, use general GetAll with filters
-	episodes, err := h.service.GetAll(uint(categoryID), letter, animeType, order)
+	episodes, err := h.service.GetAll(uint(categoryID), letter, search, animeType, order, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	for i := range episodes {
 		h.sanitizeEpisode(&episodes[i])
 	}
+
+	// If pagination is requested explicitly, return metadata
+	if c.Query("paginate") == "true" {
+		total, _ := h.service.Count(uint(categoryID), letter, search, animeType)
+		c.JSON(http.StatusOK, gin.H{
+			"data":      episodes,
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
+			"last_page": (total + int64(limit) - 1) / int64(limit),
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, episodes)
 }
 
@@ -165,7 +189,15 @@ func (h *EpisodeHandler) Delete(c *gin.Context) {
 
 func (h *EpisodeHandler) GetLatest(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	episodes, err := h.service.GetLatest(limit)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	offset, _ := strconv.Atoi(c.Query("offset"))
+
+	// if offset is not provided but page is, calculate offset
+	if offset == 0 && page > 1 {
+		offset = (page - 1) * limit
+	}
+
+	episodes, err := h.service.GetLatest(limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -232,14 +264,18 @@ func (h *EpisodeHandler) ToggleReaction(c *gin.Context) {
 	}
 
 	var input struct {
-		IsLike bool `json:"is_like"`
+		Type string `json:"type"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.likeRepo.ToggleLike(userID, uint(id), input.IsLike); err != nil {
+	if input.Type == "" {
+		input.Type = "like"
+	}
+
+	if err := h.likeRepo.ToggleLike(userID, uint(id), input.Type); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle reaction"})
 		return
 	}
@@ -255,19 +291,19 @@ func (h *EpisodeHandler) ToggleReaction(c *gin.Context) {
 	reaction, _ := h.likeRepo.GetUserReaction(userID, uint(id))
 	var userReaction *string
 	if reaction != nil {
-		if reaction.IsLike {
-			val := "like"
-			userReaction = &val
-		} else {
-			val := "dislike"
-			userReaction = &val
-		}
+		userReaction = &reaction.Type
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"likes_count":    episode.LikesCount,
-		"dislikes_count": episode.DislikesCount,
-		"user_reaction":  userReaction,
+		"likes_count":      episode.LikesCount,
+		"loves_count":      episode.LovesCount,
+		"hahas_count":      episode.HahasCount,
+		"wows_count":       episode.WowsCount,
+		"sads_count":       episode.SadsCount,
+		"angrys_count":     episode.AngrysCount,
+		"super_sads_count": episode.SuperSadsCount,
+		"dislikes_count":   episode.DislikesCount,
+		"user_reaction":    userReaction,
 	})
 }
 
@@ -291,13 +327,7 @@ func (h *EpisodeHandler) GetStats(c *gin.Context) {
 	if userID > 0 {
 		reaction, _ := h.likeRepo.GetUserReaction(userID, uint(id))
 		if reaction != nil {
-			if reaction.IsLike {
-				val := "like"
-				userReaction = &val
-			} else {
-				val := "dislike"
-				userReaction = &val
-			}
+			userReaction = &reaction.Type
 		}
 	}
 
@@ -307,10 +337,16 @@ func (h *EpisodeHandler) GetStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"views_count":    episode.ViewsCount,
-		"likes_count":    episode.LikesCount,
-		"dislikes_count": episode.DislikesCount,
-		"comments_count": commentsCount,
-		"user_reaction":  userReaction,
+		"views_count":      episode.ViewsCount,
+		"likes_count":      episode.LikesCount,
+		"loves_count":      episode.LovesCount,
+		"hahas_count":      episode.HahasCount,
+		"wows_count":       episode.WowsCount,
+		"sads_count":       episode.SadsCount,
+		"angrys_count":     episode.AngrysCount,
+		"super_sads_count": episode.SuperSadsCount,
+		"dislikes_count":   episode.DislikesCount,
+		"comments_count":   commentsCount,
+		"user_reaction":    userReaction,
 	})
 }

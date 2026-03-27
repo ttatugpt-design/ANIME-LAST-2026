@@ -34,7 +34,6 @@ export default function AnimeDetailsPage() {
     // State
     const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
-    const [isLoadingDelay, setIsLoadingDelay] = useState(true);
 
     // Hover state management for episodes
     const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
@@ -106,15 +105,7 @@ export default function AnimeDetailsPage() {
         }
     }, [anime, id, currentSlug, lang, navigate]);
 
-    // Simulate initial loading delay for smooth transition (matching Vue)
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsLoadingDelay(false);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, []);
-
-    const isLoading = isQueryLoading || isLoadingDelay;
+    const isLoading = isQueryLoading;
 
     // Combine episodes from anime object or separate fetch and strictly filter
     const episodesList = useMemo(() => {

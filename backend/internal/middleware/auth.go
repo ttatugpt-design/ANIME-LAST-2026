@@ -49,3 +49,36 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func OptionalAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		var tokenStr string
+
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenStr = parts[1]
+			}
+		}
+
+		if tokenStr == "" {
+			tokenStr = strings.TrimSpace(c.Query("token"))
+		}
+
+		if tokenStr == "" {
+			c.Next()
+			return
+		}
+
+		claims, err := token.ValidateToken(tokenStr, cfg.JWTSecret)
+		if err != nil {
+			c.Next()
+			return
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("role", claims.Role)
+		c.Next()
+	}
+}

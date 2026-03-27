@@ -25,7 +25,7 @@ func SeedDeathNote(db *gorm.DB) {
 		Duration:      23,
 		Language:      "Japan", // Mapped to seeded Language NameEn
 		Type:          "TV",    // Mapped to seeded Type NameEn
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2006-10-04")
 
@@ -52,7 +52,7 @@ func SeedNaruto(db *gorm.DB) {
 		Duration:      23,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2002-10-03")
 
@@ -76,7 +76,7 @@ func SeedOnePiece(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "1999-10-20")
 
@@ -100,7 +100,7 @@ func SeedShingeki(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2019-04-29")
 

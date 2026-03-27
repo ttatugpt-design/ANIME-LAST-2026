@@ -10,6 +10,8 @@ import { useSocketStore } from '@/stores/socket-store';
 import { renderEmojiContent } from '@/utils/render-content';
 import api from '@/lib/api';
 import { getImageUrl } from '@/utils/image-utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMessagingStore } from '@/stores/messaging-store';
 
 interface Message {
     id: number;
@@ -41,6 +43,7 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
     const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
     const { onlineUsers, typingStatus } = useSocketStore();
+    const { openMessagingModal } = useMessagingStore();
 
     const [isOpen, setIsOpen] = useState(false);
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -69,6 +72,25 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
             fetchConversations();
         }
     }, [currentUser]);
+
+    // Prevent scroll and handle back button when menu is open on mobile
+    useEffect(() => {
+        if (isOpen && window.innerWidth < 1024) {
+            document.body.style.overflow = 'hidden';
+            window.history.pushState({ menuOpen: true }, '');
+            const handlePopState = () => {
+                setIsOpen(false);
+            };
+            window.addEventListener('popstate', handlePopState);
+            return () => {
+                document.body.style.overflow = 'unset';
+                window.removeEventListener('popstate', handlePopState);
+            };
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
 
     // Realtime updates
     useEffect(() => {
@@ -142,7 +164,7 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
     }, []);
 
     const handleConversationClick = (conv: Conversation) => {
-        navigate(`/${lang}/u/${currentUser?.id}/dashboard/messages?userId=${conv.other_user.id}`);
+        openMessagingModal(conv.other_user);
         setIsOpen(false);
     };
 
@@ -157,34 +179,43 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Trigger Button */}
-            <button
-                onClick={() => {
-                    const nextState = !isOpen;
-                    setIsOpen(nextState);
-                    if (nextState && onOpenChange) {
-                        onOpenChange(true);
-                    }
-                }}
-                className={cn(
-                    "relative p-2.5 transition-all duration-300 rounded-full group",
-                    isOpen
-                        ? "bg-gray-100 dark:bg-zinc-800 text-black dark:text-white"
-                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
-                )}
-            >
-                <MessageCircle className="w-6 h-6 stroke-[2.5px]" />
-                {unreadTotal > 0 && (
-                    <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 bg-black dark:bg-white text-white dark:text-black text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-[#1f1f1f] animate-in zoom-in duration-300">
-                        {unreadTotal > 99 ? '+99' : unreadTotal}
-                    </span>
-                )}
-            </button>
+            <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <button
+                            onClick={() => {
+                                const nextState = !isOpen;
+                                setIsOpen(nextState);
+                                if (nextState && onOpenChange) {
+                                    onOpenChange(true);
+                                }
+                            }}
+                            className={cn(
+                                "relative p-2.5 transition-all duration-300 rounded-full group",
+                                isOpen
+                                    ? "bg-gray-100 dark:bg-zinc-800 text-black dark:text-white"
+                                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
+                            )}
+                        >
+                            <MessageCircle className="w-6 h-6 stroke-[2.5px]" />
+                            {unreadTotal > 0 && (
+                                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 bg-black dark:bg-white text-white dark:text-black text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-[#1f1f1f] animate-in zoom-in duration-300">
+                                    {unreadTotal > 99 ? '+99' : unreadTotal}
+                                </span>
+                            )}
+                        </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                        <p>{isRtl ? 'الرسائل' : 'Messages'}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
 
             {/* Dropdown Menu */}
             {isOpen && (
                 <div
                     className={cn(
-                        "fixed top-[60px] left-0 right-0 bottom-0 z-[100] flex flex-col bg-white dark:bg-[#111] lg:absolute lg:inset-auto lg:top-full lg:mt-2 lg:w-[450px] lg:max-h-[600px] lg:rounded-none lg:shadow-[0_20px_50px_rgba(0,0,0,0.3)] lg:border lg:border-gray-200 lg:dark:border-white/10 overflow-hidden",
+                        "fixed top-[60px] left-0 right-0 bottom-0 z-[100] flex flex-col bg-white dark:bg-[#111] lg:absolute lg:inset-auto lg:top-full lg:mt-2 lg:w-[450px] lg:max-h-[600px] lg:rounded-2xl lg:shadow-[0_20px_50px_rgba(0,0,0,0.3)] lg:border lg:border-gray-200 lg:dark:border-white/10 overflow-hidden",
                         isRtl ? "lg:left-0 lg:origin-top-left" : "lg:right-0 lg:origin-top-right"
                     )}
                     dir={isRtl ? 'rtl' : 'ltr'}

@@ -55,16 +55,7 @@ export default function PostDetailPage() {
                     {/* Main Content */}
                     <div className="col-span-1 lg:col-span-6 px-0 md:px-6 pb-6 space-y-4">
                         <div className="max-w-[580px] mx-auto space-y-4">
-                            {/* Back Button */}
-                            <button
-                                onClick={() => navigate(-1)}
-                                className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors p-2"
-                            >
-                                <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
-                                {isAr ? 'العودة' : 'Back'}
-                            </button>
-
-                            {isLoading ? (
+                             {isLoading ? (
                                 <div className="flex items-center justify-center min-h-[40vh]">
                                     <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
                                 </div>

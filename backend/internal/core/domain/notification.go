@@ -66,6 +66,7 @@ type NotificationType string
 
 const (
 	NotificationTypeReply                 NotificationType = "reply"
+	NotificationTypeComment               NotificationType = "comment" // Root-level comments on posts
 	NotificationTypeLike                  NotificationType = "like"
 	NotificationTypeSystem                NotificationType = "system"
 	NotificationTypeNewPost               NotificationType = "new_post" // New anime/episode

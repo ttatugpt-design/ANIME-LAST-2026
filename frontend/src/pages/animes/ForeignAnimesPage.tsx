@@ -68,7 +68,7 @@ export default function ForeignAnimesPage() {
     // Queries
     const { data: animes, isLoading: isLoadingAnimes } = useQuery({
         queryKey: ["foreign-animes"],
-        queryFn: async () => (await api.get("/animes?type=foreign")).data,
+        queryFn: async () => (await api.get("/animes?type=foreign&limit=0")).data,
     });
 
     const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: async () => (await api.get("/categories")).data });

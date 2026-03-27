@@ -47,6 +47,7 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	var input struct {
 		Content       string `json:"content" binding:"required"`
 		EpisodeID     uint   `json:"episode_id"` // Optional if passing via param
+		ChapterID     uint   `json:"chapter_id"` // Optional if passing via param
 		ParentID      *uint  `json:"parent_id"`
 		MentionUserID *uint  `json:"mention_user_id"`
 	}
@@ -56,11 +57,17 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// If episode ID is in param, override
-	episodeIDParam := c.Param("id")
-	if episodeIDParam != "" {
-		id, _ := strconv.Atoi(episodeIDParam)
-		input.EpisodeID = uint(id)
+	// If ID is in param, we need to know if it's episode or chapter
+	idParam := c.Param("id")
+	if idParam != "" {
+		id, _ := strconv.Atoi(idParam)
+		// How do we know if it's episode or chapter? 
+		// Usually by the path. Let's check the path.
+		if strings.Contains(c.Request.URL.Path, "episodes") {
+			input.EpisodeID = uint(id)
+		} else if strings.Contains(c.Request.URL.Path, "chapters") {
+			input.ChapterID = uint(id)
+		}
 	}
 
 	userID := c.GetUint("user_id")
@@ -71,10 +78,16 @@ func (h *CommentHandler) Create(c *gin.Context) {
 
 	comment := domain.Comment{
 		Content:       input.Content,
-		EpisodeID:     input.EpisodeID,
 		UserID:        userID,
 		ParentID:      input.ParentID,
 		MentionUserID: input.MentionUserID,
+	}
+
+	if input.EpisodeID != 0 {
+		comment.EpisodeID = input.EpisodeID
+	}
+	if input.ChapterID != 0 {
+		comment.ChapterID = &input.ChapterID
 	}
 
 	if err := h.repo.Create(&comment); err != nil {
@@ -92,9 +105,27 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		parent, err := h.repo.GetByID(*comment.ParentID)
 		if err == nil {
 			// Rich metadata for notifications
-			animeTitle := parent.Episode.Anime.Title
-			animeImage := parent.Episode.Anime.Image
-			epNum := parent.Episode.EpisodeNumber
+			var animeTitle, animeImage, contextThumb string
+			var animeID, contextID uint
+			var contextNum float64
+
+			if parent.EpisodeID != 0 {
+				animeTitle = parent.Episode.Anime.Title
+				animeImage = parent.Episode.Anime.Image
+				epNum := parent.Episode.EpisodeNumber
+				animeID = parent.Episode.AnimeID
+				contextID = parent.EpisodeID
+				contextNum = float64(epNum)
+				contextThumb = parent.Episode.Thumbnail
+			} else if parent.ChapterID != nil {
+				animeTitle = parent.Chapter.Anime.Title
+				animeImage = parent.Chapter.Anime.Image
+				chNum := parent.Chapter.ChapterNumber
+				animeID = parent.Chapter.AnimeID
+				contextID = *parent.ChapterID
+				contextNum = float64(chNum)
+				contextThumb = parent.Chapter.Anime.Image
+			}
 
 			dataPayload := gin.H{
 				"comment_id":      comment.ID,
@@ -104,17 +135,50 @@ func (h *CommentHandler) Create(c *gin.Context) {
 				"actor_avatar":    comment.User.Avatar,
 				"comment_content": parent.Content,
 				"reply_content":   comment.Content,
-				"anime_id":        parent.Episode.AnimeID,
+				"anime_id":        animeID,
 				"anime_title":     animeTitle,
 				"anime_image":     animeImage,
-				"episode_id":      parent.EpisodeID,
-				"episode_number":  epNum,
-				"episode_image":   parent.Episode.Thumbnail,
+				"episode_id":      contextID, // Reuse episode_id key for front-end compatibility or use context keys
+				"chapter_id":      parent.ChapterID,
+				"episode_number":  contextNum,
+				"episode_image":   contextThumb,
+				"is_reply_to_reply": parent.ParentID != nil && *parent.ParentID != 0,
+			}
+			if parent.Parent != nil && parent.Parent.User != nil {
+				dataPayload["parent_target_name"] = parent.Parent.User.Name
 			}
 			dataJSON, _ := json.Marshal(dataPayload)
 
-			// 1. Notify Parent Owner (if not the same user)
-			if parent.UserID != userID {
+			parentOwnerNotified := false
+
+			// 1. Notify Mentioned User (if different from current user)
+			if comment.MentionUserID != nil && *comment.MentionUserID != userID {
+				// Use the specific reply from the mentioned user as the context if found
+				mentionDataJSON := dataJSON
+				if mentionedUserReply, err := h.repo.GetMostRecentByUserAndParent(*comment.MentionUserID, parent.ID); err == nil && mentionedUserReply != nil {
+					// Create a specialized payload for the mentioned user
+					mentionDataPayload := make(gin.H)
+					for k, v := range dataPayload { mentionDataPayload[k] = v }
+					mentionDataPayload["comment_content"] = mentionedUserReply.Content
+					mentionDataPayload["is_reply_to_reply"] = true // It's a reply to their specific reply
+					mentionDataJSON, _ = json.Marshal(mentionDataPayload)
+				}
+
+				notif := &domain.Notification{
+					UserID: *comment.MentionUserID,
+					Type:   domain.NotificationTypeReply,
+					Data:   mentionDataJSON,
+				}
+				h.notifRepo.Create(notif)
+				h.hub.SendToUser(*comment.MentionUserID, gin.H{"type": "notification", "data": notif})
+
+				if *comment.MentionUserID == parent.UserID {
+					parentOwnerNotified = true
+				}
+			}
+
+			// 2. Notify Parent Owner (if not the same user, and hasn't just been notified as a Mentioned User)
+			if parent.UserID != userID && !parentOwnerNotified {
 				notif := &domain.Notification{
 					UserID: parent.UserID,
 					Type:   domain.NotificationTypeReply,
@@ -123,18 +187,6 @@ func (h *CommentHandler) Create(c *gin.Context) {
 				h.notifRepo.Create(notif)
 				h.hub.SendToUser(parent.UserID, gin.H{"type": "notification", "data": notif})
 			}
-
-			// 2. Notify Mentioned User (if different from current user AND different from parent owner)
-			// This covers the YouTube-style "Reply to a Reply" scenario
-			if comment.MentionUserID != nil && *comment.MentionUserID != userID && *comment.MentionUserID != parent.UserID {
-				notif := &domain.Notification{
-					UserID: *comment.MentionUserID,
-					Type:   domain.NotificationTypeReply, // Or a specific TypeMention if added to domain
-					Data:   dataJSON,
-				}
-				h.notifRepo.Create(notif)
-				h.hub.SendToUser(*comment.MentionUserID, gin.H{"type": "notification", "data": notif})
-			}
 		}
 
 		// Track History
@@ -142,15 +194,32 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		if parent != nil && parent.User != nil {
 			repliedToUser = parent.User.Name
 		}
-		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "replied_to_user": "` + escapeJSON(repliedToUser) + `", "episode_id": ` + strconv.Itoa(int(comment.EpisodeID)) + `}`
-		go h.historyService.TrackWithMetadata(userID, domain.ActivityReply, &comment.EpisodeID, nil, &comment.ID, metadata, "")
+		var contextID uint
+		if comment.EpisodeID != 0 {
+			contextID = comment.EpisodeID
+		} else if comment.ChapterID != nil {
+			contextID = *comment.ChapterID
+		}
+		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "replied_to_user": "` + escapeJSON(repliedToUser) + `", "id": ` + strconv.Itoa(int(contextID)) + `}`
+		go h.historyService.TrackWithMetadata(userID, domain.ActivityReply, &contextID, nil, &comment.ID, metadata, "")
 	} else {
-		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "episode_id": ` + strconv.Itoa(int(comment.EpisodeID)) + `}`
-		go h.historyService.TrackWithMetadata(userID, domain.ActivityComment, &comment.EpisodeID, nil, &comment.ID, metadata, "")
+		var contextID uint
+		if comment.EpisodeID != 0 {
+			contextID = comment.EpisodeID
+		} else if comment.ChapterID != nil {
+			contextID = *comment.ChapterID
+		}
+		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "id": ` + strconv.Itoa(int(contextID)) + `}`
+		go h.historyService.TrackWithMetadata(userID, domain.ActivityComment, &contextID, nil, &comment.ID, metadata, "")
 	}
 
-	// Broadcast to episode topic for real-time updates
-	topic := "episode:" + strconv.Itoa(int(comment.EpisodeID))
+	// Broadcast to episode/chapter topic for real-time updates
+	topic := ""
+	if comment.EpisodeID != 0 {
+		topic = "episode:" + strconv.Itoa(int(comment.EpisodeID))
+	} else if comment.ChapterID != nil {
+		topic = "chapter:" + strconv.Itoa(int(*comment.ChapterID))
+	}
 	h.hub.BroadcastToTopic(topic, gin.H{
 		"type": "comment",
 		"data": comment,
@@ -159,7 +228,7 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, comment)
 }
 
-// GetAllByEpisode fetches comments for an episode
+// GetAllByEpisode fetches comments for an episode (paginated)
 func (h *CommentHandler) GetAllByEpisode(c *gin.Context) {
 	episodeID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -167,16 +236,106 @@ func (h *CommentHandler) GetAllByEpisode(c *gin.Context) {
 		return
 	}
 
+	// Get current user ID (optional - may be 0 if unauthenticated)
+	userIDValue, _ := c.Get("user_id")
+	currentUserID, _ := userIDValue.(uint)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
+
+	attachUserReactions := func(comments []domain.Comment) {
+		if currentUserID == 0 { return }
+		for i := range comments {
+			reactionType := h.repo.GetCommentLikeStatus(currentUserID, comments[i].ID)
+			if reactionType != "" {
+				comments[i].UserReaction = &reactionType
+			}
+			for j := range comments[i].Children {
+				rt := h.repo.GetCommentLikeStatus(currentUserID, comments[i].Children[j].ID)
+				if rt != "" {
+					comments[i].Children[j].UserReaction = &rt
+				}
+			}
+		}
+	}
+
+	if page > 0 {
+		// Paginated mode
+		if limit <= 0 { limit = 10 }
+		comments, total, err := h.repo.GetByEpisodeIDPaginated(uint(episodeID), page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
+			return
+		}
+		attachUserReactions(comments)
+		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+		c.JSON(http.StatusOK, comments)
+		return
+	}
+
+	// Non-paginated fallback (legacy)
 	comments, err := h.repo.GetByEpisodeID(uint(episodeID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
 		return
 	}
-
+	attachUserReactions(comments)
 	c.JSON(http.StatusOK, comments)
 }
 
-// ToggleLike
+// GetAllByChapter fetches comments for a chapter (paginated)
+func (h *CommentHandler) GetAllByChapter(c *gin.Context) {
+	chapterID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid chapter ID"})
+		return
+	}
+
+	userIDValue, _ := c.Get("user_id")
+	currentUserID, _ := userIDValue.(uint)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
+
+	attachUserReactions := func(comments []domain.Comment) {
+		if currentUserID == 0 { return }
+		for i := range comments {
+			reactionType := h.repo.GetCommentLikeStatus(currentUserID, comments[i].ID)
+			if reactionType != "" {
+				comments[i].UserReaction = &reactionType
+			}
+			for j := range comments[i].Children {
+				rt := h.repo.GetCommentLikeStatus(currentUserID, comments[i].Children[j].ID)
+				if rt != "" {
+					comments[i].Children[j].UserReaction = &rt
+				}
+			}
+		}
+	}
+
+	if page > 0 {
+		if limit <= 0 { limit = 10 }
+		comments, total, err := h.repo.GetByChapterIDPaginated(uint(chapterID), page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
+			return
+		}
+		attachUserReactions(comments)
+		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+		c.JSON(http.StatusOK, comments)
+		return
+	}
+
+	comments, err := h.repo.GetByChapterID(uint(chapterID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
+		return
+	}
+	attachUserReactions(comments)
+	c.JSON(http.StatusOK, comments)
+}
+
+// ToggleLike handles reactions for episode/chapter comments
 func (h *CommentHandler) ToggleLike(c *gin.Context) {
 	commentID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -185,86 +344,111 @@ func (h *CommentHandler) ToggleLike(c *gin.Context) {
 	}
 
 	var input struct {
-		IsLike bool `json:"is_like"`
+		Type string `json:"type" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Reaction type is required"})
 		return
 	}
 
 	userID := c.GetUint("user_id")
 
-	if err := h.repo.ToggleLike(uint(userID), uint(commentID), input.IsLike); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle like"})
+	if err := h.repo.ToggleLike(uint(userID), uint(commentID), input.Type); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle reaction"})
 		return
 	}
 
-	// NOTIFICATION LOGIC: Like
-	if input.IsLike {
-		// Fetch comment to get owner and context
-		target, err := h.repo.GetByID(uint(commentID))
-		if err == nil {
-			if target.UserID != userID {
-				// Fetch actor profile for rich notification data
-				actor, _ := h.userRepo.GetUserByID(userID)
-				actorName := "User"
-				actorAvatar := ""
-				if actor != nil {
-					actorName = actor.Name
-					actorAvatar = actor.Avatar
-				}
-
-				dataPayload := gin.H{
-					"comment_id":      target.ID,
-					"parent_id":       target.ParentID,
-					"actor_id":        userID,
-					"actor_name":      actorName,
-					"actor_avatar":    actorAvatar,
-					"comment_content": target.Content,
-					"anime_id":        target.Episode.AnimeID,
-					"anime_title":     target.Episode.Anime.Title,
-					"anime_image":     target.Episode.Anime.Image,
-					"episode_id":      target.EpisodeID,
-					"episode_number":  target.Episode.EpisodeNumber,
-					"episode_image":   target.Episode.Thumbnail,
-				}
-
-				dataJSON, _ := json.Marshal(dataPayload)
-
-				notif := &domain.Notification{
-					UserID: target.UserID,
-					Type:   domain.NotificationTypeLike,
-					Data:   dataJSON,
-				}
-				h.notifRepo.Create(notif)
-
-				// Broadcast via WebSocket (Direct notification)
-				h.hub.SendToUser(target.UserID, gin.H{
-					"type": "notification",
-					"data": notif,
-				})
+	// NOTIFICATION LOGIC: Reaction Notification
+	target, err := h.repo.GetByID(uint(commentID))
+	if err == nil {
+		if target.UserID != userID {
+			// Fetch actor profile for rich notification data
+			actor, _ := h.userRepo.GetUserByID(userID)
+			actorName := "User"
+			actorAvatar := ""
+			if actor != nil {
+				actorName = actor.Name
+				actorAvatar = actor.Avatar
 			}
 
-			// Broadcast like update to episode topic (For real-time count updates for everyone)
-			topic := "episode:" + strconv.Itoa(int(target.EpisodeID))
-			h.hub.BroadcastToTopic(topic, gin.H{
-				"type": "comment_like",
-				"data": gin.H{
-					"comment_id": commentID,
-					"is_like":    input.IsLike,
-					"user_id":    userID,
-				},
+			var animeTitle, animeImage, contextThumb string
+			var animeID, contextID uint
+			var contextNum float64
+
+			if target.EpisodeID != 0 {
+				animeID = target.Episode.AnimeID
+				animeTitle = target.Episode.Anime.Title
+				animeImage = target.Episode.Anime.Image
+				contextID = target.EpisodeID
+				contextNum = float64(target.Episode.EpisodeNumber)
+				contextThumb = target.Episode.Thumbnail
+			} else if target.ChapterID != nil {
+				animeID = target.Chapter.AnimeID
+				animeTitle = target.Chapter.Anime.Title
+				animeImage = target.Chapter.Anime.Image
+				contextID = *target.ChapterID
+				contextNum = float64(target.Chapter.ChapterNumber)
+				contextThumb = target.Chapter.Anime.Image
+			}
+
+			dataPayload := gin.H{
+				"comment_id":      target.ID,
+				"parent_id":       target.ParentID,
+				"actor_id":        userID,
+				"actor_name":      actorName,
+				"actor_avatar":    actorAvatar,
+				"comment_content": target.Content,
+				"anime_id":        animeID,
+				"anime_title":     animeTitle,
+				"anime_image":     animeImage,
+				"episode_id":      contextID,
+				"chapter_id":      target.ChapterID,
+				"episode_number":  contextNum,
+				"episode_image":   contextThumb,
+				"reaction_type":   input.Type,
+			}
+
+			dataJSON, _ := json.Marshal(dataPayload)
+
+			notif := &domain.Notification{
+				UserID: target.UserID,
+				Type:   domain.NotificationTypeLike,
+				Data:   dataJSON,
+			}
+			h.notifRepo.Create(notif)
+
+			// Broadcast via WebSocket (Direct notification)
+			h.hub.SendToUser(target.UserID, gin.H{
+				"type": "notification",
+				"data": notif,
 			})
-
-			// Track Like in History with metadata
-			commentIDUint := uint(commentID)
-			ownerName := "User"
-			if target.User != nil {
-				ownerName = target.User.Name
-			}
-			metadata := `{"comment_content": "` + escapeJSON(target.Content) + `", "comment_owner": "` + escapeJSON(ownerName) + `", "episode_id": ` + strconv.Itoa(int(target.EpisodeID)) + `}`
-			go h.historyService.TrackWithMetadata(userID, domain.ActivityLike, &target.EpisodeID, nil, &commentIDUint, metadata, "")
 		}
+
+		// Broadcast reaction update to episode/chapter topic 
+		topic := ""
+		if target.EpisodeID != 0 {
+			topic = "episode:" + strconv.Itoa(int(target.EpisodeID))
+		} else if target.ChapterID != nil {
+			topic = "chapter:" + strconv.Itoa(int(*target.ChapterID))
+		}
+
+		h.hub.BroadcastToTopic(topic, gin.H{
+			"type": "comment_like",
+			"data": gin.H{
+				"comment_id": commentID,
+				"type":       input.Type,
+				"user_id":    userID,
+			},
+		})
+
+		// Track Reaction in History with metadata
+		commentIDUint := uint(commentID)
+		ownerName := "User"
+		if target.User != nil {
+			ownerName = target.User.Name
+		}
+		metadata := `{"comment_content": "` + escapeJSON(target.Content) + `", "comment_owner": "` + escapeJSON(ownerName) + `", "episode_id": ` + strconv.Itoa(int(target.EpisodeID)) + `}`
+		go h.historyService.TrackWithMetadata(userID, domain.ActivityLike, &target.EpisodeID, nil, &commentIDUint, metadata, "")
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
@@ -365,4 +549,143 @@ func (h *CommentHandler) Update(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusOK, existing)
+}
+// GetByID fetches a single comment by its ID
+func (h *CommentHandler) GetByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	comment, err := h.repo.GetByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
+		return
+	}
+
+	// If it's a root comment, we might still want to return it but we should check if we want to preload all children
+	if comment.ParentID == nil || *comment.ParentID == 0 {
+		// Just return the root comment. Frontend will fetch children via the main list or we can preload some.
+		// For consistency, if it's highlighted, let's fetch its first 100 children if any.
+        // But for now, returning root is fine as root is what's displayed.
+		c.JSON(http.StatusOK, comment)
+		return
+	}
+
+	// If it's a reply, find the root parent and decide context depth
+	current := comment
+	path := []*domain.Comment{comment}
+	for i := 0; i < 10; i++ { // Path depth limit
+		if current.ParentID == nil || *current.ParentID == 0 {
+			break
+		}
+		parent, err := h.repo.GetByID(*current.ParentID)
+		if err != nil {
+			break
+		}
+		path = append([]*domain.Comment{parent}, path...)
+		current = parent
+	}
+	root := path[0]
+
+	// New Strategy:
+	// If we have a highlighted thread, we want it to be "complete" in the pinned section.
+	var allComments []domain.Comment
+	if root.ChapterID != nil {
+		allComments, _ = h.repo.GetByChapterID(*root.ChapterID)
+	} else {
+		allComments, _ = h.repo.GetByEpisodeID(root.EpisodeID)
+	}
+
+	// Find our root in the list and use it (it will have all children mapped)
+	for _, r := range allComments {
+		if r.ID == root.ID {
+			// Total replies in this specific tree
+			count := countChildren(&r)
+			
+			if count > 100 {
+				// Prune tree to only show path to 'comment.ID'
+				pruneTree(&r, comment.ID)
+			}
+			
+			c.JSON(http.StatusOK, r)
+			return
+		}
+	}
+	
+	c.JSON(http.StatusOK, root)
+}
+
+func countChildren(c *domain.Comment) int {
+	total := len(c.Children)
+	for i := range c.Children {
+		total += countChildren(&c.Children[i])
+	}
+	return total
+}
+
+func pruneTree(c *domain.Comment, targetID uint) bool {
+	if c.ID == targetID {
+		return true
+	}
+	
+	if len(c.Children) == 0 {
+		return false
+	}
+	
+	var newChildren []domain.Comment
+	foundInBranch := false
+	
+	for i := range c.Children {
+		if pruneTree(&c.Children[i], targetID) {
+			newChildren = append(newChildren, c.Children[i])
+			foundInBranch = true
+		}
+	}
+	
+	if foundInBranch {
+		c.Children = newChildren
+		return true
+	}
+	
+	return false
+}
+
+// GetReactions fetches user profiles mapped by reaction type (for tooltips)
+func (h *CommentHandler) GetReactions(c *gin.Context) {
+	commentID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	likes, err := h.repo.GetReactions(uint(commentID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reactions"})
+		return
+	}
+
+	result := make(map[string][]struct{
+		ID uint `json:"id"`
+		Name string `json:"name"`
+		Avatar string `json:"avatar"`
+	})
+	
+	for _, like := range likes {
+		if like.User != nil {
+			result[like.Type] = append(result[like.Type], struct{
+				ID uint `json:"id"`
+				Name string `json:"name"`
+				Avatar string `json:"avatar"`
+			}{
+				ID:     like.User.ID,
+				Name:   like.User.Name,
+				Avatar: like.User.Avatar,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, result)
 }

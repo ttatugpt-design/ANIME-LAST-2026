@@ -85,8 +85,8 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 gap-0 rounded-none">
-                <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 gap-0 rounded-none md:rounded-xl overflow-hidden">
+                <div className="h-full md:max-h-[600px] overflow-y-auto custom-scrollbar">
                     {/* Header with Image and Title */}
                     <div className="relative h-64 w-full bg-gray-900 group shrink-0">
                         <img

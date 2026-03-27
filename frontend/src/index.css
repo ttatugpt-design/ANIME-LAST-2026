@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -91,9 +93,11 @@
     @apply border-border;
   }
 
-  body {
+  html,
+  body,
+  #root {
     @apply bg-background text-foreground;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: Figtree, "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
   }
 
   /* Removed Arabic Font Override to maintain consistency with Plus Jakarta Sans */
@@ -179,4 +183,20 @@
 
 .animate-comment-highlight {
   animation: comment-highlight 4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Facebook-style reaction popup entrance animation */
+@keyframes reactionPopupIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(6px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }

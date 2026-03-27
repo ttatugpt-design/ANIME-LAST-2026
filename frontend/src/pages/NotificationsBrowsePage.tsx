@@ -60,6 +60,12 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
                     iconBg: 'bg-gray-100 dark:bg-white/10',
                     actionText: isRtl ? 'رد على تعليقك' : 'replied to your comment',
                 };
+            case 'comment':
+                return {
+                    icon: <MessageCircle className="w-3.5 h-3.5 text-black dark:text-white fill-current" />,
+                    iconBg: 'bg-gray-100 dark:bg-white/10',
+                    actionText: isRtl ? 'علق على منشورك' : 'commented on your post',
+                };
             case 'friend_request':
                 return {
                     icon: <UserPlus className="w-3.5 h-3.5 text-black dark:text-white" />,
@@ -173,6 +179,26 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
                                         </div>
                                         <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-3">
                                             {renderEmojiContent(data.reply_content || '')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : notification.type === 'comment' ? (
+                                <div className="grid grid-cols-1 gap-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
+                                    <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-none relative">
+                                        <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-gray-400 uppercase">
+                                            {isRtl ? 'منشورك' : 'YOUR POST'}
+                                        </div>
+                                        <p className="text-xs text-gray-500 italic line-clamp-2">
+                                            "{renderEmojiContent(data.post_content || '')}"
+                                        </p>
+                                    </div>
+                                    <div className="bg-black/5 dark:bg-white/10 p-3 rounded-none">
+                                        <div className="flex items-center gap-2 mb-1 text-black dark:text-white">
+                                            <MessageCircle className="w-3 h-3 fill-current" />
+                                            <span className="text-[10px] font-black uppercase">{isRtl ? 'التعليق' : 'THE COMMENT'}</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-3">
+                                            {renderEmojiContent(data.comment_content || '')}
                                         </p>
                                     </div>
                                 </div>

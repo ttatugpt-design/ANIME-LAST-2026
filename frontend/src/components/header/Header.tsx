@@ -15,6 +15,8 @@ import { HistoryDropdown } from './HistoryDropdown';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { MessagesDropdown } from './MessagesDropdown';
 import { UserDropdown } from './UserDropdown';
+import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function Header() {
     const navigate = useNavigate();
@@ -28,6 +30,17 @@ export function Header() {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [messagesMenuOpen, setMessagesMenuOpen] = useState(false);
     const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
+
+    const [isReady, setIsReady] = useState(false);
+
+    useEffect(() => {
+        // Wait for translation initialization and settings store (logo) hydration to complete
+        // During SPA navigation this component doesn't unmount so this only masks the hard refresh FOUC
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 600);
+        return () => clearTimeout(timer);
+    }, []);
 
     // When one menu opens, close the others
     const handleMobileMenuChange = (open: boolean) => {
@@ -50,6 +63,41 @@ export function Header() {
 
     // Scroll Effect (Optional, currently using simple sticky)
     // You can add logic to change background opacity on scroll if needed
+
+    if (!isReady) {
+        return (
+            <div dir={isRtl ? 'rtl' : 'ltr'}>
+                <div className="fixed top-0 left-0 z-50 w-full transition-colors duration-300 border-b bg-white dark:bg-[#312F2E] border-gray-100 dark:border-[#312F2E]">
+                    <div className="relative flex items-center h-[60px] px-4 mx-auto w-full max-w-[1800px]">
+                        
+                        {/* Mobile Menu Skeleton */}
+                        <div className="w-8 h-8 rounded-md bg-gray-200 dark:bg-white/10 animate-pulse lg:hidden mr-4 rtl:ml-4 rtl:mr-0 shrink-0" />
+                        
+                        {/* Logo Skeleton */}
+                        <div className="w-28 h-9 rounded-md bg-gray-200 dark:bg-white/10 animate-pulse mr-4 rtl:ml-4 rtl:mr-0 shrink-0" />
+
+                        {/* Desktop Nav Skeleton */}
+                        <div className="hidden lg:flex items-center gap-6 mx-4">
+                            <div className="w-20 h-4 rounded bg-gray-200 dark:bg-white/10 animate-pulse" />
+                            <div className="w-24 h-4 rounded bg-gray-200 dark:bg-white/10 animate-pulse" />
+                            <div className="w-16 h-4 rounded bg-gray-200 dark:bg-white/10 animate-pulse" />
+                        </div>
+
+                        {/* Right Side Icons Skeleton */}
+                        <div className="flex items-center gap-2 lg:gap-3 ml-auto rtl:ml-0 rtl:mr-auto">
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse" />
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse hidden sm:block" />
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse" />
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse" />
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+                {/* Spacer for fixed header */}
+                <div className="pt-[60px]"></div>
+            </div>
+        );
+    }
 
     return (
         <div dir={isRtl ? 'rtl' : 'ltr'}>
@@ -76,29 +124,43 @@ export function Header() {
 
                     {/* Mobile Home & Community Icons - Placed immediately after logo */}
                     <div className="flex items-center gap-1 sm:hidden">
-                        <Link
-                            to={`/${i18n.language}`}
-                            onClick={() => {
-                                setMobileMenuOpen(false);
-                                setUserMenuOpen(false);
-                            }}
-                            className="p-2 text-black dark:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
-                            title={isRtl ? "الرئيسية" : "Home"}
-                        >
-                            <Home className="w-[26px] h-[26px] stroke-[2.5px]" />
-                        </Link>
+                        <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link
+                                        to={`/${i18n.language}`}
+                                        onClick={() => {
+                                            setMobileMenuOpen(false);
+                                            setUserMenuOpen(false);
+                                        }}
+                                        className="p-2 text-black dark:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                                    >
+                                        <Home className="w-[26px] h-[26px] stroke-[2.5px]" />
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>{isRtl ? "الرئيسية" : "Home"}</p>
+                                </TooltipContent>
+                            </Tooltip>
 
-                        <Link
-                            to={`/${i18n.language}/community`}
-                            onClick={() => {
-                                setMobileMenuOpen(false);
-                                setUserMenuOpen(false);
-                            }}
-                            className="p-2 text-black dark:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
-                            title={isRtl ? "المجتمع" : "Community"}
-                        >
-                            <Globe className="w-[26px] h-[26px] stroke-[2.5px]" />
-                        </Link>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link
+                                        to={`/${i18n.language}/community`}
+                                        onClick={() => {
+                                            setMobileMenuOpen(false);
+                                            setUserMenuOpen(false);
+                                        }}
+                                        className="p-2 text-black dark:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                                    >
+                                        <Globe className="w-[26px] h-[26px] stroke-[2.5px]" />
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>{isRtl ? "المجتمع" : "Community"}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
 
                     {/* Desktop Navigation */}
@@ -108,12 +170,21 @@ export function Header() {
                     <div className="flex items-center gap-2 ml-auto lg:gap-3 rtl:ml-0 rtl:mr-auto">
 
                         {/* Search Button */}
-                        <Link
-                            to={`/${i18n.language}/search`}
-                            className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                        >
-                            <Search className="w-6 h-6" />
-                        </Link>
+                        <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link
+                                        to={`/${i18n.language}/search`}
+                                        className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                                    >
+                                        <Search className="w-6 h-6" />
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>{isRtl ? 'بحث' : 'Search'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
 
                         {/* Icons Container */}
                         <div className="flex items-center gap-2 lg:gap-3">
@@ -137,17 +208,36 @@ export function Header() {
                                 }
                             }} />
 
-                            <Link
-                                to={`/${i18n.language}/watchlist`}
-                                onClick={() => {
-                                    setMobileMenuOpen(false);
-                                    setUserMenuOpen(false);
-                                }}
-                                className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
-                                title={isRtl ? "قائمة المشاهدة" : "My Watchlist"}
-                            >
-                                <Bookmark className="w-6 h-6" />
-                            </Link>
+                            <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        {user ? (
+                                            <Link
+                                                to={`/${i18n.language}/watchlist`}
+                                                onClick={() => {
+                                                    setMobileMenuOpen(false);
+                                                    setUserMenuOpen(false);
+                                                }}
+                                                className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
+                                            >
+                                                <Bookmark className="w-6 h-6" />
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    toast.error(isRtl ? 'يجب تسجيل الدخول أولاً' : 'You must log in first');
+                                                }}
+                                                className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white focus:outline-none"
+                                            >
+                                                <Bookmark className="w-6 h-6" />
+                                            </button>
+                                        )}
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">
+                                        <p>{isRtl ? "قائمة المشاهدة" : "My Watchlist"}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
 
                             {/* User Menu containing Notifications, History, etc. */}
                             <UserDropdown

@@ -26,6 +26,7 @@ import { getImageUrl } from '@/utils/image-utils';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import { useNotificationsStore } from '@/stores/notifications-store';
+import { useMessagingStore } from '@/stores/messaging-store';
 import { slugify } from '@/utils/slug';
 
 interface UserMenuContentProps {
@@ -39,10 +40,12 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
     const { i18n } = useTranslation();
     const logout = useAuthStore((state) => state.logout);
     const { unreadCount } = useNotificationsStore();
+    const { openMessagingModal } = useMessagingStore();
     const { theme, setTheme } = useTheme();
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         notifications_count: 0,
+        messages_count: 0,
         history_count: 0,
         watch_later_count: 0
     });
@@ -51,17 +54,17 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
         const fetchStats = async () => {
             try {
                 const response = await api.get('/user/stats');
-                console.log('User Stats:', response.data);
                 const data = response.data;
                 setStats({
                     notifications_count: data.notifications_count || 0,
+                    messages_count: data.messages_count || 0,
                     history_count: data.history_count || 0,
                     watch_later_count: data.watch_later_count || 0
                 });
             } catch (error) {
                 console.error('Failed to fetch user stats', error);
             } finally {
-                setTimeout(() => setIsLoading(false), 300);
+                setIsLoading(false);
             }
         };
 
@@ -205,10 +208,18 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 </button>
 
                 <button
-                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard/messages`)}
+                    onClick={() => {
+                        openMessagingModal();
+                        if (onClose) onClose();
+                    }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
                 >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">{i18n.language === 'ar' ? 'المراسلات' : 'Messages'}</span>
+                    <div className="flex items-center gap-2">
+                        {stats.messages_count > 0 && (
+                            <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{stats.messages_count}</span>
+                        )}
+                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">{i18n.language === 'ar' ? 'المراسلات' : 'Messages'}</span>
+                    </div>
                     <MessageCircle className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
                 </button>
 
@@ -269,7 +280,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 >
                     <div className="flex items-center gap-2">
                         {stats.history_count > 0 && (
-                            <span className="text-xs font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">{stats.history_count}</span>
+                            <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{stats.history_count}</span>
                         )}
                         <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">السجل</span>
                     </div>
@@ -282,7 +293,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 >
                     <div className="flex items-center gap-2">
                         {stats.watch_later_count > 0 && (
-                            <span className="text-xs font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">{stats.watch_later_count}</span>
+                            <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{stats.watch_later_count}</span>
                         )}
                         <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قائمة المشاهدة</span>
                     </div>
@@ -308,7 +319,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 >
                     <div className="flex items-center gap-2">
                         {unreadCount > 0 && (
-                            <span className="text-xs font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+                            <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{unreadCount}</span>
                         )}
                         <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">إشعارات</span>
                     </div>

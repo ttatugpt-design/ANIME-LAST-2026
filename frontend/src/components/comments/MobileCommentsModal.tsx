@@ -37,6 +37,7 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
     const [showCustomEmojiPicker, setShowCustomEmojiPicker] = useState(false);
     const [pickerPosition, setPickerPosition] = useState<'top' | 'bottom'>('top');
     const [refreshKey, setRefreshKey] = useState(0);
+    const [commentCount, setCommentCount] = useState(0);
     const emojiRef = useRef<HTMLDivElement>(null);
     const customEmojiRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<RichTextInputHandle>(null);
@@ -92,32 +93,39 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <SheetContent side="bottom" className="h-[100dvh] w-full max-w-[480px] mx-auto left-0 right-0 p-0 bg-white dark:bg-[#111] border-t border-gray-200 dark:border-[#333] rounded-t-xl flex flex-col focus:outline-none outline-none shadow-2xl">
+            <SheetContent side="bottom" className="h-[100dvh] w-full max-w-[480px] mx-auto left-0 right-0 p-0 bg-white dark:bg-[#111] border-t border-gray-200 dark:border-[#333] rounded-t-xl flex flex-col focus:outline-none outline-none shadow-2xl gap-0">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#222] flex-shrink-0">
-                    <SheetTitle className="text-lg font-bold text-gray-900 dark:text-white">
-                        {lang === 'ar' ? 'التعليقات' : 'Comments'}
+                <div className="flex items-center justify-between py-1.5 px-4 border-b border-gray-200 dark:border-[#222] flex-shrink-0">
+                    <SheetTitle className="text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                        <span>{lang === 'ar' ? 'التعليقات' : 'Comments'}</span>
+                        <span className="text-gray-500 dark:text-gray-400 font-medium text-sm">({commentCount})</span>
                     </SheetTitle>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#222] transition-colors"
+                        className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-[#222] transition-colors"
                     >
                         <X className="w-5 h-5 text-gray-500" />
                     </button>
                 </div>
 
-                {/* Scrollable Comments Area */}
                 <div
-                    className="flex-1 min-h-0 overflow-y-auto px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-neutral-500"
+                    className="flex-1 min-h-0 overflow-y-auto px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-neutral-500 pt-0"
                     dir={lang === 'ar' ? 'rtl' : 'ltr'}
                 >
-                    <CommentsSection key={refreshKey} itemId={episodeId} type="episode" stickyInput={true} />
+                    <CommentsSection 
+                        key={refreshKey} 
+                        itemId={episodeId} 
+                        type="episode" 
+                        stickyInput={true} 
+                        onCountChange={setCommentCount}
+                    />
                 </div>
 
                 {/* Sticky Comment Input at Bottom */}
                 <div className="border-t border-gray-200 dark:border-[#222] bg-white dark:bg-[#111] p-4 flex-shrink-0" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                    <div className="flex gap-3">
-                        <div className="flex-1">
+                 
+                   <div className="flex gap-3">
+                        <div className="flex-1 min-w-0">
                             <div className="relative group">
                                 <RichTextInput
                                     ref={inputRef as any}

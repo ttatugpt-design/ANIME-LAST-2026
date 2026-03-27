@@ -31,7 +31,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             />
 
             {/* Modal Content */}
-            <div className="relative w-full h-full md:h-auto md:max-w-4xl md:mx-4 bg-white dark:bg-[#1c1c1c] border-0 md:border border-gray-200 dark:border-[#2a2a2a] shadow-2xl md:max-h-[90vh] overflow-y-auto">
+            <div className="relative w-full h-full md:h-auto md:max-w-4xl md:mx-4 bg-white dark:bg-[#1c1c1c] border-0 md:border border-gray-200 dark:border-[#2a2a2a] shadow-2xl md:max-h-[90vh] md:rounded-xl overflow-y-auto">
                 {/* Header */}
                 <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1c1c1c]">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>

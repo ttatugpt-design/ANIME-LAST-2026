@@ -14,24 +14,18 @@
 /* Grid Container */
 .crunchyroll-skeleton-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
     width: 100%;
 }
 
-@media (min-width: 640px) {
-    .crunchyroll-skeleton-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
     .crunchyroll-skeleton-grid {
         grid-template-columns: repeat(4, 1fr);
     }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
     .crunchyroll-skeleton-grid {
         grid-template-columns: repeat(6, 1fr);
     }
@@ -56,7 +50,7 @@
 /* Poster Dimensions (2:3 aspect ratio) */
 .shimmer-wrapper.poster {
     width: 100%;
-    aspect-ratio: 2 / 3;
+    aspect-ratio: 3 / 4;
 }
 
 .shimmer-wrapper.poster.episode {

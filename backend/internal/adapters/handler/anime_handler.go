@@ -116,6 +116,20 @@ func (h *AnimeHandler) GetAll(c *gin.Context) {
 	for i := range animes {
 		h.sanitizeAnime(&animes[i])
 	}
+
+	// If pagination is requested explicitly, return metadata
+	if c.Query("paginate") == "true" {
+		total, _ := h.service.Count(uint(categoryID), letter, search, animeType)
+		c.JSON(http.StatusOK, gin.H{
+			"data":      animes,
+			"total":     total,
+			"page":      page,
+			"limit":     limit,
+			"last_page": (total + int64(limit) - 1) / int64(limit),
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, animes)
 }
 

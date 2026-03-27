@@ -4,22 +4,7 @@ import { PostCard } from './PostCard';
 import api from '@/lib/api';
 import { Loader2, LayoutGrid, List } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
-
-interface Post {
-    id: number;
-    user_id: number;
-    content: string;
-    created_at: string;
-    user: {
-        id: number;
-        name: string;
-        avatar?: string;
-    };
-    images?: { id: number; image_url: string }[];
-    likes_count: number;
-    comments_count: number;
-    is_liked: boolean;
-}
+import { Post } from '@/types/models';
 
 interface PostFeedProps {
     refreshKey?: number;
@@ -87,17 +72,38 @@ export const PostFeed: React.FC<PostFeedProps> = ({ refreshKey }) => {
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-0 md:space-y-4">
                 {[1, 2, 3].map(i => (
-                    <div key={i} className="bg-white dark:bg-[#1a1a1a] rounded-xl p-4 shadow-sm border border-gray-100 dark:border-[#2a2a2a] h-64 animate-pulse">
-                        <div className="flex gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-[#333]" />
-                            <div className="space-y-2 flex-1">
-                                <div className="h-4 bg-gray-200 dark:bg-[#333] rounded w-1/4" />
-                                <div className="h-3 bg-gray-200 dark:bg-[#333] rounded w-1/6" />
+                    <div key={i} className="bg-white dark:bg-[#1a1a1a] rounded-none md:rounded-xl shadow-sm border-y md:border border-gray-100 dark:border-[#2a2a2a] animate-pulse overflow-hidden">
+                        {/* Skeleton Header */}
+                        <div className="p-3 flex justify-between items-start">
+                            <div className="flex gap-2">
+                                <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-[#2a2a2a] border border-gray-100 dark:border-[#333]" />
+                                <div className="space-y-1.5 pt-0.5">
+                                    <div className="h-3 bg-gray-200 dark:bg-[#2a2a2a] rounded w-24" />
+                                    <div className="h-2 bg-gray-200 dark:bg-[#2a2a2a] rounded w-16" />
+                                </div>
                             </div>
+                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#2a2a2a]" />
                         </div>
-                        <div className="h-40 bg-gray-200 dark:bg-[#333] rounded w-full" />
+                        
+                        {/* Skeleton Content */}
+                        <div className="px-4 pb-3 space-y-2">
+                            <div className="h-3 bg-gray-200 dark:bg-[#2a2a2a] rounded w-full" />
+                            <div className="h-3 bg-gray-200 dark:bg-[#2a2a2a] rounded w-5/6" />
+                        </div>
+
+                        {/* Skeleton Media area */}
+                        <div className="w-full aspect-video bg-gray-100 dark:bg-[#111]" />
+
+                        {/* Skeleton Stats/Actions */}
+                        <div className="p-3 border-t border-gray-50 dark:border-[#222] flex justify-between">
+                            <div className="flex gap-4">
+                                <div className="h-4 bg-gray-200 dark:bg-[#2a2a2a] rounded w-12" />
+                                <div className="h-4 bg-gray-200 dark:bg-[#2a2a2a] rounded w-12" />
+                            </div>
+                            <div className="h-4 bg-gray-200 dark:bg-[#2a2a2a] rounded w-12" />
+                        </div>
                     </div>
                 ))}
             </div>
@@ -121,7 +127,7 @@ export const PostFeed: React.FC<PostFeedProps> = ({ refreshKey }) => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-0 md:space-y-6">
             {posts.map(post => (
                 <PostCard
                     key={post.id}

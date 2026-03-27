@@ -20,6 +20,7 @@ type Config struct {
 	BlenderPath   string
 	ExportTimeout int
 	ExportDir     string
+	BackupDir     string
 }
 
 func LoadConfig() (*Config, error) {
@@ -96,6 +97,11 @@ func LoadConfig() (*Config, error) {
 		exportDir = "uploads/exports"
 	}
 
+	backupDir := os.Getenv("BACKUP_DIR")
+	if backupDir == "" {
+		backupDir = "uploads/backups"
+	}
+
 	return &Config{
 		Port:          port,
 		DBUrl:         dbUrl,
@@ -106,5 +112,6 @@ func LoadConfig() (*Config, error) {
 		BlenderPath:   blenderPath,
 		ExportTimeout: exportTimeout,
 		ExportDir:     exportDir,
+		BackupDir:     backupDir,
 	}, nil
 }

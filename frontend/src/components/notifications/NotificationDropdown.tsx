@@ -11,6 +11,26 @@ import { Notification } from '@/lib/notifications-api';
 import { renderEmojiContent } from '@/utils/render-content';
 import api from '@/lib/api';
 import { getImageUrl } from '@/utils/image-utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMessagingStore } from '@/stores/messaging-store';
+
+export const getReactionInfo = (type: string, isAr: boolean) => {
+    const reactions: Record<string, { labelAr: string, labelEn: string, gif: string }> = {
+        'like': { labelAr: 'أعجبني', labelEn: 'Like', gif: '/uploads/تفاعل البوست/أعجبني.png' },
+        'love': { labelAr: 'أحببته', labelEn: 'Love', gif: '/uploads/تفاعل البوست/أحببتة.png' },
+        'sad': { labelAr: 'أحزنني', labelEn: 'Sad', gif: '/uploads/تفاعل البوست/أحزنني.gif' },
+        'angry': { labelAr: 'أغضبني', labelEn: 'Angry', gif: '/uploads/تفاعل البوست/أغضبني.gif' },
+        'wow': { labelAr: 'واوو', labelEn: 'Wow', gif: '/uploads/تفاعل البوست/واوو.png' },
+        'haha': { labelAr: 'اضحكني', labelEn: 'Haha', gif: '/uploads/تفاعل البوست/اضحكني.png' },
+        'super_sad': { labelAr: 'أحززنني جداً', labelEn: 'So Sad', gif: '/uploads/تفاعل البوست/أحززنني جدا.png' },
+    };
+    const r = reactions[type] || reactions['like'];
+    return {
+        labelAr: r.labelAr,
+        labelEn: r.labelEn,
+        gif: getImageUrl(r.gif)
+    };
+};
 
 interface NotificationDropdownProps {
     onOpenChange?: (open: boolean) => void;
@@ -28,6 +48,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
         markAllAsRead,
         deleteAll
     } = useNotificationsStore();
+    const { openMessagingModal } = useMessagingStore();
 
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -52,10 +73,19 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Prevent scroll when menu is open on mobile
+    // Prevent scroll and handle back button when menu is open on mobile
     useEffect(() => {
         if (isOpen && window.innerWidth < 1024) {
             document.body.style.overflow = 'hidden';
+            window.history.pushState({ menuOpen: true }, '');
+            const handlePopState = () => {
+                setIsOpen(false);
+            };
+            window.addEventListener('popstate', handlePopState);
+            return () => {
+                document.body.style.overflow = 'unset';
+                window.removeEventListener('popstate', handlePopState);
+            };
         } else {
             document.body.style.overflow = 'unset';
         }
@@ -89,7 +119,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
 
         // 2. Chat Messages
         if (notif.type === 'chat_message' && data.sender_id) {
-            navigate(`/${currentLang}/u/${user?.id}/dashboard/messages?userId=${data.sender_id}`);
+            openMessagingModal({
+                id: data.sender_id,
+                name: data.sender_name || 'Someone',
+                avatar: data.sender_avatar
+            });
             setIsOpen(false);
             return;
         }
@@ -165,34 +199,43 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Trigger Button */}
-            <button
-                onClick={() => {
-                    const nextState = !isOpen;
-                    setIsOpen(nextState);
-                    if (nextState && onOpenChange) {
-                        onOpenChange(true);
-                    }
-                }}
-                className={cn(
-                    "relative p-2.5 transition-all duration-300 rounded-full group",
-                    isOpen
-                        ? "bg-gray-100 dark:bg-zinc-800 text-black dark:text-white"
-                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
-                )}
-            >
-                <Bell className="w-6 h-6 stroke-[2.5px]" />
-                {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 bg-black dark:bg-white text-white dark:text-black text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-[#1f1f1f] animate-in zoom-in duration-300">
-                        {unreadCount > 99 ? '+99' : unreadCount}
-                    </span>
-                )}
-            </button>
+            <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <button
+                            onClick={() => {
+                                const nextState = !isOpen;
+                                setIsOpen(nextState);
+                                if (nextState && onOpenChange) {
+                                    onOpenChange(true);
+                                }
+                            }}
+                            className={cn(
+                                "relative p-2.5 transition-all duration-300 rounded-full group",
+                                isOpen
+                                    ? "bg-gray-100 dark:bg-zinc-800 text-black dark:text-white"
+                                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
+                            )}
+                        >
+                            <Bell className="w-6 h-6 stroke-[2.5px]" />
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 bg-black dark:bg-white text-white dark:text-black text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-[#1f1f1f] animate-in zoom-in duration-300">
+                                    {unreadCount > 99 ? '+99' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                        <p>{isRtl ? 'الإشعارات' : 'Notifications'}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
 
             {/* Dropdown Menu */}
             {isOpen && (
                 <div
                     className={cn(
-                        "fixed top-[60px] left-0 right-0 bottom-0 z-[100] flex flex-col bg-white dark:bg-[#111] lg:absolute lg:inset-auto lg:top-full lg:mt-2 lg:w-[450px] lg:max-h-[600px] lg:rounded-none lg:shadow-[0_20px_50px_rgba(0,0,0,0.3)] lg:border lg:border-gray-200 lg:dark:border-white/10 overflow-hidden",
+                        "fixed top-[60px] left-0 right-0 bottom-0 z-[100] flex flex-col bg-white dark:bg-[#111] lg:absolute lg:inset-auto lg:top-full lg:mt-2 lg:w-[450px] lg:max-h-[600px] lg:rounded-2xl lg:shadow-[0_20px_50px_rgba(0,0,0,0.3)] lg:border lg:border-gray-200 lg:dark:border-white/10 overflow-hidden",
                         isRtl ? "lg:left-0 lg:origin-top-left" : "lg:right-0 lg:origin-top-right"
                     )}
                     dir={isRtl ? 'rtl' : 'ltr'}
@@ -276,18 +319,23 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                                         {notif.type === 'friend_request_rejected' && <UserX className="w-3 h-3 text-white" />}
                                                     </div>
                                                 </div>
-                                            ) : notif.type === 'reply' || notif.type === 'like' ? (
-                                                <div className="relative w-16 h-20 overflow-hidden shadow-lg border border-white/10">
+                                            ) : (notif.type === 'reply' || notif.type === 'like' || notif.type === 'comment') && 
+                                               (notif.data.episode_image || notif.data.anime_image || notif.data.post_media_url) ? (
+                                                <div className="relative w-16 h-20 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-white/10 rounded-xl">
                                                     <img
-                                                        src={notif.data.episode_image || notif.data.anime_image}
+                                                        src={getImageUrl(notif.data.episode_image || notif.data.anime_image || notif.data.post_media_url)}
                                                         alt="Episode"
                                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                     />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                                                     <div className="absolute bottom-1 right-1">
-                                                        {notif.type === 'reply' ? (
+                                                        {notif.type === 'reply' || notif.type === 'comment' ? (
                                                             <div className="bg-blue-500 p-1 rounded-full shadow-lg">
-                                                                <MessageSquare className="w-3 h-3 text-white fill-current" />
+                                                                  <MessageSquare className="w-3 h-3 text-white fill-current" />
+                                                            </div>
+                                                        ) : (notif.type === 'like') ? (
+                                                            <div className="w-[18px] h-[18px] rounded-full overflow-hidden shadow-lg border border-white dark:border-[#2a2a2a]">
+                                                                <img src={getReactionInfo(notif.data.reaction_type || 'like', isRtl).gif} alt="" className="w-full h-full object-cover scale-110" />
                                                             </div>
                                                         ) : (
                                                             <div className="bg-red-500 p-1 rounded-full shadow-lg">
@@ -296,15 +344,27 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                                         )}
                                                     </div>
                                                 </div>
-                                            ) : notif.type === 'chat_message' ? (
-                                                <div className="relative w-12 h-12 rounded-full overflow-hidden border border-gray-100 dark:border-[#333]">
+                                            ) : (notif.type === 'reply' || notif.type === 'like' || notif.type === 'comment' || notif.type === 'chat_message') ? (
+                                                <div className="relative w-12 h-12 rounded-full overflow-hidden border border-gray-100 dark:border-[#333] transition-transform duration-300 group-hover:scale-105 shadow-sm">
                                                     <img
-                                                        src={getAvatarUrl(notif.data.sender_avatar)}
-                                                        alt={notif.data.sender_name}
+                                                        src={getAvatarUrl(notif.data.actor_avatar || notif.data.sender_avatar || notif.data.requester_avatar || notif.data.accepter_avatar || notif.data.rejecter_avatar)}
+                                                        alt={notif.data.actor_name || notif.data.sender_name}
                                                         className="w-full h-full object-cover"
                                                     />
-                                                    <div className="absolute -bottom-1 -right-1 p-1 rounded-full shadow border-2 border-white dark:border-[#111] bg-blue-500">
-                                                        <MessageSquare className="w-3 h-3 text-white fill-current" />
+                                                    <div className={cn(
+                                                        "absolute -bottom-1 -right-1 p-1 rounded-full shadow border-2 border-white dark:border-[#111]",
+                                                        (notif.type === 'reply' || notif.type === 'comment' || notif.type === 'chat_message') ? "bg-blue-500" : (notif.type === 'like' ? "" : "bg-red-500"),
+                                                        (notif.type === 'like') && "p-0 border-none shadow-none bg-transparent"
+                                                    )}>
+                                                        {(notif.type === 'reply' || notif.type === 'comment' || notif.type === 'chat_message') ? (
+                                                            <MessageSquare className="w-3 h-3 text-white fill-current" />
+                                                        ) : (notif.type === 'like') ? (
+                                                            <div className="w-[18px] h-[18px] rounded-full overflow-hidden bg-white dark:bg-[#1a1a1a] shadow-sm border border-gray-100 dark:border-[#333]">
+                                                                <img src={getReactionInfo(notif.data.reaction_type || 'like', isRtl).gif} alt="" className="w-full h-full object-cover scale-110" />
+                                                            </div>
+                                                        ) : (
+                                                            <ThumbsUp className="w-3 h-3 text-white fill-current" />
+                                                        )}
                                                     </div>
                                                 </div>
                                             ) : (
@@ -340,10 +400,17 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                                     isRtl ? `رفض ${notif.data.rejecter_name} طلب صداقتك` : `${notif.data.rejecter_name} rejected your friend request`
                                                 )}
                                                 {notif.type === 'reply' && (
-                                                    isRtl ? `رد ${notif.data.actor_name} على تعليقك` : `${notif.data.actor_name} replied to your comment`
+                                                    isRtl 
+                                                        ? (notif.data.is_reply_to_reply ? `رد ${notif.data.actor_name} على ردك` : `رد ${notif.data.actor_name} على تعليقك`)
+                                                        : (notif.data.is_reply_to_reply ? `${notif.data.actor_name} replied to your reply` : `${notif.data.actor_name} replied to your comment`)
+                                                )}
+                                                {notif.type === 'comment' && (
+                                                    isRtl ? `علق ${notif.data.actor_name} على منشورك` : `${notif.data.actor_name} commented on your post`
                                                 )}
                                                 {notif.type === 'like' && (
-                                                    isRtl ? `أعجب ${notif.data.actor_name} بتعليقك` : `${notif.data.actor_name} liked your comment`
+                                                    isRtl 
+                                                        ? `تفاعل ${notif.data.actor_name} بـ ${getReactionInfo(notif.data.reaction_type || 'like', isRtl).labelAr} على تعليقك` 
+                                                        : `${notif.data.actor_name} reacted with ${getReactionInfo(notif.data.reaction_type || 'like', isRtl).labelEn} to your comment`
                                                 )}
                                                 {notif.type === 'chat_message' && (
                                                     isRtl
@@ -378,26 +445,37 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                                 </p>
                                             )}
 
-                                            {/* Rich content for Reply */}
-                                            {notif.type === 'reply' && (
+                                            {/* Rich content for Reply & Comment */}
+                                            {(notif.type === 'reply' || notif.type === 'comment') && (
                                                 <div className="space-y-3">
                                                     {/* The Side-by-side comparison */}
-                                                    <div className="grid grid-cols-1 gap-2 border-r-2 border-gray-200 dark:border-white/10 pr-3 mr-1">
-                                                        <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-none relative">
+                                                    <div className="grid grid-cols-1 gap-2 border-r-2 border-gray-100 dark:border-[#333] pr-3 mr-1">
+                                                        <div className="bg-gray-50 dark:bg-[#222] p-3 rounded-xl relative">
                                                             <div className="flex items-center gap-2 mb-1">
-                                                                <span className="text-[10px] font-black text-gray-400 uppercase">{isRtl ? 'تعليقك' : 'YOUR COMMENT'}</span>
+                                                                <span className="text-xs font-black text-gray-500 dark:text-gray-400 capitalize">
+                                                                    {notif.type === 'comment' 
+                                                                        ? (isRtl ? 'محتوى منشورك' : 'Your post') 
+                                                                        : (notif.data.is_reply_to_reply 
+                                                                            ? (isRtl ? 'محتوى ردك' : `Your reply to ${notif.data.parent_target_name || '...'}`) 
+                                                                            : (isRtl ? 'محتوى تعليقك' : 'Your comment'))
+                                                                    }
+                                                                </span>
                                                             </div>
-                                                            <p className="text-sm text-gray-500 italic line-clamp-2 leading-relaxed">
-                                                                "{renderEmojiContent(notif.data.comment_content || '')}"
+                                                            <p className="text-sm text-gray-500 dark:text-gray-400 italic line-clamp-2 leading-relaxed">
+                                                                "{renderEmojiContent(notif.type === 'comment' ? (notif.data.post_content || '') : (notif.data.comment_content || ''))}"
                                                             </p>
                                                         </div>
-                                                        <div className="bg-black/10 dark:bg-white/20 p-3 rounded-none">
-                                                            <div className="flex items-center gap-2 mb-1 text-black dark:text-white">
+                                                        <div className="bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl mt-1">
+                                                            <div className="flex items-center gap-2 mb-1 text-blue-600 dark:text-blue-400">
                                                                 <MessageSquare className="w-3 h-3 fill-current" />
-                                                                <span className="text-[10px] font-black uppercase">{isRtl ? 'الرد' : 'THE REPLY'}</span>
+                                                                <span className="text-xs font-black capitalize">
+                                                                    {notif.type === 'comment' 
+                                                                        ? (isRtl ? `قام ${notif.data.actor_name} بالتعليق بـ` : `${notif.data.actor_name} commented with`) 
+                                                                        : (isRtl ? `وقام ${notif.data.actor_name} بالرد عليك بـ` : `And ${notif.data.actor_name} replied to you with`)}
+                                                                </span>
                                                             </div>
                                                             <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-3 leading-relaxed">
-                                                                {renderEmojiContent(notif.data.reply_content || '')}
+                                                                {renderEmojiContent(notif.type === 'comment' ? (notif.data.comment_content || '') : (notif.data.reply_content || ''))}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -420,7 +498,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                             )}
 
                                             {/* Content for Simple notifications */}
-                                            {notif.type !== 'reply' && notif.type !== 'friend_request' && notif.type !== 'friend_request_accepted' && notif.type !== 'friend_request_rejected' && notif.data.comment_content && (
+                                            {notif.type !== 'reply' && notif.type !== 'comment' && notif.type !== 'friend_request' && notif.type !== 'friend_request_accepted' && notif.type !== 'friend_request_rejected' && notif.data.comment_content && (
                                                 <p className="text-sm text-gray-500 dark:text-gray-400 italic line-clamp-2 border-r-2 border-gray-200 dark:border-white/10 pr-3 mr-1">
                                                     "{renderEmojiContent(notif.data.comment_content || '')}"
                                                 </p>
@@ -449,7 +527,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                         <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-[#1a1a1a] sticky bottom-0">
                             <button
                                 onClick={() => {
-                                    navigate(`/${lang}/my/dashboard/notifications`);
+                                    navigate(`/${lang}/u/${user?.id}/dashboard/notifications`);
                                     setIsOpen(false);
                                 }}
                                 className="w-full bg-black dark:bg-white text-white dark:text-black py-3 text-sm font-black uppercase tracking-widest hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-300"

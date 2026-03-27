@@ -28,6 +28,7 @@ var _ port.LanguageRepository = &SQLiteRepository{}
 var _ port.AnimeRepository = &SQLiteRepository{}
 var _ port.CountryRepository = &SQLiteRepository{}
 var _ port.ServerRepository = &SQLiteRepository{}
+var _ port.ChapterRepository = &SQLiteRepository{}
 
 func (r *SQLiteRepository) DB() *gorm.DB {
 	return r.db
@@ -48,9 +49,9 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		&domain.Comment{}, &domain.CommentLike{}, &domain.Notification{},
 		&domain.WatchLater{}, &domain.History{}, &domain.QuickNews{},
 		&domain.Friendship{}, &domain.Block{},
-		&domain.Post{}, &domain.PostImage{}, &domain.PostLike{},
+		&domain.Post{}, &domain.PostMedia{}, &domain.PostLike{},
 		&domain.PostComment{}, &domain.PostCommentLike{},
-		&domain.Country{}, &domain.Server{},
+		&domain.Country{}, &domain.Server{}, &domain.Chapter{},
 	)
 
 	if err != nil {
@@ -58,13 +59,42 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 	}
 
 	// Manual Migration for new columns since SQLite AutoMigrate sometimes fails to add them
-	err = db.Exec("ALTER TABLE comments ADD COLUMN mention_user_id INTEGER").Error
-	if err != nil {
-		// Ignore error if column already exists (sqlite error "duplicate column name")
-		log.Printf("DB Migration Note (comments.mention_user_id): %v - (This is normal if column exists)", err)
+	manualMigrations := []struct {
+		table  string
+		column string
+		sql    string
+	}{
+		{"comments", "mention_user_id", "ALTER TABLE comments ADD COLUMN mention_user_id INTEGER"},
+		{"episodes", "loves_count", "ALTER TABLE episodes ADD COLUMN loves_count INTEGER DEFAULT 0"},
+		{"episodes", "hahas_count", "ALTER TABLE episodes ADD COLUMN hahas_count INTEGER DEFAULT 0"},
+		{"episodes", "wows_count", "ALTER TABLE episodes ADD COLUMN wows_count INTEGER DEFAULT 0"},
+		{"episodes", "sads_count", "ALTER TABLE episodes ADD COLUMN sads_count INTEGER DEFAULT 0"},
+		{"episodes", "angrys_count", "ALTER TABLE episodes ADD COLUMN angrys_count INTEGER DEFAULT 0"},
+		{"episodes", "super_sads_count", "ALTER TABLE episodes ADD COLUMN super_sads_count INTEGER DEFAULT 0"},
+		{"episode_likes", "type", "ALTER TABLE episode_likes ADD COLUMN type TEXT DEFAULT 'like'"},
+	}
+
+	for _, m := range manualMigrations {
+		if err := db.Exec(m.sql).Error; err != nil {
+			log.Printf("DB Migration Note (%s.%s): %v", m.table, m.column, err)
+		}
 	}
 
 	return &SQLiteRepository{db: db}, nil
+}
+
+func (r *SQLiteRepository) Reopen(dbUrl string) error {
+	sqlDB, err := r.db.DB()
+	if err == nil {
+		sqlDB.Close()
+	}
+
+	newDB, err := gorm.Open(sqlite.Open(dbUrl), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+	r.db = newDB
+	return nil
 }
 
 // Ensure implementation
@@ -567,6 +597,11 @@ func (r *SQLiteRepository) GetAllAnimes(categoryID uint, letter string, search s
 	var animes []domain.Anime
 	db := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel")
 
+	// Filter published only for non-admin
+	if animeType != "all_admin" && animeType != "all_admin_anime" && animeType != "all_admin_manga" {
+		db = db.Where("is_published = ?", true)
+	}
+
 	if categoryID > 0 {
 		db = db.Joins("JOIN anime_categories ON anime_categories.anime_id = animes.id").
 			Where("anime_categories.category_id = ?", categoryID)
@@ -583,13 +618,17 @@ func (r *SQLiteRepository) GetAllAnimes(categoryID uint, letter string, search s
 
 	if animeType == "foreign" {
 		db = db.Where("type IN (?, ?)", "tv_en", "moves_en")
+	} else if animeType == "all_admin_manga" {
+		db = db.Where("type = ?", "manga")
+	} else if animeType == "all_admin_anime" {
+		db = db.Where("type != ?", "manga")
 	} else if animeType == "all_admin" {
-		// All types, no filter (for admin dashboard)
+		// All types, no filter (legacy)
 	} else if animeType != "" && animeType != "All" {
 		db = db.Where("type = ?", animeType)
 	} else {
-		// Default: Exclude foreign media from general listings
-		db = db.Where("type NOT IN (?, ?)", "tv_en", "moves_en")
+		// Default: Exclude foreign media and manga from general listings
+		db = db.Where("type NOT IN (?, ?, ?)", "tv_en", "moves_en", "manga")
 	}
 
 	if order == "oldest" {
@@ -608,8 +647,59 @@ func (r *SQLiteRepository) GetAllAnimes(categoryID uint, letter string, search s
 	return animes, err
 }
 
+func (r *SQLiteRepository) CountAnimes(categoryID uint, letter string, search string, animeType string) (int64, error) {
+	var count int64
+	db := r.db.Model(&domain.Anime{})
+
+	// Filter published only for non-admin
+	if animeType != "all_admin" && animeType != "all_admin_anime" && animeType != "all_admin_manga" {
+		db = db.Where("is_published = ?", true)
+	}
+
+	if categoryID > 0 {
+		db = db.Joins("JOIN anime_categories ON anime_categories.anime_id = animes.id").
+			Where("anime_categories.category_id = ?", categoryID)
+	}
+
+	if letter != "" {
+		db = db.Where("title LIKE ? OR title_en LIKE ?", letter+"%", letter+"%")
+	}
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		db = db.Where("title LIKE ? OR title_en LIKE ?", searchPattern, searchPattern)
+	}
+
+	if animeType == "foreign" {
+		db = db.Where("type IN (?, ?)", "tv_en", "moves_en")
+	} else if animeType == "all_admin_manga" {
+		db = db.Where("type = ?", "manga")
+	} else if animeType == "all_admin_anime" {
+		db = db.Where("type != ?", "manga")
+	} else if animeType == "all_admin" {
+		// All types
+	} else if animeType != "" && animeType != "All" {
+		db = db.Where("type = ?", animeType)
+	} else {
+		db = db.Where("type NOT IN (?, ?, ?)", "tv_en", "moves_en", "manga")
+	}
+
+	err := db.Count(&count).Error
+	return count, err
+}
+
 func (r *SQLiteRepository) UpdateAnime(anime *domain.Anime) error {
-	return r.db.Save(anime).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(anime).Error; err != nil {
+			return err
+		}
+		if !anime.IsPublished {
+			if err := tx.Model(&domain.Episode{}).Where("anime_id = ?", anime.ID).Update("is_published", false).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (r *SQLiteRepository) DeleteAnime(id uint) error {
@@ -619,14 +709,16 @@ func (r *SQLiteRepository) DeleteAnime(id uint) error {
 func (r *SQLiteRepository) GetLatestAnimes(limit int) ([]domain.Anime, error) {
 	var animes []domain.Anime
 	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
-		Where("type NOT IN (?, ?)", "tv_en", "moves_en").
+		Where("is_published = ? AND type NOT IN (?, ?, ?)", true, "tv_en", "moves_en", "manga").
 		Order("created_at desc").Limit(limit).Find(&animes).Error
 	return animes, err
 }
 
 func (r *SQLiteRepository) GetAnimesByType(animeType string, limit int) ([]domain.Anime, error) {
 	var animes []domain.Anime
-	query := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").Where("type = ?", animeType).Order("created_at desc")
+	query := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
+		Where("is_published = ? AND type = ?", true, animeType).
+		Order("created_at desc")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
@@ -639,7 +731,7 @@ func (r *SQLiteRepository) SearchAnimes(query string) ([]domain.Anime, error) {
 	searchPattern := "%" + query + "%"
 
 	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
-		Where("title LIKE ? OR title_en LIKE ?", searchPattern, searchPattern).
+		Where("(title LIKE ? OR title_en LIKE ?)", searchPattern, searchPattern).
 		Order("created_at desc").
 		Limit(50).
 		Find(&animes).Error
@@ -700,7 +792,8 @@ func (r *SQLiteRepository) GetTopAnimes(ctx context.Context, limit int) ([]map[s
 	// Returning map so we don't mess with domain struct
 	rows, err := r.db.WithContext(ctx).Table("animes").
 		Select("animes.id, animes.title, animes.title_en, animes.image, animes.cover, COALESCE(SUM(episodes.views_count), 0) as total_views").
-		Joins("LEFT JOIN episodes ON episodes.anime_id = animes.id").
+		Joins("LEFT JOIN episodes ON episodes.anime_id = animes.id AND episodes.is_published = ?", true).
+		Where("animes.is_published = ?", true).
 		Group("animes.id").
 		Order("total_views desc").
 		Limit(limit).
@@ -801,4 +894,71 @@ func (r *SQLiteRepository) UpdateServer(server *domain.Server) error {
 
 func (r *SQLiteRepository) DeleteServer(id uint) error {
 	return r.db.Delete(&domain.Server{}, id).Error
+}
+
+// --- Chapter Repository Implementation ---
+
+func (r *SQLiteRepository) CreateChapter(chapter *domain.Chapter) error {
+	return r.db.Create(chapter).Error
+}
+
+func (r *SQLiteRepository) GetChapterByID(id uint) (*domain.Chapter, error) {
+	var chapter domain.Chapter
+	err := r.db.Preload("Anime").First(&chapter, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &chapter, nil
+}
+
+func (r *SQLiteRepository) GetAllChapters(animeID uint, search string, limit int, offset int) ([]domain.Chapter, error) {
+	var chapters []domain.Chapter
+	db := r.db.Preload("Anime")
+
+	if animeID > 0 {
+		db = db.Where("anime_id = ?", animeID)
+	}
+
+	if search != "" {
+		pattern := "%" + search + "%"
+		db = db.Where("title LIKE ? OR title_en LIKE ?", pattern, pattern)
+	}
+
+	err := db.Order("chapter_number desc").Limit(limit).Offset(offset).Find(&chapters).Error
+	return chapters, err
+}
+
+func (r *SQLiteRepository) CountChapters(animeID uint, search string) (int64, error) {
+	var count int64
+	db := r.db.Model(&domain.Chapter{})
+
+	if animeID > 0 {
+		db = db.Where("anime_id = ?", animeID)
+	}
+
+	if search != "" {
+		pattern := "%" + search + "%"
+		db = db.Where("title LIKE ? OR title_en LIKE ?", pattern, pattern)
+	}
+
+	err := db.Count(&count).Error
+	return count, err
+}
+
+func (r *SQLiteRepository) UpdateChapter(chapter *domain.Chapter) error {
+	return r.db.Save(chapter).Error
+}
+
+func (r *SQLiteRepository) DeleteChapter(id uint) error {
+	return r.db.Delete(&domain.Chapter{}, id).Error
+}
+
+func (r *SQLiteRepository) GetChaptersByAnimeID(animeID uint) ([]domain.Chapter, error) {
+	var chapters []domain.Chapter
+	err := r.db.Where("anime_id = ?", animeID).Order("chapter_number asc").Find(&chapters).Error
+	return chapters, err
+}
+
+func (r *SQLiteRepository) IncrementChapterViews(chapterID uint) error {
+	return r.db.Model(&domain.Chapter{}).Where("id = ?", chapterID).UpdateColumn("views_count", gorm.Expr("views_count + ?", 1)).Error
 }

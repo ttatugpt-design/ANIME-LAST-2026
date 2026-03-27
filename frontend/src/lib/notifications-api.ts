@@ -1,7 +1,7 @@
 import api from './api';
 
 // Notification types matching backend
-export type NotificationType = 'reply' | 'like' | 'system' | 'new_post' | 'friend_request' | 'friend_request_accepted' | 'friend_request_rejected' | 'chat_message';
+export type NotificationType = 'reply' | 'comment' | 'like' | 'system' | 'new_post' | 'friend_request' | 'friend_request_accepted' | 'friend_request_rejected' | 'chat_message';
 
 export interface NotificationData {
     comment_id?: number;
@@ -34,6 +34,11 @@ export interface NotificationData {
     anime_title?: string;
     anime_image?: string;
     post_id?: number;
+    post_content?: string;
+    post_media_url?: string;
+    is_reply_to_reply?: boolean;
+    parent_target_name?: string;
+    reaction_type?: string;
 }
 
 export interface Notification {

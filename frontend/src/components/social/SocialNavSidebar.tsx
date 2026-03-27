@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutGrid, Sparkles, Filter, Monitor, Users } from 'lucide-react';
+import { LayoutGrid, Sparkles, Filter, Monitor, Users, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const SocialNavSidebar: React.FC = () => {
@@ -10,18 +10,12 @@ export const SocialNavSidebar: React.FC = () => {
     const isAr = i18n.language === 'ar';
     const lang = i18n.language;
 
-    const navLinks = [
+    const navLinks: Array<{ label: string; href: string; icon: any; activeMatch?: string; isSeparator?: boolean }> = [
         {
             label: isAr ? 'المجتمع' : 'Community',
             href: `/${lang}/community`,
             icon: Users,
             activeMatch: '/community'
-        },
-        {
-            label: isAr ? 'تصفح الكل' : 'Browse All',
-            href: `/${lang}/browse`,
-            icon: LayoutGrid,
-            activeMatch: '/browse'
         },
         {
             label: isAr ? 'جديد' : 'New',
@@ -30,17 +24,10 @@ export const SocialNavSidebar: React.FC = () => {
             activeMatch: '/animes'
         },
         {
-            label: isAr ? 'الفئات' : 'Categories',
-            href: `/${lang}/categories`,
-            icon: Filter,
-            activeMatch: '/categories'
-        },
-        {
-            label: isAr ? 'أفلام ومسلسلات أجنبية' : 'Foreign Movies & Series',
-            href: `/${lang}/movies-series`,
-            icon: Monitor,
-            isSeparator: true,
-            activeMatch: '/movies-series'
+            label: isAr ? 'المانجا' : 'Manga',
+            href: `/${lang}/mangas`,
+            icon: BookOpen,
+            activeMatch: '/mangas'
         }
     ];
 
@@ -49,7 +36,7 @@ export const SocialNavSidebar: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-2 p-2">
+        <div className="flex flex-col gap-2 p-2 font-sans">
             <div className="space-y-1">
                 {navLinks.map((link) => (
                     <React.Fragment key={link.href}>
@@ -68,7 +55,7 @@ export const SocialNavSidebar: React.FC = () => {
                                     : "text-gray-500 dark:text-gray-400 group-hover:text-black dark:group-hover:text-white"
                             )} />
                             <span className={cn(
-                                "text-lg font-black tracking-tight leading-none transition-colors",
+                                "text-lg font-bold font-sans tracking-tight leading-none transition-colors",
                                 isActive(link)
                                     ? "text-black dark:text-white"
                                     : "text-gray-700 dark:text-gray-300 group-hover:text-black dark:group-hover:text-white"

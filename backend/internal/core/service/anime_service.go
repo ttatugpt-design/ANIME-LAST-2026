@@ -21,7 +21,7 @@ func (s *AnimeService) Create(anime *domain.Anime) (*domain.Anime, error) {
 	if anime.Seasons == 0 {
 		anime.Seasons = 1
 	}
-	anime.IsActive = true
+	anime.IsPublished = true
 	anime.CreatedAt = time.Now()
 	anime.UpdatedAt = time.Now()
 
@@ -33,6 +33,10 @@ func (s *AnimeService) Create(anime *domain.Anime) (*domain.Anime, error) {
 
 func (s *AnimeService) GetAll(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Anime, error) {
 	return s.repo.GetAllAnimes(categoryID, letter, search, animeType, order, limit, offset)
+}
+
+func (s *AnimeService) Count(categoryID uint, letter string, search string, animeType string) (int64, error) {
+	return s.repo.CountAnimes(categoryID, letter, search, animeType)
 }
 
 func (s *AnimeService) GetLatest(limit int) ([]domain.Anime, error) {
@@ -76,6 +80,7 @@ func (s *AnimeService) Update(anime *domain.Anime) (*domain.Anime, error) {
 	existing.Language = anime.Language
 	existing.Trailer = anime.Trailer
 	existing.Type = anime.Type
+	existing.IsPublished = anime.IsPublished
 	existing.UpdatedAt = time.Now()
 
 	if err := s.repo.UpdateAnime(existing); err != nil {

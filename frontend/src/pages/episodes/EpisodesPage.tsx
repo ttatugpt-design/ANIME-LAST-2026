@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,19 @@ export default function EpisodesPage() {
     const queryClient = useQueryClient();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [page, setPage] = useState(1);
+    const limit = 20;
+
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setPage(1); // Reset to first page on search
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     // Initial Form State
     const initialFormState = {
@@ -66,14 +79,19 @@ export default function EpisodesPage() {
     const [editingEpisode, setEditingEpisode] = useState<any>(null);
 
     // Data Queries
-    const { data: episodes, isLoading: isLoadingEpisodes } = useQuery({
-        queryKey: ["episodes"],
-        queryFn: async () => (await api.get("/episodes")).data,
+    const { data: episodeResponse, isLoading: isLoadingEpisodes } = useQuery({
+        queryKey: ["episodes", page, debouncedSearch],
+        queryFn: async () => (await api.get(`/episodes?type=all_admin&limit=${limit}&page=${page}&search=${debouncedSearch}&paginate=true`)).data,
+        placeholderData: keepPreviousData,
     });
+
+    const episodes = episodeResponse?.data || [];
+    const totalCount = episodeResponse?.total || 0;
+    const lastPage = episodeResponse?.last_page || 1;
 
     const { data: animes } = useQuery({
         queryKey: ["animes"],
-        queryFn: async () => (await api.get("/animes")).data,
+        queryFn: async () => (await api.get("/animes?type=all_admin&limit=0")).data,
     });
 
     const { data: servers } = useQuery({
@@ -83,8 +101,9 @@ export default function EpisodesPage() {
 
     // Auto-fill logic when anime_id changes
     useEffect(() => {
-        if (formData.anime_id && animes) {
-            const selectedAnime = animes.find((a: any) => a.id == formData.anime_id);
+        const animesList = Array.isArray(animes) ? animes : (animes?.data || []);
+        if (formData.anime_id && animesList.length > 0) {
+            const selectedAnime = animesList.find((a: any) => a.id == formData.anime_id);
             if (selectedAnime) {
                 // Only auto-fill if we are NOT editing an existing episode (or maybe we should? The user said "fills automatically")
                 // The Vue implementation does auto-fill on change.
@@ -110,7 +129,10 @@ export default function EpisodesPage() {
 
 
     const handleAnimeChange = (animeId: number) => {
-        const selectedAnime = animes?.find((a: any) => a.id == animeId);
+        // animes might be { data: [] } if limit > 0, or [] if limit = 0 depending on the API changes in handler.
+        // With limit=0, AnimeHandler currently returns a flat array because limit is NOT > 0.
+        const animesList = Array.isArray(animes) ? animes : (animes?.data || []);
+        const selectedAnime = animesList.find((a: any) => a.id == animeId);
         if (selectedAnime) {
             setFormData(prev => ({
                 ...prev,
@@ -221,9 +243,7 @@ export default function EpisodesPage() {
     const uploadFile = async (file: File) => {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await api.post("/upload", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+        const res = await api.post("/upload", formData);
         return res.data.url;
     };
 
@@ -340,32 +360,40 @@ export default function EpisodesPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Episodes</h2>
                     <p className="text-muted-foreground">Manage anime episodes.</p>
                 </div>
-                <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={resetForm}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Episode
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col">
-                        <EpisodeFormContent
-                            formData={formData}
-                            handleChange={handleChange}
-                            handleAnimeChange={handleAnimeChange}
-                            animes={animes || []}
-                            serversList={servers || []}
-                            isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
-                            handleImageUpload={handleImageUpload}
-                            addVideoUrl={addVideoUrl}
-                            removeVideoUrl={removeVideoUrl}
-                            updateVideoUrl={updateVideoUrl}
-                            onSubmit={handleCreate}
-                            isPending={createMutation.isPending}
-                            onCancel={() => setIsAddModalOpen(false)}
-                            title="Add Episode"
-                        />
-                    </DialogContent>
-                </Dialog>
+                <div className="flex items-center gap-4">
+                    <Input
+                        placeholder="Search episodes (name or number)..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-64"
+                    />
+                    <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                        <DialogTrigger asChild>
+                            <Button onClick={resetForm}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Episode
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col">
+                            <EpisodeFormContent
+                                formData={formData}
+                                handleChange={handleChange}
+                                handleAnimeChange={handleAnimeChange}
+                                animes={Array.isArray(animes) ? animes : (animes?.data || [])}
+                                serversList={servers || []}
+                                isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
+                                handleImageUpload={handleImageUpload}
+                                addVideoUrl={addVideoUrl}
+                                removeVideoUrl={removeVideoUrl}
+                                updateVideoUrl={updateVideoUrl}
+                                onSubmit={handleCreate}
+                                isPending={createMutation.isPending}
+                                onCancel={() => setIsAddModalOpen(false)}
+                                title="Add Episode"
+                            />
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             {/* Edit Modal */}
@@ -375,7 +403,7 @@ export default function EpisodesPage() {
                         formData={formData}
                         handleChange={handleChange}
                         handleAnimeChange={handleAnimeChange}
-                        animes={animes || []}
+                        animes={Array.isArray(animes) ? animes : (animes?.data || [])}
                         serversList={servers || []}
                         isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
                         handleImageUpload={handleImageUpload}
@@ -446,6 +474,36 @@ export default function EpisodesPage() {
                             )}
                         </TableBody>
                     </Table>
+
+                    {/* Pagination UI */}
+                    {totalCount > 0 && (
+                        <div className="flex items-center justify-between mt-4 px-2">
+                            <div className="text-sm text-muted-foreground">
+                                Total: {totalCount} episodes
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-sm font-medium">
+                                    Page {page} of {lastPage}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(lastPage, p + 1))}
+                                    disabled={page === lastPage}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -102,6 +102,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/animes`),
         },
         {
+            label: i18n.language === 'ar' ? 'المانجا' : 'Mangas',
+            icon: Book,
+            href: `/${lang}/dashboard/mangas`,
+            active: pathname.startsWith(`/${lang}/dashboard/mangas`),
+        },
+        {
             label: i18n.language === 'ar' ? 'أفلام ومسلسلات أجنبية' : 'Foreign Media',
             icon: Film,
             href: `/${lang}/dashboard/foreign-animes`,
@@ -112,6 +118,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Play,
             href: `/${lang}/dashboard/episodes`,
             active: pathname.startsWith(`/${lang}/dashboard/episodes`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'الفصول' : 'Chapters',
+            icon: Library,
+            href: `/${lang}/dashboard/chapters`,
+            active: pathname.startsWith(`/${lang}/dashboard/chapters`),
         },
         {
             label: i18n.language === 'ar' ? 'حلقات أجنبية' : 'Foreign Episodes',
@@ -154,6 +166,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Settings,
             href: `/${lang}/dashboard/settings`,
             active: pathname.startsWith(`/${lang}/dashboard/settings`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'النسخ الاحتياطي' : 'Database Backup',
+            icon: Database,
+            href: `/${lang}/dashboard/backups`,
+            active: pathname.startsWith(`/${lang}/dashboard/backups`),
         },
     ];
 

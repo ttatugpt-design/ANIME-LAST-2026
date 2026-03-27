@@ -7,6 +7,7 @@ import (
 	"backend/pkg/token"
 	"errors"
 	"fmt"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -58,8 +59,17 @@ func (s *AuthService) Register(name, email, password, avatar string) error {
 }
 
 func (s *AuthService) Login(name, password string) (string, string, *domain.User, error) {
-	user, err := s.userRepo.GetUserByName(name)
-	if err != nil {
+	var user *domain.User
+	var err error
+
+	// Handle both username and email
+	if strings.Contains(name, "@") {
+		user, err = s.userRepo.GetByEmail(name)
+	} else {
+		user, err = s.userRepo.GetUserByName(name)
+	}
+
+	if err != nil || user == nil {
 		return "", "", nil, errors.New("invalid credentials")
 	}
 

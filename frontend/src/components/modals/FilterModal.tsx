@@ -201,11 +201,14 @@ export default function FilterModal({ isOpen, onClose }: FilterModalProps) {
                     {isRtl ? `النتائج (${filteredEpisodes.length})` : `Results (${filteredEpisodes.length})`}
                 </h3>
                 {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="relative w-12 h-12">
-                            <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                        </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[400px] overflow-hidden">
+                        {[...Array(8)].map((_, i) => (
+                            <div key={i} className="animate-pulse">
+                                <div className="aspect-video w-full bg-gray-200 dark:bg-[#2a2a2a] rounded-sm mb-2"></div>
+                                <div className="h-4 bg-gray-200 dark:bg-[#2a2a2a] rounded-sm w-3/4 mb-1"></div>
+                                <div className="h-3 bg-gray-200 dark:bg-[#2a2a2a] rounded-sm w-1/2"></div>
+                            </div>
+                        ))}
                     </div>
                 ) : filteredEpisodes.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto">

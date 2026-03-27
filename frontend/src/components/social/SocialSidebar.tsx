@@ -60,12 +60,12 @@ export const SocialSidebar: React.FC = () => {
     });
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full font-sans">
             {/* Recent Links Section */}
             <div className="overflow-hidden">
                 <div className="p-4 border-b border-gray-100 dark:border-white/5 flex items-center gap-2">
                     <History className="w-5 h-5 text-blue-500" />
-                    <h3 className="font-bold text-gray-900 dark:text-white uppercase tracking-wider text-sm">
+                    <h3 className="font-bold font-sans text-gray-900 dark:text-white uppercase tracking-wider text-sm">
                         {isAr ? 'روابط سريعة' : 'Recent Links'}
                     </h3>
                 </div>
@@ -82,7 +82,7 @@ export const SocialSidebar: React.FC = () => {
                                         <img src={getImageUrl(item.image)} alt="" className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate group-hover:text-blue-500 transition-colors">
+                                        <p className="text-sm font-bold font-sans text-gray-900 dark:text-white truncate group-hover:text-blue-500 transition-colors">
                                             {isAr ? item.title_ar || item.title : item.title}
                                         </p>
                                         <p className="text-[10px] text-gray-500 flex items-center gap-1">
@@ -105,7 +105,7 @@ export const SocialSidebar: React.FC = () => {
             <div className="overflow-hidden border-t border-gray-100 dark:border-white/5">
                 <div className="p-4 border-b border-gray-100 dark:border-white/5 flex items-center gap-2">
                     <Users className="w-5 h-5 text-purple-500" />
-                    <h3 className="font-bold text-gray-900 dark:text-white uppercase tracking-wider text-sm">
+                    <h3 className="font-bold font-sans text-gray-900 dark:text-white uppercase tracking-wider text-sm">
                         {isAr ? 'أحدث الأعضاء' : 'Recent Members'}
                     </h3>
                 </div>
@@ -131,13 +131,13 @@ export const SocialSidebar: React.FC = () => {
                                         {member.avatar ? (
                                             <img src={getImageUrl(member.avatar)} alt="" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-[#333] text-gray-500 font-bold">
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-[#333] text-gray-500 font-bold font-sans">
                                                 {member.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                        <p className="text-sm font-bold font-sans text-gray-900 dark:text-white truncate">
                                             {member.name}
                                         </p>
                                         <p className="text-[10px] text-gray-500">
@@ -159,7 +159,7 @@ export const SocialSidebar: React.FC = () => {
             <div className="overflow-hidden border-t border-gray-100 dark:border-white/5">
                 <div className="p-4 border-b border-gray-100 dark:border-white/5 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-yellow-500" />
-                    <h3 className="font-bold text-gray-900 dark:text-white uppercase tracking-wider text-sm">
+                    <h3 className="font-bold font-sans text-gray-900 dark:text-white uppercase tracking-wider text-sm">
                         {isAr ? 'آخر الرفع' : 'Latest Uploads'}
                     </h3>
                 </div>

@@ -93,47 +93,58 @@ func (h *PostHandler) GetFeed(c *gin.Context) {
 	})
 }
 
-// CreatePost handles multipart form data for text and images
+// CreatePost handles multipart form data for text, images, and videos
 func (h *PostHandler) CreatePost(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
-
 	content := c.PostForm("content")
 
-	// Handle multiple images
+	// Handle multiple media files
 	form, _ := c.MultipartForm()
-
-	var imageUrls []string
+	var media []domain.PostMedia
 
 	if form != nil {
-		files := form.File["images[]"]
+		files := form.File["media[]"] // Changed from "images[]" to "media[]"
+		if len(files) == 0 {
+			// Backwards compatibility for now if needed, but "media[]" is preferred
+			files = form.File["images[]"]
+		}
+
 		for _, file := range files {
-			// Basic validation
 			ext := strings.ToLower(filepath.Ext(file.Filename))
-			if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".gif" && ext != ".webp" {
+			mediaType := "image"
+			isImage := ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp"
+			isVideo := ext == ".mp4" || ext == ".mov" || ext == ".avi" || ext == ".webm" || ext == ".mkv"
+
+			if !isImage && !isVideo {
 				continue
 			}
+			if isVideo {
+				mediaType = "video"
+			}
 
-			// Save file directly
+			// Save file
 			filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
-			path := filepath.Join("uploads", "posts", filename)
-
-			// Ensure dir exists
-			os.MkdirAll(filepath.Join("uploads", "posts"), os.ModePerm)
+			dir := filepath.Join("uploads", "posts")
+			os.MkdirAll(dir, os.ModePerm)
+			path := filepath.Join(dir, filename)
 
 			if err := c.SaveUploadedFile(file, path); err == nil {
-				// Convert to web-friendly path
-				webPath := strings.ReplaceAll(path, "\\", "/")
-				imageUrls = append(imageUrls, "/"+webPath)
+				webPath := "/" + strings.ReplaceAll(path, "\\", "/")
+				media = append(media, domain.PostMedia{
+					MediaType: mediaType,
+					MediaURL:  webPath,
+				})
 			}
 		}
 	}
 
-	post, err := h.postService.CreatePost(userID, content, imageUrls)
+	post, err := h.postService.CreatePost(userID, content, media)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	h.formatPostResponse(post, userID)
 	c.JSON(http.StatusCreated, post)
 }
 
@@ -153,6 +164,64 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Post deleted successfully"})
 }
 
+func (h *PostHandler) UpdatePost(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	postID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+
+	content := c.PostForm("content")
+	mediaToKeepStr := c.PostForm("media_to_keep") // Expect JSON array string like "[1,2,3]"
+	var mediaToKeep []uint
+	if mediaToKeepStr != "" {
+		json.Unmarshal([]byte(mediaToKeepStr), &mediaToKeep)
+	}
+
+	// Handle new media uploads
+	form, _ := c.MultipartForm()
+	var newMedia []domain.PostMedia
+	if form != nil {
+		files := form.File["media[]"]
+		for _, file := range files {
+			ext := strings.ToLower(filepath.Ext(file.Filename))
+			mediaType := "image"
+			isImage := ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp"
+			isVideo := ext == ".mp4" || ext == ".mov" || ext == ".avi" || ext == ".webm" || ext == ".mkv"
+
+			if !isImage && !isVideo {
+				continue
+			}
+			if isVideo {
+				mediaType = "video"
+			}
+
+			filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+			dir := filepath.Join("uploads", "posts")
+			os.MkdirAll(dir, os.ModePerm)
+			path := filepath.Join(dir, filename)
+
+			if err := c.SaveUploadedFile(file, path); err == nil {
+				webPath := "/" + strings.ReplaceAll(path, "\\", "/")
+				newMedia = append(newMedia, domain.PostMedia{
+					MediaType: mediaType,
+					MediaURL:  webPath,
+				})
+			}
+		}
+	}
+
+	post, err := h.postService.UpdatePost(userID, uint(postID), content, mediaToKeep, newMedia)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.formatPostResponse(post, userID)
+	c.JSON(http.StatusOK, post)
+}
+
 func (h *PostHandler) TogglePostLike(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 	postID, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -161,14 +230,22 @@ func (h *PostHandler) TogglePostLike(c *gin.Context) {
 		return
 	}
 
-	liked, err := h.postService.TogglePostLike(userID, uint(postID))
+	var req struct {
+		Type string `json:"type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Reaction type is required"})
+		return
+	}
+
+	result, err := h.postService.TogglePostLike(userID, uint(postID), req.Type)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle like"})
 		return
 	}
 
 	// NOTIFICATION LOGIC: Post Like
-	if liked {
+	if result == "added" || result == "changed" {
 		// Fetch post to get owner
 		post, err := h.postService.GetPostByID(uint(postID))
 		if err == nil && post.UserID != userID {
@@ -181,12 +258,19 @@ func (h *PostHandler) TogglePostLike(c *gin.Context) {
 				actorAvatar = actor.Avatar
 			}
 
+			postMediaURL := ""
+			if len(post.Media) > 0 {
+				postMediaURL = post.Media[0].MediaURL
+			}
+
 			dataPayload := gin.H{
-				"post_id":      post.ID,
-				"actor_id":     userID,
-				"actor_name":   actorName,
-				"actor_avatar": actorAvatar,
-				"content":      post.Content,
+				"post_id":        post.ID,
+				"actor_id":       userID,
+				"actor_name":     actorName,
+				"actor_avatar":   actorAvatar,
+				"content":        post.Content,
+				"post_media_url": postMediaURL,
+				"reaction_type":  req.Type,
 			}
 			dataJSON, _ := json.Marshal(dataPayload)
 
@@ -205,7 +289,7 @@ func (h *PostHandler) TogglePostLike(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"liked": liked})
+	c.JSON(http.StatusOK, gin.H{"result": result, "type": req.Type})
 }
 
 // --- Comments ---
@@ -225,6 +309,26 @@ func (h *PostHandler) GetPostComments(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
 		return
+	}
+
+	// Attach user's reaction type to each comment and its children
+	userIDValue, exists := c.Get("user_id")
+	if exists {
+		currentUserID, _ := userIDValue.(uint)
+		if currentUserID > 0 {
+			for i := range comments {
+				reactionType := h.postService.GetPostCommentLikeStatus(currentUserID, comments[i].ID)
+				if reactionType != "" {
+					comments[i].UserReaction = &reactionType
+				}
+				for j := range comments[i].Children {
+					rt := h.postService.GetPostCommentLikeStatus(currentUserID, comments[i].Children[j].ID)
+					if rt != "" {
+						comments[i].Children[j].UserReaction = &rt
+					}
+				}
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -278,6 +382,11 @@ func (h *PostHandler) CreatePostComment(c *gin.Context) {
 				actorAvatar = comment.User.Avatar
 			}
 
+			postMediaURL := ""
+			if postOwner != nil && len(postOwner.Media) > 0 {
+				postMediaURL = postOwner.Media[0].MediaURL
+			}
+
 			dataPayload := gin.H{
 				"comment_id":      comment.ID,
 				"parent_id":       parent.ID,
@@ -287,14 +396,47 @@ func (h *PostHandler) CreatePostComment(c *gin.Context) {
 				"comment_content": parent.Content,
 				"reply_content":   comment.Content,
 				"post_id":         postID,
+				"post_media_url":  postMediaURL,
+				"is_reply_to_reply": parent.ParentID != nil && *parent.ParentID != 0,
+			}
+			if parent.Parent != nil && parent.Parent.User != nil {
+				dataPayload["parent_target_name"] = parent.Parent.User.Name
 			}
 			if postOwner != nil {
 				dataPayload["post_content"] = postOwner.Content
 			}
 			dataJSON, _ := json.Marshal(dataPayload)
 
-			// 1. Notify Parent Owner
-			if parent.UserID != userID {
+			parentOwnerNotified := false
+
+			// 1. Notify Mentioned User (if different from current user)
+			if comment.MentionUserID != nil && *comment.MentionUserID != userID {
+				// Use the specific reply from the mentioned user as the context if found
+				mentionDataJSON := dataJSON
+				if mentionedUserReply, err := h.postService.GetMostRecentCommentByUserAndParent(*comment.MentionUserID, parent.ID); err == nil && mentionedUserReply != nil {
+					// Create a specialized payload for the mentioned user
+					mentionDataPayload := make(gin.H)
+					for k, v := range dataPayload { mentionDataPayload[k] = v }
+					mentionDataPayload["comment_content"] = mentionedUserReply.Content
+					mentionDataPayload["is_reply_to_reply"] = true
+					mentionDataJSON, _ = json.Marshal(mentionDataPayload)
+				}
+
+				notif := &domain.Notification{
+					UserID: *comment.MentionUserID,
+					Type:   domain.NotificationTypeReply,
+					Data:   mentionDataJSON,
+				}
+				h.notifRepo.Create(notif)
+				h.hub.SendToUser(*comment.MentionUserID, gin.H{"type": "notification", "data": notif})
+
+				if *comment.MentionUserID == parent.UserID {
+					parentOwnerNotified = true
+				}
+			}
+
+			// 2. Notify Parent Owner (if not the same user, and hasn't just been notified as a Mentioned User)
+			if parent.UserID != userID && !parentOwnerNotified {
 				notif := &domain.Notification{
 					UserID: parent.UserID,
 					Type:   domain.NotificationTypeReply,
@@ -303,17 +445,42 @@ func (h *PostHandler) CreatePostComment(c *gin.Context) {
 				h.notifRepo.Create(notif)
 				h.hub.SendToUser(parent.UserID, gin.H{"type": "notification", "data": notif})
 			}
-
-			// 2. Notify Mentioned User
-			if comment.MentionUserID != nil && *comment.MentionUserID != userID && *comment.MentionUserID != parent.UserID {
-				notif := &domain.Notification{
-					UserID: *comment.MentionUserID,
-					Type:   domain.NotificationTypeReply,
-					Data:   dataJSON,
-				}
-				h.notifRepo.Create(notif)
-				h.hub.SendToUser(*comment.MentionUserID, gin.H{"type": "notification", "data": notif})
+		}
+	} else {
+		// It is a root comment on the post
+		postOwner, err := h.postService.GetPostByID(uint(postID))
+		if err == nil && postOwner != nil && postOwner.UserID != userID {
+			actorName := "User"
+			actorAvatar := ""
+			if comment.User != nil {
+				actorName = comment.User.Name
+				actorAvatar = comment.User.Avatar
 			}
+
+			postMediaURL := ""
+			if postOwner != nil && len(postOwner.Media) > 0 {
+				postMediaURL = postOwner.Media[0].MediaURL
+			}
+
+			dataPayload := gin.H{
+				"comment_id":      comment.ID,
+				"actor_id":        userID,
+				"actor_name":      actorName,
+				"actor_avatar":    actorAvatar,
+				"comment_content": comment.Content,
+				"post_id":         postID,
+				"post_content":    postOwner.Content,
+				"post_media_url":  postMediaURL,
+			}
+			dataJSON, _ := json.Marshal(dataPayload)
+
+			notif := &domain.Notification{
+				UserID: postOwner.UserID,
+				Type:   domain.NotificationTypeComment,
+				Data:   dataJSON,
+			}
+			h.notifRepo.Create(notif)
+			h.hub.SendToUser(postOwner.UserID, gin.H{"type": "notification", "data": notif})
 		}
 	}
 
@@ -343,6 +510,31 @@ func (h *PostHandler) DeletePostComment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully"})
 }
 
+func (h *PostHandler) UpdatePostComment(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	commentID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	comment, err := h.postService.UpdateComment(userID, uint(commentID), req.Content)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, comment)
+}
+
 func (h *PostHandler) ToggleCommentLike(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 	commentID, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -352,14 +544,14 @@ func (h *PostHandler) ToggleCommentLike(c *gin.Context) {
 	}
 
 	var req struct {
-		IsLike bool `json:"is_like"` // Should map to true/false from client
+		Type string `json:"type" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Reaction type is required"})
 		return
 	}
 
-	err = h.postService.ToggleCommentLike(userID, uint(commentID), req.IsLike)
+	err = h.postService.ToggleCommentLike(userID, uint(commentID), req.Type)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle interaction"})
 		return
@@ -368,13 +560,19 @@ func (h *PostHandler) ToggleCommentLike(c *gin.Context) {
 	target, fetchErr := h.postService.GetCommentByID(uint(commentID))
 	if fetchErr == nil {
 		// NOTIFICATION LOGIC: Post Comment Like
-		if req.IsLike && target.UserID != userID {
+		if target.UserID != userID { // Removed req.IsLike check, now we notify on any reaction (or we could limit it if we want)
 			actor, _ := h.userRepo.GetUserByID(userID)
 			actorName := "User"
 			actorAvatar := ""
 			if actor != nil {
 				actorName = actor.Name
 				actorAvatar = actor.Avatar
+			}
+
+			postOwner, _ := h.postService.GetPostByID(target.PostID)
+			postMediaURL := ""
+			if postOwner != nil && len(postOwner.Media) > 0 {
+				postMediaURL = postOwner.Media[0].MediaURL
 			}
 
 			dataPayload := gin.H{
@@ -385,6 +583,8 @@ func (h *PostHandler) ToggleCommentLike(c *gin.Context) {
 				"actor_avatar":    actorAvatar,
 				"comment_content": target.Content,
 				"post_id":         target.PostID,
+				"post_media_url":  postMediaURL,
+				"reaction_type":   req.Type,
 			}
 			dataJSON, _ := json.Marshal(dataPayload)
 
@@ -403,7 +603,7 @@ func (h *PostHandler) ToggleCommentLike(c *gin.Context) {
 			"type": "comment_like",
 			"data": gin.H{
 				"comment_id": commentID,
-				"is_like":    req.IsLike,
+				"type":       req.Type,
 				"user_id":    userID,
 			},
 		})
@@ -429,6 +629,20 @@ func (h *PostHandler) GetPostCommentReplies(c *gin.Context) {
 		return
 	}
 
+	// Attach user's reaction type to each reply
+	userIDValue, exists := c.Get("user_id")
+	if exists {
+		currentUserID, _ := userIDValue.(uint)
+		if currentUserID > 0 {
+			for i := range replies {
+				reactionType := h.postService.GetPostCommentLikeStatus(currentUserID, replies[i].ID)
+				if reactionType != "" {
+					replies[i].UserReaction = &reactionType
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data":     replies,
 		"page":     page,
@@ -443,14 +657,158 @@ func (h *PostHandler) formatPostResponse(post *domain.Post, currentUserID uint) 
 		var like domain.PostLike
 		err := h.postService.GetPostLikeStatus(currentUserID, post.ID, &like)
 		if err == nil {
-			isLiked := true
-			post.UserInteraction = &isLiked
+			post.UserReaction = &like.Type
 		}
 	}
 }
 
 func (h *PostHandler) checkPostLikeStatus(postID, userID uint) bool {
-	// Re-checking via repository logic if service has a helper
-	// Assuming s.repo.GetPostLike exists
 	return false
+}
+
+// GetPostCommentByID fetches a single post comment with root context
+func (h *PostHandler) GetPostCommentByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	comment, err := h.postService.GetCommentByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Comment not found"})
+		return
+	}
+
+	// If it's a root comment, return it
+	if comment.ParentID == nil || *comment.ParentID == 0 {
+		c.JSON(http.StatusOK, comment)
+		return
+	}
+
+	// If it's a reply, find root parent
+	current := comment
+	path := []*domain.PostComment{comment}
+	for i := 0; i < 10; i++ {
+		if current.ParentID == nil || *current.ParentID == 0 {
+			break
+		}
+		parent, err := h.postService.GetCommentByID(*current.ParentID)
+		if err != nil {
+			break
+		}
+		path = append([]*domain.PostComment{parent}, path...)
+		current = parent
+	}
+	root := path[0]
+
+	// Fetch all comments for this post to build the tree context
+	allComments, _ := h.postService.GetCommentsByPostIDPaginated(root.PostID, 1000, 0)
+
+	// Find root in results
+	for _, r := range allComments {
+		if r.ID == root.ID {
+			count := countPostChildren(&r)
+			if count > 100 {
+				prunePostTree(&r, comment.ID)
+			}
+			c.JSON(http.StatusOK, r)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, root)
+}
+
+func countPostChildren(c *domain.PostComment) int {
+	total := len(c.Children)
+	for i := range c.Children {
+		total += countPostChildren(&c.Children[i])
+	}
+	return total
+}
+
+func prunePostTree(c *domain.PostComment, targetID uint) bool {
+	if c.ID == targetID {
+		return true
+	}
+	if len(c.Children) == 0 {
+		return false
+	}
+	var newChildren []domain.PostComment
+	foundInBranch := false
+	for i := range c.Children {
+		if prunePostTree(&c.Children[i], targetID) {
+			newChildren = append(newChildren, c.Children[i])
+			foundInBranch = true
+		}
+	}
+	if foundInBranch {
+		c.Children = newChildren
+		return true
+	}
+	return false
+}
+
+// --- Reaction Tooltips ---
+
+type ReactionUser struct {
+	ID     uint   `json:"id"`
+	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
+}
+
+func (h *PostHandler) GetPostReactions(c *gin.Context) {
+	postID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+
+	likes, err := h.postService.GetPostReactions(uint(postID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reactions"})
+		return
+	}
+
+	result := make(map[string][]ReactionUser)
+	for _, like := range likes {
+		if like.User != nil {
+			result[like.Type] = append(result[like.Type], ReactionUser{
+				ID:     like.User.ID,
+				Name:   like.User.Name,
+				Avatar: like.User.Avatar,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *PostHandler) GetCommentReactions(c *gin.Context) {
+	commentID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment ID"})
+		return
+	}
+
+	likes, err := h.postService.GetCommentReactions(uint(commentID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reactions"})
+		return
+	}
+
+	result := make(map[string][]ReactionUser)
+	for _, like := range likes {
+		if like.User != nil {
+			result[like.Type] = append(result[like.Type], ReactionUser{
+				ID:     like.User.ID,
+				Name:   like.User.Name,
+				Avatar: like.User.Avatar,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, result)
 }

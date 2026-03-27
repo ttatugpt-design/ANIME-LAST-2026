@@ -85,12 +85,7 @@ export function DesktopNavigation() {
                 <span className="hover-underline-expand">{isRtl ? 'المجتمع' : 'Community'}</span>
             </button>
 
-            <button
-                onClick={() => navigate(`/${i18n.language}/movies-series`)}
-                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
-            >
-                <span className="hover-underline-expand">{isRtl ? 'أفلام ومسلسلات أجنبية' : 'Foreign Media'}</span>
-            </button>
+
 
             <div
                 className="relative h-full flex items-center"
@@ -100,7 +95,7 @@ export function DesktopNavigation() {
                     onClick={toggleAnimeMenu}
                     className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 outline-none"
                 >
-                    <span className="hover-underline-expand">{isRtl ? 'أنميات' : 'Animes'}</span>
+                    <span className="hover-underline-expand">{isRtl ? 'الكل' : 'All'}</span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isAnimeMenuOpen && "rotate-180")} />
                 </button>
 

@@ -1,5 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 
+import { getImageUrl } from '@/utils/image-utils';
+import { getDetailsUrl } from "@/utils/navigation";
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -19,6 +21,8 @@ import SeasonsPage from '@/pages/seasons/SeasonsPage';
 import StudiosPage from '@/pages/studios/StudiosPage';
 import LanguagesPage from '@/pages/languages/LanguagesPage';
 import AnimesPage from '@/pages/animes/AnimesPage';
+import MangasPage from '@/pages/animes/MangasPage';
+import ChaptersPage from '@/pages/animes/ChaptersPage';
 import ForeignAnimesPage from '@/pages/animes/ForeignAnimesPage';
 import WatchPage from '@/pages/animes/WatchPage';
 import EpisodesPage from '@/pages/episodes/EpisodesPage';
@@ -26,7 +30,10 @@ import ForeignEpisodesPage from '@/pages/episodes/ForeignEpisodesPage';
 import { HomeLayout } from '@/layouts/HomeLayout';
 import HomePage from '@/pages/home/HomePage';
 import AnimeBrowsePage from '@/pages/animes/AnimeBrowsePage';
+import PublicMangasPage from '@/pages/animes/PublicMangasPage';
 import AnimeDetailsPage from '@/pages/animes/AnimeDetailsPage';
+import MangaDetailsPage from '@/pages/animes/MangaDetailsPage';
+import ChapterPage from '@/pages/animes/ChapterPage';
 import UserLibraryPage from '@/pages/UserLibraryPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import SearchPage from '@/pages/SearchPage';
@@ -53,6 +60,7 @@ import FriendsPage from '@/pages/dashboard/FriendsPage';
 import CommunityPage from '@/pages/social/CommunityPage';
 import PostDetailPage from '@/pages/social/PostDetailPage';
 import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
+import BackupPage from '@/pages/dashboard/BackupPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -128,6 +136,10 @@ export const routes = [
                         element: <DmcaPage />,
                     },
                     {
+                        path: 'mangas',
+                        element: <PublicMangasPage />,
+                    },
+                    {
                         path: 'categories',
                         element: <PublicCategoriesPage />,
                     },
@@ -136,12 +148,20 @@ export const routes = [
                         element: <AnimeDetailsPage />,
                     },
                     {
+                        path: 'mangas/:id/:slug?',
+                        element: <MangaDetailsPage />,
+                    },
+                    {
                         path: 'models/:id',
                         element: <ModelViewerPage />,
                     },
                     {
                         path: 'watch/:id/:episodeNum/:slug?',
                         element: <WatchPage />,
+                    },
+                    {
+                        path: 'read/:id/:chapterNum/:slug?',
+                        element: <ChapterPage />,
                     },
                     {
                         path: 'search',
@@ -287,12 +307,20 @@ export const routes = [
                                 element: <AnimesPage />,
                             },
                             {
+                                path: 'mangas',
+                                element: <MangasPage />,
+                            },
+                            {
                                 path: 'foreign-animes',
                                 element: <ForeignAnimesPage />,
                             },
                             {
                                 path: 'episodes',
                                 element: <EpisodesPage />,
+                            },
+                            {
+                                path: 'chapters',
+                                element: <ChaptersPage />,
                             },
                             {
                                 path: 'foreign-episodes',
@@ -317,6 +345,10 @@ export const routes = [
                             {
                                 path: 'settings',
                                 element: <SettingsPage />,
+                            },
+                            {
+                                path: 'backups',
+                                element: <BackupPage />,
                             },
                             {
                                 path: 'ai-lab',

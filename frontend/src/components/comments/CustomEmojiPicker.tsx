@@ -15,7 +15,7 @@ export const CustomEmojiPicker: React.FC<CustomEmojiPickerProps> = ({ onEmojiCli
     const containerRef = useRef<HTMLDivElement>(null);
     const [scrollTop, setScrollTop] = useState(0);
     const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
-    const [activeTab, setActiveTab] = useState<'custom' | 'yellow'>('custom');
+    const [activeTab, setActiveTab] = useState<'custom' | 'yellow'>('yellow');
     const [placement, setPlacement] = useState<'top' | 'bottom'>('top');
     const [isMeasured, setIsMeasured] = useState(false);
 

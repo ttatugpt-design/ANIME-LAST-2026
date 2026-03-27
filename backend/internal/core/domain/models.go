@@ -175,7 +175,7 @@ type Anime struct {
 	Language             string         `json:"language"` // Legacy/Text
 	Trailer              string         `json:"trailer"`
 	Type                 string         `json:"type"`
-	IsActive             bool           `gorm:"default:true" json:"is_active"`
+	IsPublished          bool           `gorm:"default:true" json:"is_published"`
 	UserID               *uint          `json:"user_id"`
 	CreatedAt            time.Time      `json:"created_at"`
 	UpdatedAt            time.Time      `json:"updated_at"`

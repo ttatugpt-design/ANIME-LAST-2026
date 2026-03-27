@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Auto-migrate
-	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{})
+	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{}, &domain.MessageReaction{})
 
 	// Repositories (Special cases that need DB)
 	notifRepo := repository.NewNotificationRepository(repo.DB())
@@ -81,6 +81,7 @@ func main() {
 	languageService := service.NewLanguageService(repo)
 	animeService := service.NewAnimeService(repo)
 	episodeService := service.NewEpisodeService(repo)
+	chapterService := service.NewChapterService(repo)
 	modelService := service.NewModelService(repo)
 	categoryService := service.NewCategoryService(repo)
 	quickNewsService := service.NewQuickNewsService(repo)
@@ -110,6 +111,7 @@ func main() {
 
 	// Then create handlers that depend on them
 	episodeHandler := handler.NewEpisodeHandler(episodeService, repo, episodeLikeRepo, commentRepo)
+	chapterHandler := handler.NewChapterHandler(chapterService)
 	modelHandler := handler.NewModelHandler(modelService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 
@@ -203,6 +205,8 @@ func main() {
 		log.Printf("Changed working directory to: %s", backendRoot)
 	}
 
+	backupHandler := handler.NewBackupHandler(repo, cfg)
+
 	// Helper to log static paths
 	logStatic := func(relPath string) string {
 		if _, err := os.Stat(relPath); err == nil {
@@ -289,6 +293,14 @@ func main() {
 				episodes.GET("/:id", episodeHandler.GetByID)
 			}
 
+			// Chapter Public (Read-Only)
+			chapters := public.Group("/chapters")
+			{
+				chapters.GET("", chapterHandler.GetAll)
+				chapters.GET("/:id", chapterHandler.GetByID)
+				chapters.GET("/anime/:animeId", chapterHandler.GetByAnimeID)
+			}
+
 			// Models Public
 			models := public.Group("/models")
 			models.GET("", modelHandler.GetAll)
@@ -307,6 +319,8 @@ func main() {
 
 			// Public Comments (Read-only)
 			public.GET("/episodes/:id/comments", commentHandler.GetAllByEpisode)
+			public.GET("/chapters/:id/comments", commentHandler.GetAllByChapter)
+			public.GET("/comments/:id/reactions", commentHandler.GetReactions)
 
 			// Report Issue
 			public.POST("/reports", reportHandler.CreateReport)
@@ -321,12 +335,20 @@ func main() {
 			public.GET("/users", userHandler.GetAll)
 			public.GET("/users/:id", userHandler.GetByID)
 			public.GET("/comments", commentHandler.GetAllComments)
+			public.GET("/comments/:id", commentHandler.GetByID)
 
-			// Community Posts (Read-Only)
-			public.GET("/posts", postHandler.GetFeed)
-			public.GET("/posts/:id", postHandler.GetPostByIDHandler)
-			public.GET("/posts/:id/comments", postHandler.GetPostComments)
-			public.GET("/posts/comments/:id/replies", postHandler.GetPostCommentReplies)
+			// Community Posts (Read-Only but auth-aware)
+			optionalAuth := public.Group("/")
+			optionalAuth.Use(middleware.OptionalAuthMiddleware(cfg))
+			{
+				optionalAuth.GET("/posts", postHandler.GetFeed)
+				optionalAuth.GET("/posts/:id", postHandler.GetPostByIDHandler)
+				optionalAuth.GET("/posts/:id/reactions", postHandler.GetPostReactions)
+				optionalAuth.GET("/posts/:id/comments", postHandler.GetPostComments)
+				optionalAuth.GET("/posts/comments/:id", postHandler.GetPostCommentByID)
+				optionalAuth.GET("/posts/comments/:id/reactions", postHandler.GetCommentReactions)
+				optionalAuth.GET("/posts/comments/:id/replies", postHandler.GetPostCommentReplies)
+			}
 		}
 
 		// --- Protected Routes (Auth Required) ---
@@ -359,8 +381,12 @@ func main() {
 			messages := protected.Group("/messages")
 			{
 				messages.POST("/send", messageHandler.SendMessage)
+				messages.PUT("/:id", messageHandler.EditMessage)
+				messages.DELETE("/:id", messageHandler.DeleteMessage)
+				messages.POST("/:id/react", messageHandler.ReactToMessage)
 				messages.GET("/history/:userId", messageHandler.GetChatHistory)
 				messages.GET("/conversations", messageHandler.GetRecentConversations)
+				messages.DELETE("/conversation/:userId", messageHandler.DeleteConversation)
 			}
 
 			// Block Routes
@@ -374,6 +400,14 @@ func main() {
 				dashboard.GET("/comments", commentHandler.GetAllComments)
 				dashboard.GET("/analytics/stats", analyticsHandler.GetGlobalStats)
 				dashboard.GET("/analytics/top", analyticsHandler.GetTopContent)
+				
+				// Backup Management
+				dashboard.GET("/backups", backupHandler.ListBackups)
+				dashboard.POST("/backups", backupHandler.CreateBackup)
+				dashboard.GET("/backups/download/:filename", backupHandler.DownloadBackup)
+				dashboard.DELETE("/backups/:filename", backupHandler.DeleteBackup)
+				dashboard.POST("/backups/restore/:filename", backupHandler.RestoreBackup)
+				dashboard.POST("/backups/upload", backupHandler.UploadAndRestore)
 			}
 
 			// Settings Update
@@ -406,6 +440,11 @@ func main() {
 			episodes := protected.Group("/episodes")
 			episodes.POST("", episodeHandler.Create).PUT("/:id", episodeHandler.Update).DELETE("/:id", episodeHandler.Delete)
 
+			// Write Operations for Chapters
+			chapters := protected.Group("/chapters")
+			chapters.POST("", chapterHandler.Create).PUT("/:id", chapterHandler.Update).DELETE("/:id", chapterHandler.Delete)
+			chapters.POST("/:id/view", chapterHandler.TrackView)
+
 			// Watch Later Routes (Personal)
 			watchLater := protected.Group("/watch-later")
 			{
@@ -425,17 +464,20 @@ func main() {
 
 			// Comment Write Operations
 			protected.POST("/episodes/:id/comments", commentHandler.Create)
+			protected.POST("/chapters/:id/comments", commentHandler.Create)
 			protected.POST("/comments/:id/like", commentHandler.ToggleLike)
 			protected.PUT("/comments/:id", commentHandler.Update)
 			protected.DELETE("/comments/:id", commentHandler.Delete)
 
 			// Community Posts Write Operations
 			protected.POST("/posts", postHandler.CreatePost)
+			protected.PUT("/posts/:id", postHandler.UpdatePost)
 			protected.DELETE("/posts/:id", postHandler.DeletePost)
 			protected.POST("/posts/:id/like", postHandler.TogglePostLike)
 
 			// Community Posts Comment Write Operations
 			protected.POST("/posts/:id/comments", postHandler.CreatePostComment)
+			protected.PUT("/posts/comments/:id", postHandler.UpdatePostComment)
 			protected.DELETE("/posts/comments/:id", postHandler.DeletePostComment)
 			protected.POST("/posts/comments/:id/like", postHandler.ToggleCommentLike)
 

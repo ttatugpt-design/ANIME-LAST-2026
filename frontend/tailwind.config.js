@@ -7,7 +7,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['"Plus Jakarta Sans"', 'sans-serif']
+                sans: ['Figtree', '"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"']
             },
             borderRadius: {
                 lg: 'var(--radius)',

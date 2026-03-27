@@ -23,7 +23,7 @@ func (r *CommentRepository) Create(comment *domain.Comment) error {
 // GetByID fetches a comment by ID
 func (r *CommentRepository) GetByID(id uint) (*domain.Comment, error) {
 	var comment domain.Comment
-	if err := r.db.Preload("User").Preload("Episode").Preload("Episode.Anime").First(&comment, id).Error; err != nil {
+	if err := r.db.Preload("User").Preload("Parent").Preload("Parent.User").Preload("Episode").Preload("Episode.Anime").Preload("Chapter").Preload("Chapter.Anime").First(&comment, id).Error; err != nil {
 		return nil, err
 	}
 	return &comment, nil
@@ -31,10 +31,6 @@ func (r *CommentRepository) GetByID(id uint) (*domain.Comment, error) {
 
 func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, error) {
 	var allComments []domain.Comment
-	// Fetch all comments for this episode.
-	// We sort by CreatedAt ASC generally for building the tree easily,
-	// but the UI might expect top-level comments to be DESC.
-	// To satisfy both: we sort by CreatedAt ASC here, then we reverse the rootComments at the end.
 	err := r.db.Preload("User").
 		Where("episode_id = ?", episodeID).
 		Order("created_at asc").
@@ -43,7 +39,6 @@ func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, er
 		return nil, err
 	}
 
-	// Build a map for O(1) lookups by ID
 	commentMap := make(map[uint]*domain.Comment)
 	for i := range allComments {
 		commentMap[allComments[i].ID] = &allComments[i]
@@ -52,16 +47,13 @@ func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, er
 	for i := range allComments {
 		comment := &allComments[i]
 		if comment.ParentID != nil && *comment.ParentID != 0 {
-			// Nested reply - goes into children list (which will be ASC because our query was ASC)
 			if parent, exists := commentMap[*comment.ParentID]; exists {
 				parent.Children = append(parent.Children, *comment)
 			}
 		}
 	}
 
-	// Now extract roots and reverse them if we want newest-first for main thread
 	var finalRoots []domain.Comment
-	// Iterate backwards to get newest-first for top-level
 	for i := len(allComments) - 1; i >= 0; i-- {
 		c := &allComments[i]
 		if c.ParentID == nil || *c.ParentID == 0 {
@@ -70,6 +62,147 @@ func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, er
 	}
 
 	return finalRoots, nil
+}
+
+// GetByEpisodeIDPaginated returns paginated top-level comments with all their children.
+func (r *CommentRepository) GetByEpisodeIDPaginated(episodeID uint, page, limit int) ([]domain.Comment, int64, error) {
+	if page <= 0 { page = 1 }
+	if limit <= 0 { limit = 10 }
+	offset := (page - 1) * limit
+
+	// Count total top-level comments
+	var total int64
+	r.db.Model(&domain.Comment{}).Where("episode_id = ? AND (parent_id IS NULL OR parent_id = 0)", episodeID).Count(&total)
+
+	// Fetch paginated top-level root comments
+	var roots []domain.Comment
+	err := r.db.Preload("User").
+		Where("episode_id = ? AND (parent_id IS NULL OR parent_id = 0)", episodeID).
+		Order("created_at desc").
+		Limit(limit).Offset(offset).
+		Find(&roots).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(roots) == 0 {
+		return roots, total, nil
+	}
+
+	// Collect root IDs to fetch their children
+	rootIDs := make([]uint, len(roots))
+	for i, r := range roots { rootIDs[i] = r.ID }
+
+	var children []domain.Comment
+	r.db.Preload("User").
+		Where("episode_id = ? AND parent_id IN ?", episodeID, rootIDs).
+		Order("created_at asc").
+		Find(&children)
+
+	// Attach children to their parents
+	rootMap := make(map[uint]*domain.Comment, len(roots))
+	for i := range roots { rootMap[roots[i].ID] = &roots[i] }
+	for _, child := range children {
+		if child.ParentID != nil {
+			parentID := *child.ParentID
+			if parent, ok := rootMap[parentID]; ok {
+				parent.Children = append(parent.Children, child)
+			} else {
+				// reply-to-reply: walk up once
+				for _, rc := range roots {
+					if rc.Children != nil {
+						for _, rc2 := range rc.Children {
+							if rc2.ID == parentID {
+								if rr, ok2 := rootMap[rc.ID]; ok2 {
+									rr.Children = append(rr.Children, child)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return roots, total, nil
+}
+
+func (r *CommentRepository) GetByChapterID(chapterID uint) ([]domain.Comment, error) {
+	var allComments []domain.Comment
+	err := r.db.Preload("User").
+		Where("chapter_id = ?", chapterID).
+		Order("created_at asc").
+		Find(&allComments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	commentMap := make(map[uint]*domain.Comment)
+	for i := range allComments {
+		commentMap[allComments[i].ID] = &allComments[i]
+	}
+
+	for i := range allComments {
+		comment := &allComments[i]
+		if comment.ParentID != nil && *comment.ParentID != 0 {
+			if parent, exists := commentMap[*comment.ParentID]; exists {
+				parent.Children = append(parent.Children, *comment)
+			}
+		}
+	}
+
+	var finalRoots []domain.Comment
+	for i := len(allComments) - 1; i >= 0; i-- {
+		c := &allComments[i]
+		if c.ParentID == nil || *c.ParentID == 0 {
+			finalRoots = append(finalRoots, *commentMap[c.ID])
+		}
+	}
+
+	return finalRoots, nil
+}
+
+// GetByChapterIDPaginated returns paginated top-level comments with their children.
+func (r *CommentRepository) GetByChapterIDPaginated(chapterID uint, page, limit int) ([]domain.Comment, int64, error) {
+	if page <= 0 { page = 1 }
+	if limit <= 0 { limit = 10 }
+	offset := (page - 1) * limit
+
+	var total int64
+	r.db.Model(&domain.Comment{}).Where("chapter_id = ? AND (parent_id IS NULL OR parent_id = 0)", chapterID).Count(&total)
+
+	var roots []domain.Comment
+	err := r.db.Preload("User").
+		Where("chapter_id = ? AND (parent_id IS NULL OR parent_id = 0)", chapterID).
+		Order("created_at desc").
+		Limit(limit).Offset(offset).
+		Find(&roots).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(roots) == 0 {
+		return roots, total, nil
+	}
+
+	rootIDs := make([]uint, len(roots))
+	for i, r := range roots { rootIDs[i] = r.ID }
+
+	var children []domain.Comment
+	r.db.Preload("User").
+		Where("chapter_id = ? AND parent_id IN ?", chapterID, rootIDs).
+		Order("created_at asc").
+		Find(&children)
+
+	rootMap := make(map[uint]*domain.Comment, len(roots))
+	for i := range roots { rootMap[roots[i].ID] = &roots[i] }
+	for _, child := range children {
+		if child.ParentID != nil {
+			if parent, ok := rootMap[*child.ParentID]; ok {
+				parent.Children = append(parent.Children, child)
+			}
+		}
+	}
+
+	return roots, total, nil
 }
 
 // GetAllComments fetches all comments for dashboard
@@ -101,52 +234,42 @@ func (r *CommentRepository) Delete(id uint) error {
 	return r.db.Delete(&domain.Comment{}, id).Error
 }
 
-// ToggleLike handles like/dislike logic
-func (r *CommentRepository) ToggleLike(userID, commentID uint, isLike bool) error {
+// ToggleLike handles like/dislike logic for comments via 7 reaction types
+func (r *CommentRepository) ToggleLike(userID, commentID uint, reactionType string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var like domain.CommentLike
 		err := tx.Where("user_id = ? AND comment_id = ?", userID, commentID).First(&like).Error
 
+		// Safely construct column name based on reaction type (append 's')
+		newCol := reactionType + "s"
+
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Create new interaction
-			newLike := domain.CommentLike{UserID: userID, CommentID: commentID, IsLike: isLike}
+			newLike := domain.CommentLike{UserID: userID, CommentID: commentID, Type: reactionType}
 			if err := tx.Create(&newLike).Error; err != nil {
 				return err
 			}
 			// Update counts
-			col := "likes"
-			if !isLike {
-				col = "dislikes"
-			}
-			return tx.Model(&domain.Comment{}).Where("id = ?", commentID).UpdateColumn(col, gorm.Expr(col+"+ ?", 1)).Error
+			return tx.Model(&domain.Comment{}).Where("id = ?", commentID).UpdateColumn(newCol, gorm.Expr(newCol+"+ ?", 1)).Error
 		} else if err != nil {
 			return err
 		}
 
 		// Interaction exists
-		if like.IsLike == isLike {
+		if like.Type == reactionType {
 			// User clicked same button -> Remove interaction (Toggle off)
 			if err := tx.Delete(&like).Error; err != nil {
 				return err
 			}
-			col := "likes"
-			if !isLike {
-				col = "dislikes"
-			}
-			return tx.Model(&domain.Comment{}).Where("id = ?", commentID).UpdateColumn(col, gorm.Expr(col+"- ?", 1)).Error
+			return tx.Model(&domain.Comment{}).Where("id = ?", commentID).UpdateColumn(newCol, gorm.Expr(newCol+"- ?", 1)).Error
 		} else {
-			// User changed from Like to Dislike or vice versa
-			like.IsLike = isLike
+			// User changed from one reaction to another
+			oldCol := like.Type + "s"
+			like.Type = reactionType
 			if err := tx.Save(&like).Error; err != nil {
 				return err
 			}
 			// Adjust counts: -1 from old, +1 to new
-			oldCol := "dislikes"
-			newCol := "likes"
-			if !isLike {
-				oldCol = "likes"
-				newCol = "dislikes"
-			}
 			if err := tx.Model(&domain.Comment{}).Where("id = ?", commentID).
 				Update(oldCol, gorm.Expr(oldCol+"- ?", 1)).
 				Update(newCol, gorm.Expr(newCol+"+ ?", 1)).Error; err != nil {
@@ -163,4 +286,31 @@ func (r *CommentRepository) CountByEpisodeID(episodeID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&domain.Comment{}).Where("episode_id = ?", episodeID).Count(&count).Error
 	return count, err
+}
+
+// GetMostRecentByUserAndParent finds the most recent reply by a user under a specific parent
+func (r *CommentRepository) GetMostRecentByUserAndParent(userID, parentID uint) (*domain.Comment, error) {
+	var comment domain.Comment
+	err := r.db.Where("user_id = ? AND parent_id = ?", userID, parentID).Order("created_at desc").First(&comment).Error
+	if err != nil {
+		return nil, err
+	}
+	return &comment, nil
+}
+
+// GetReactions fetches all reactions for a specific comment, preloading user data
+func (r *CommentRepository) GetReactions(commentID uint) ([]domain.CommentLike, error) {
+	var likes []domain.CommentLike
+	err := r.db.Preload("User").Where("comment_id = ?", commentID).Find(&likes).Error
+	return likes, err
+}
+
+// GetCommentLikeStatus returns the user's current reaction type for a comment, or empty string if none.
+func (r *CommentRepository) GetCommentLikeStatus(userID, commentID uint) string {
+	var like domain.CommentLike
+	err := r.db.Where("user_id = ? AND comment_id = ?", userID, commentID).First(&like).Error
+	if err != nil {
+		return ""
+	}
+	return like.Type
 }

@@ -225,12 +225,26 @@ export function UserDropdown({ isOpen: controlledIsOpen, onOpenChange: controlle
     // Close on navigation
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
-        if (open && isMobile) {
+    };
+
+    // Prevent scroll and handle back button when menu is open on mobile
+    useEffect(() => {
+        if (isOpen && isMobile) {
             document.body.style.overflow = 'hidden';
+            window.history.pushState({ menuOpen: true }, '');
+            const handlePopState = () => {
+                setIsOpen(false);
+            };
+            window.addEventListener('popstate', handlePopState);
+            return () => {
+                document.body.style.overflow = '';
+                window.removeEventListener('popstate', handlePopState);
+            };
         } else {
             document.body.style.overflow = '';
         }
-    };
+        return () => { document.body.style.overflow = ''; };
+    }, [isOpen, isMobile, setIsOpen]);
 
     // Desktop Trigger
     const DesktopTrigger = (

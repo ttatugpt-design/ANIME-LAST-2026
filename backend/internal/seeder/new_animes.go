@@ -43,8 +43,10 @@ func createAnimeWithEpisodes(db *gorm.DB, animeData domain.Anime, episodeCount i
 		}
 	}
 
-	// Create anime
+	// Create anime (use Select("*") to force-save false bool values like IsPublished)
 	if err := db.Where("slug = ?", animeData.Slug).FirstOrCreate(&animeData).Error; err == nil {
+		// Force-update IsPublished in case FirstOrCreate found existing record with wrong value
+		db.Model(&animeData).Update("is_published", animeData.IsPublished)
 		// Sync Categories
 		var cats []domain.Category
 		db.Where("slug IN ?", catSlugs).Find(&cats)
@@ -74,13 +76,15 @@ func createAnimeWithEpisodes(db *gorm.DB, animeData domain.Anime, episodeCount i
 				Quality:       "1080p",
 				VideoFormat:   "mp4",
 				ReleaseDate:   startDate.AddDate(0, 0, i*7),
-				IsPublished:   true,
+				IsPublished:   animeData.IsPublished,
 				Language:      animeData.Language,
 				Rating:        8.5,
 				VideoURLs:     fmt.Sprintf(`[{"url":"https://video.example.com/%s_ep%d.mp4","type":"ar","name":"Server 1"}]`, animeData.Slug, i),
 			}
 
 			db.Where("slug = ?", ep.Slug).FirstOrCreate(&ep)
+			// Force-update IsPublished to match anime's IsPublished
+			db.Model(&ep).Update("is_published", animeData.IsPublished)
 		}
 	}
 }
@@ -102,7 +106,7 @@ func SeedChainsawMan(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "Movie",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2024-12-11")
 
@@ -128,7 +132,7 @@ func SeedFullmetalAlchemist(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2003-10-04")
 
@@ -154,7 +158,7 @@ func SeedNarutoShippuden(db *gorm.DB) {
 		Duration:      23,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2007-02-15")
 
@@ -180,7 +184,7 @@ func SeedOnePunchMan(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2015-10-05")
 
@@ -189,31 +193,6 @@ func SeedOnePunchMan(db *gorm.DB) {
 		"In this episode, Saitama faces new enemies in his unique way...")
 }
 
-func SeedSousouNoFrieren(db *gorm.DB) {
-	anime := domain.Anime{
-		Title:         "Sousou no Frieren سوسو نو فريرن",
-		TitleEn:       "Frieren: Beyond Journey's End",
-		Slug:          "sousou-no-frieren",
-		SlugEn:        "sousou-no-frieren",
-		Description:   "بعد هزيمة ملك الشياطين، تبدأ فريرن الساحرة الإلفية رحلة جديدة...",
-		DescriptionEn: "After defeating the Demon King, the elf mage Frieren begins a new journey...",
-		Seasons:       1,
-		Status:        "Running",
-		Rating:        9.3,
-		Image:         "/uploads/animes/frieren.jpg",
-		Cover:         "/uploads/animes/frieren_cover.jpg",
-		StudioName:    "Madhouse",
-		Duration:      24,
-		Language:      "Japan",
-		Type:          "TV",
-		IsActive:      true,
-	}
-	anime.ReleaseDate = toDatePtr("2006-01-02", "2023-09-29")
-
-	createAnimeWithEpisodes(db, anime, 28, []string{"adventure", "drama", "fantasy", "slice-of-life"}, 2023,
-		"في هذه الحلقة، تستكشف فريرن ذكرياتها وتتعلم المزيد عن البشر...",
-		"In this episode, Frieren explores her memories and learns more about humans...")
-}
 
 func SeedSpyXFamily(db *gorm.DB) {
 	anime := domain.Anime{
@@ -232,7 +211,7 @@ func SeedSpyXFamily(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2022-04-09")
 
@@ -258,7 +237,7 @@ func SeedSteinsGate(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2011-04-06")
 
@@ -284,11 +263,79 @@ func SeedKingdom6th(db *gorm.DB) {
 		Duration:      24,
 		Language:      "Japan",
 		Type:          "TV",
-		IsActive:      true,
+		IsPublished:  false,
 	}
 	anime.ReleaseDate = toDatePtr("2006-01-02", "2024-01-06")
 
 	createAnimeWithEpisodes(db, anime, 25, []string{"action", "historical", "military", "seinen"}, 2024,
 		"في هذه الحلقة، تستمر المعارك الملحمية في عصر الممالك الصينية...",
 		"In this episode, epic battles continue in the era of Chinese kingdoms...")
+}
+
+// Helper function to create an anime and its chapters
+func createAnimeWithChapters(db *gorm.DB, animeData domain.Anime, chapterCount int, catSlugs []string, startYear int, descriptionAr, descriptionEn string) {
+	// 1. Resolve Season ID
+	month := animeData.ReleaseDate.Month()
+	var seasonNameEn string
+	if month >= 1 && month <= 3 {
+		seasonNameEn = fmt.Sprintf("Winter Season - %d", startYear)
+	} else if month >= 4 && month <= 6 {
+		seasonNameEn = fmt.Sprintf("Spring Season - %d", startYear)
+	} else if month >= 7 && month <= 9 {
+		seasonNameEn = fmt.Sprintf("Summer Season - %d", startYear)
+	} else {
+		seasonNameEn = fmt.Sprintf("Autumn Season - %d", startYear)
+	}
+	var season domain.Season
+	if err := db.Where("name_en = ?", seasonNameEn).First(&season).Error; err == nil {
+		animeData.SeasonID = &season.ID
+	}
+
+	// 2. Resolve Studio ID
+	var studio domain.Studio
+	if animeData.StudioName != "" {
+		if err := db.Where("name_en = ?", animeData.StudioName).First(&studio).Error; err == nil {
+			animeData.StudioID = &studio.ID
+		}
+	}
+
+	// 3. Resolve Language ID
+	var lang domain.Language
+	if animeData.Language != "" {
+		if err := db.Where("name_en = ?", animeData.Language).First(&lang).Error; err == nil {
+			animeData.LanguageID = &lang.ID
+		}
+	}
+
+	// Create anime
+	if err := db.Where("slug = ?", animeData.Slug).FirstOrCreate(&animeData).Error; err == nil {
+		db.Model(&animeData).Update("is_published", animeData.IsPublished)
+		// Sync Categories
+		var cats []domain.Category
+		db.Where("slug IN ?", catSlugs).Find(&cats)
+		db.Model(&animeData).Association("Categories").Replace(cats)
+
+		// Create chapters
+
+		for i := 1; i <= chapterCount; i++ {
+			chNumber := i
+			chTitle := fmt.Sprintf("الفصل %d - %s", i, animeData.Title)
+			chTitleEn := fmt.Sprintf("Chapter %d - %s", i, animeData.TitleEn)
+			chSlug := fmt.Sprintf("%s-ch-%d", animeData.Slug, i)
+
+			ch := domain.Chapter{
+				AnimeID:       animeData.ID,
+				Title:         chTitle,
+				TitleEn:       chTitleEn,
+				Slug:          chSlug,
+				SlugEn:        chSlug,
+				ChapterNumber: chNumber,
+				Images:        "[]", // Default empty list
+				IsPublished:   animeData.IsPublished,
+			}
+
+			db.Where("slug = ?", ch.Slug).FirstOrCreate(&ch)
+			db.Model(&ch).Update("is_published", animeData.IsPublished)
+		}
+	}
 }

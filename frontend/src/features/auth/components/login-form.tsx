@@ -28,7 +28,7 @@ export function LoginForm() {
 
     // Schema with translated error messages could be implemented here
     const formSchema = z.object({
-        name: z.string().min(3, { message: lang === 'ar' ? 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل' : 'Username must be at least 3 characters' }),
+        name: z.string().min(3, { message: lang === 'ar' ? 'اسم المستخدم أو البريد الإلكتروني يجب أن يكون 3 أحرف على الأقل' : 'Username or Email must be at least 3 characters' }),
         password: z.string().min(6),
     })
 
@@ -56,7 +56,7 @@ export function LoginForm() {
             window.location.assign(`/${targetLang}`);
         } catch (error: any) {
             if (error.response?.status === 401) {
-                toast.error(lang === 'ar' ? "اسم المستخدم أو كلمة المرور غير صحيحة" : "Invalid username or password");
+                toast.error(lang === 'ar' ? "البيانات المدخلة غير صحيحة" : "Invalid email/username or password");
             } else {
                 toast.error(lang === 'ar' ? "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى." : "Login failed. Please try again.");
             }
@@ -78,11 +78,11 @@ export function LoginForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-lg">
-                                        {lang === 'ar' ? 'اسم المستخدم' : 'Username'}
+                                        {lang === 'ar' ? 'اسم المستخدم أو البريد الإلكتروني' : 'Username or Email'}
                                     </FormLabel>
                                     <FormControl>
                                         <Input
-                                            placeholder={lang === 'ar' ? "user123" : "user123"}
+                                            placeholder={lang === 'ar' ? "user123 أو user@example.com" : "user123 or user@example.com"}
                                             {...field}
                                             disabled={isLoading}
                                             className="rounded-none h-14 text-lg border-gray-300 dark:border-gray-700 focus:ring-1 focus:ring-primary"
