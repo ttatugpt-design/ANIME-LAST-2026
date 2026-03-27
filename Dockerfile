@@ -45,7 +45,7 @@ COPY --from=frontend /app/frontend/dist ./dist
 COPY --from=frontend /app/frontend/server.js .
 COPY --from=frontend /app/frontend/package.json .
 # Install only production dependencies (express) for the sidecar
-RUN npm install --production
+RUN npm install --production --legacy-peer-deps
 
 # 4. Copy Emoji Directory
 WORKDIR /app/emoji
