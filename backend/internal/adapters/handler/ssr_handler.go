@@ -32,19 +32,20 @@ func NewSSRHandler() *SSRHandler {
 
 // StartNodeServer attempts to start the Node.js sidecar
 func (h *SSRHandler) StartNodeServer() {
-	_, filename, _, ok := runtime.Caller(0)
-	var frontendDir string
-	if ok {
-		// filename is .../backend/internal/adapters/handler/ssr_handler.go
-		// root is .../backend/
-		backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filename))))
-		// frontend is sibling to backend
-		projectRoot := filepath.Dir(backendDir)
-		frontendDir = filepath.Join(projectRoot, "frontend")
-	} else {
-		frontendDir = "../frontend" // fallback
+	// Re-evaluate root strictly for production (/app)
+	projectRoot := "/app"
+	if _, err := os.Stat(projectRoot); err != nil {
+		// Fallback for local
+		_, filename, _, ok := runtime.Caller(0)
+		if ok {
+			backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filename))))
+			projectRoot = filepath.Dir(backendDir)
+		} else {
+			projectRoot = ".."
+		}
 	}
 
+	frontendDir := filepath.Join(projectRoot, "frontend")
 	serverJs := filepath.Join(frontendDir, "server.js")
 	fmt.Printf("Starting Node SSR server at: %s\n", serverJs)
 
@@ -97,15 +98,19 @@ func (h *SSRHandler) ServeSSR(c *gin.Context) {
 	appHtml, _ := result["html"].(string)
 
 	// Read index.html from dist
-	_, ssrFile, _, ok := runtime.Caller(0)
-	var templatePath string
-	if ok {
-		backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
-		projectRoot := filepath.Dir(backendDir)
-		templatePath = filepath.Join(projectRoot, "frontend/dist/client/index.html")
-	} else {
-		templatePath = "../frontend/dist/client/index.html"
+	// Re-evaluate root strictly for production (/app)
+	projectRoot := "/app"
+	if _, err := os.Stat(projectRoot); err != nil {
+		// Fallback for local
+		_, ssrFile, _, ok := runtime.Caller(0)
+		if ok {
+			backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
+			projectRoot = filepath.Dir(backendDir)
+		} else {
+			projectRoot = ".."
+		}
 	}
+	templatePath := filepath.Join(projectRoot, "frontend/dist/client/index.html")
 
 	template, err := os.ReadFile(templatePath)
 
@@ -138,19 +143,24 @@ func (h *SSRHandler) ServeSSR(c *gin.Context) {
 	// For this Step 1 MVP, we prioritize the App Shell HTML.
 
 	c.Header("Content-Type", "text/html")
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
 	c.String(200, html)
 }
 
 func (h *SSRHandler) serveFallback(c *gin.Context) {
-	// Serve pure static index.html (CSR)
-	_, ssrFile, _, ok := runtime.Caller(0)
-	var templatePath string
-	if ok {
-		backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
-		projectRoot := filepath.Dir(backendDir)
-		templatePath = filepath.Join(projectRoot, "frontend/dist/client/index.html")
-	} else {
-		templatePath = "../frontend/dist/client/index.html"
+	// Re-evaluate root strictly for production (/app)
+	projectRoot := "/app"
+	if _, err := os.Stat(projectRoot); err != nil {
+		// Fallback for local
+		_, ssrFile, _, ok := runtime.Caller(0)
+		if ok {
+			backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
+			projectRoot = filepath.Dir(backendDir)
+		} else {
+			projectRoot = ".."
+		}
 	}
+	templatePath := filepath.Join(projectRoot, "frontend/dist/client/index.html")
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
 	c.File(templatePath)
 }

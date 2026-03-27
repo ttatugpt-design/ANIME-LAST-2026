@@ -207,22 +207,31 @@ func main() {
 
 	backupHandler := handler.NewBackupHandler(repo, cfg)
 
-	// Helper to log static paths
-	logStatic := func(relPath string) string {
-		if _, err := os.Stat(relPath); err == nil {
-			log.Printf("Static Path OK: %s", relPath)
-		} else {
-			log.Printf("Warning: Static path does not exist: %s", relPath)
-		}
-		return relPath
+	// Determine absolute paths for static content (to be robust in container)
+	// We assume /app is our project root in production
+	projectRoot := "/app"
+	if _, err := os.Stat(projectRoot); err != nil {
+		// Fallback to detected backend root if /app doesn't exist (local)
+		projectRoot = filepath.Dir(backendRoot)
+		log.Printf("Non-standard projectRoot (local?): %s", projectRoot)
 	}
 
-	r.Static("/uploads", logStatic("uploads"))
-	r.Static("/flag-icons", logStatic("uploads/flag-icons"))
-	r.Static("/assets", logStatic("../frontend/dist/client/assets"))
-	r.Static("/custom-emojis", logStatic("../emoji"))
-	r.StaticFile("/favicon.ico", logStatic("../frontend/dist/client/favicon.ico"))
-	r.StaticFile("/vite.svg", logStatic("../frontend/dist/client/vite.svg"))
+	absPath := func(parts ...string) string {
+		path := filepath.Join(append([]string{projectRoot}, parts...)...)
+		if _, err := os.Stat(path); err == nil {
+			log.Printf("Static Path OK: %s", path)
+		} else {
+			log.Printf("Warning: Static path does not exist: %s", path)
+		}
+		return path
+	}
+
+	r.Static("/uploads", absPath("backend/uploads"))
+	r.Static("/flag-icons", absPath("backend/uploads/flag-icons"))
+	r.Static("/assets", absPath("frontend/dist/client/assets"))
+	r.Static("/custom-emojis", absPath("emoji"))
+	r.StaticFile("/favicon.ico", absPath("frontend/dist/client/favicon.ico"))
+	r.StaticFile("/vite.svg", absPath("frontend/dist/client/vite.svg"))
 
 	// SSR Setup
 	ssrHandler := handler.NewSSRHandler()

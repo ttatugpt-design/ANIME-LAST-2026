@@ -5,7 +5,7 @@ WORKDIR /app
 COPY frontend ./frontend
 WORKDIR /app/frontend
 RUN npm install --legacy-peer-deps
-RUN npm run build && npm run build:ssr
+RUN rm -rf dist && npm run build && npm run build:ssr
 
 # Stage 2: Build Go Backend
 FROM golang:1.24-alpine AS backend
