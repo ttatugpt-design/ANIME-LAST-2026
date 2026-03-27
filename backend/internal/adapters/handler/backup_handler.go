@@ -127,13 +127,14 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 		return
 	}
 
-	// Restore logic
 	if err := h.performRestore(backupPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Restore failed: %v", err)})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Database restored successfully. System reconnected."})
+	c.JSON(http.StatusOK, gin.H{"message": "Database restored successfully. Server is restarting to apply changes..."})
+	// Schedule a graceful restart so ALL repositories get fresh connections
+	h.scheduleRestart()
 }
 
 func (h *BackupHandler) UploadAndRestore(c *gin.Context) {
@@ -152,13 +153,24 @@ func (h *BackupHandler) UploadAndRestore(c *gin.Context) {
 		return
 	}
 
-	// Restore from uploaded file
 	if err := h.performRestore(tempPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Restore failed: %v", err)})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Uploaded backup restored successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Uploaded backup restored successfully. Server is restarting to apply changes..."})
+	// Schedule a graceful restart so ALL repositories get fresh connections
+	h.scheduleRestart()
+}
+
+// scheduleRestart gracefully exits the process after a short delay.
+// Railway's restart policy will automatically restart the service with fresh DB connections.
+func (h *BackupHandler) scheduleRestart() {
+	go func() {
+		time.Sleep(3 * time.Second)
+		log.Println("[RESTORE] Triggering server restart to refresh all database connections...")
+		os.Exit(1) // Exit code 1 triggers Railway's ON_FAILURE restart policy
+	}()
 }
 
 func (h *BackupHandler) performRestore(backupPath string) error {
