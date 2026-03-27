@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -35,7 +36,14 @@ func (r *SQLiteRepository) DB() *gorm.DB {
 }
 
 func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
-	db, err := gorm.Open(sqlite.Open(dbUrl), &gorm.Config{})
+	dsn := dbUrl
+	if !strings.Contains(dsn, "?") {
+		dsn += "?_busy_timeout=15000&_journal_mode=WAL&_sync=NORMAL"
+	} else {
+		dsn += "&_busy_timeout=15000&_journal_mode=WAL&_sync=NORMAL"
+	}
+	
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +51,6 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 	// Optimize SQLite for concurrent access
 	sqlDB, err := db.DB()
 	if err == nil {
-		sqlDB.Exec("PRAGMA busy_timeout = 5000") // 5 seconds wait before giving up on locked DB
 		sqlDB.SetMaxOpenConns(1)                 // SQLite only supports one concurrent writer anyway
 	}
 
