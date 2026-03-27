@@ -144,22 +144,16 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                     {/* User Info (Center/Right) */}
                                     <div className="flex items-center gap-4">
                                         <div className="flex flex-col items-end">
-                                            <span className="text-lg font-bold text-gray-900 dark:text-white">{appName || 'ANIME LAST'}</span>
+                                            <span className="text-lg font-bold text-gray-900 dark:text-white uppercase">ANIME LAST</span>
                                         </div>
 
                                         {/* Avatar (Right) */}
                                         <div className="relative w-14 h-14 overflow-hidden rounded-full ring-2 ring-[#222]">
-                                            {logoUrl ? (
-                                                <img
-                                                    src={logoUrl}
-                                                    alt="Logo"
-                                                    className="object-cover w-full h-full"
-                                                />
-                                            ) : (
-                                                <div className="flex items-center justify-center w-full h-full bg-black dark:bg-white text-white dark:text-black font-bold text-xl">
-                                                    A
-                                                </div>
-                                            )}
+                                            <img
+                                                src="/uploads/settings/logo_8d118394-7aaa-469a-8e03-3fa43420fadd.png"
+                                                alt="Logo"
+                                                className="object-cover w-full h-full"
+                                            />
                                         </div>
                                     </div>
                                 </div>
