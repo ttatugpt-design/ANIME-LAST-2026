@@ -677,7 +677,7 @@ func (r *SQLiteRepository) GetAllAnimes(categoryID uint, letter string, search s
 	} else if order == "az" {
 		db = db.Order("title asc")
 	} else {
-		db = db.Order("created_at desc")
+		db = db.Order("updated_at desc")
 	}
 
 	if limit > 0 {
@@ -751,7 +751,7 @@ func (r *SQLiteRepository) GetLatestAnimes(limit int) ([]domain.Anime, error) {
 	var animes []domain.Anime
 	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
 		Where("is_published = ? AND type NOT IN (?, ?, ?)", true, "tv_en", "moves_en", "manga").
-		Order("created_at desc").Limit(limit).Find(&animes).Error
+		Order("updated_at desc").Limit(limit).Find(&animes).Error
 	return animes, err
 }
 
@@ -759,7 +759,7 @@ func (r *SQLiteRepository) GetAnimesByType(animeType string, limit int) ([]domai
 	var animes []domain.Anime
 	query := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
 		Where("is_published = ? AND type = ?", true, animeType).
-		Order("created_at desc")
+		Order("updated_at desc")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
@@ -773,7 +773,7 @@ func (r *SQLiteRepository) SearchAnimes(query string) ([]domain.Anime, error) {
 
 	err := r.db.Preload("Categories").Preload("Season").Preload("Studio").Preload("LanguageRel").
 		Where("(title LIKE ? OR title_en LIKE ?)", searchPattern, searchPattern).
-		Order("created_at desc").
+		Order("updated_at desc").
 		Limit(50).
 		Find(&animes).Error
 

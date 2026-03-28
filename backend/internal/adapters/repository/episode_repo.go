@@ -57,7 +57,7 @@ func (r *SQLiteRepository) GetAllEpisodes(categoryID uint, letter string, search
 	if order == "oldest" {
 		db = db.Order("episodes.created_at asc")
 	} else {
-		db = db.Order("episodes.created_at desc")
+		db = db.Order("episodes.updated_at desc")
 	}
 
 	if limit > 0 {
@@ -130,7 +130,7 @@ func (r *SQLiteRepository) GetLatestEpisodes(limit, offset int) ([]domain.Episod
 	err := r.db.Preload("Anime").Preload("Servers").
 		Joins("JOIN animes ON animes.id = episodes.anime_id").
 		Where("episodes.is_published = ? AND animes.type NOT IN (?, ?)", true, "tv_en", "moves_en").
-		Order("episodes.created_at desc").Limit(limit).Offset(offset).Find(&episodes).Error
+		Order("episodes.updated_at desc").Limit(limit).Offset(offset).Find(&episodes).Error
 	return episodes, err
 }
 
@@ -142,7 +142,7 @@ func (r *SQLiteRepository) SearchEpisodes(query string) ([]domain.Episode, error
 		Joins("LEFT JOIN animes ON episodes.anime_id = animes.id").
 		Where("episodes.is_published = ? AND (episodes.title LIKE ? OR episodes.title_en LIKE ? OR animes.title LIKE ? OR animes.title_en LIKE ? OR CAST(episodes.episode_number AS TEXT) LIKE ?) AND animes.type NOT IN (?, ?)",
 			true, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, "tv_en", "moves_en").
-		Order("episodes.created_at desc").
+		Order("episodes.updated_at desc").
 		Limit(50).
 		Find(&episodes).Error
 

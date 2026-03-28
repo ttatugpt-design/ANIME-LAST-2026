@@ -44,6 +44,9 @@ func SeedAll(db *gorm.DB) {
 	SeedAdventurerAge29(db)
 	SeedToBeHeroX(db)
 	SeedBerserkManga(db)
+	SeedOnePunchManS2(db)
+	SeedTheDarwinIncident(db)
+	SeedSoloLevelingS2(db)
 	SeedNewsAnimes(db)
 
 	log.Println("Seeding completed successfully.")
