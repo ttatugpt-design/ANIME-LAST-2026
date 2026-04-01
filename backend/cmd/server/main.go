@@ -145,6 +145,7 @@ func main() {
 	embedAccountHandler := handler.NewEmbedAccountHandler(embedAccountService)
 
 	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
+	resumableHandler := handler.NewResumableUploadHandler()
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 32 << 20 // 32MB instead of 1GB. Files larger than this will be cached into OS temporary disk space instead of RAM!
@@ -512,6 +513,13 @@ func main() {
 
 			// Doodstream Routes
 			protected.POST("/doodstream/upload/:episode_id", doodstreamHandler.HandleUpload)
+			protected.POST("/doodstream/push/:episode_id", doodstreamHandler.PushMergedFile)
+
+			// Resumable Upload Routes
+			protected.POST("/upload/init", resumableHandler.InitUpload)
+			protected.POST("/upload/chunk", resumableHandler.UploadChunk)
+			protected.GET("/upload/status/:uploadId", resumableHandler.GetStatus)
+			protected.POST("/upload/complete", resumableHandler.CompleteUpload)
 
 			// Quick News Admin Operations
 			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)

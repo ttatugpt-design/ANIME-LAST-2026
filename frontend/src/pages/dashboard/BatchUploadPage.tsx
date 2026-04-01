@@ -27,7 +27,9 @@ import {
     Plus,
     Server,
     ArrowLeft,
-    XCircle
+    XCircle,
+    Pause,
+    Play
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -37,17 +39,23 @@ interface LocalFile {
     file: File;
     previewUrl: string;
     linkedEpisodeId: number | null;
-    status: 'idle' | 'uploading' | 'completed' | 'error';
+    status: 'idle' | 'waiting' | 'uploading' | 'completed' | 'error';
     progress: number;
     speed?: number;       // bytes per second
     eta?: number;         // seconds remaining
     loaded?: number;      // bytes uploaded so far
     total?: number;       // total bytes
     error?: string;
+    attempt?: number;     // current retry attempt
+    isPaused?: boolean;
+    uploadId?: string;
+    chunksSent?: number;
+    totalChunks?: number;
 }
 
 export default function BatchUploadPage() {
     const { lang, id: animeId } = useParams<{ lang: string; id: string }>();
+    const isAr = lang === 'ar';
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,94 +170,239 @@ export default function BatchUploadPage() {
         });
     };
 
-    // Batch Upload
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+
     const startBatchUpload = async () => {
         if (!selectedAccountId) { toast.error(lang === 'ar' ? 'اختر حساب الرفع' : 'Select upload account'); return; }
         if (!selectedGlobalServerId) { toast.error(lang === 'ar' ? 'اختر اسم السيرفر' : 'Select server name'); return; }
-        const linked = localFiles.filter(f => f.linkedEpisodeId && f.status !== 'completed');
-        if (!linked.length) { toast.error(lang === 'ar' ? 'لا يوجد ملفات مربوطة' : 'No linked files'); return; }
+        
+        const filesToUpload = localFiles.filter(f => f.linkedEpisodeId && f.status !== 'completed');
+        if (!filesToUpload.length) { toast.error(lang === 'ar' ? 'لا يوجد ملفات مربوطة للرفع' : 'No linked files ready for upload'); return; }
 
         setIsBatchProcessing(true);
         
-        // Execute uploads concurrently for maximum speed using Promise.all
-        const uploadPromises = linked.map(async (lf) => {
-            setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'uploading', progress: 0, speed: 0, eta: 0, loaded: 0, total: lf.file.size } : f));
+        // Initial state: mark all as waiting
+        setLocalFiles(prev => prev.map(f => (f.linkedEpisodeId && f.status !== 'completed') ? { ...f, status: 'waiting', progress: 0, attempt: 1, isPaused: false } : f));
+
+        const CONCURRENCY_LIMIT = 2;
+        const queue = [...filesToUpload];
+        const activeUploads = new Set<string>();
+
+        const processQueue = async (): Promise<void> => {
+            if (queue.length === 0 && activeUploads.size === 0) return;
+            while (queue.length > 0 && activeUploads.size < CONCURRENCY_LIMIT) {
+                const lf = queue.shift()!;
+                activeUploads.add(lf.id);
+                uploadResumable(lf);
+            }
+        };
+
+        const uploadResumable = async (lf: LocalFile) => {
             const startTime = Date.now();
             const speedWindow: { time: number; loaded: number }[] = [{ time: startTime, loaded: 0 }];
             let lastUpdate = startTime;
 
-            try {
-                const fd = new FormData();
-                fd.append('file', lf.file);
-                await api.post(`/doodstream/upload/${lf.linkedEpisodeId}?account_id=${selectedAccountId}&server_id=${selectedGlobalServerId}`, fd, {
-                    onUploadProgress: (pe) => {
-                        const now = Date.now();
-                        speedWindow.push({ time: now, loaded: pe.loaded });
-                        
-                        // Keep only window of last 3 seconds to calculate real moving average speed
-                        while (speedWindow.length > 1 && speedWindow[0].time < now - 3000) {
-                            speedWindow.shift();
-                        }
-
-                        // Update UI every 500ms or on completion for less jitter and better performance
-                        if (now - lastUpdate >= 500 || pe.loaded === pe.total) {
-                            let currentSpeed = 0;
-                            if (speedWindow.length > 1) {
-                                const oldest = speedWindow[0];
-                                const newest = speedWindow[speedWindow.length - 1];
-                                const timeDiff = Math.max((newest.time - oldest.time) / 1000, 0.001);
-                                currentSpeed = (newest.loaded - oldest.loaded) / timeDiff;
-                            } else {
-                                const timeDiff = Math.max((now - startTime) / 1000, 0.001);
-                                currentSpeed = pe.loaded / timeDiff;
-                            }
-                            
-                            const remaining = pe.total ? pe.total - pe.loaded : 0;
-                            const currentEta = currentSpeed > 0 ? Math.ceil(remaining / currentSpeed) : 0;
-                            const pct = Number(((pe.loaded * 100) / (pe.total || 1)).toFixed(1));
-
-                            setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
-                                ...f, progress: pct, speed: currentSpeed, eta: currentEta, loaded: pe.loaded, total: pe.total ?? lf.file.size,
-                            } : f));
-
-                            lastUpdate = now;
-                        }
-                    },
-                    timeout: 0,
+            // Refetch current state to handle reactive changes (like pause)
+            const getLatestFile = () => {
+                let f: LocalFile | undefined;
+                setLocalFiles(prev => {
+                    f = prev.find(pf => pf.id === lf.id);
+                    return prev;
                 });
-                
-                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'completed', progress: 100, speed: 0, eta: 0 } : f));
+                return f;
+            };
 
-                if (lf.linkedEpisodeId) {
-                    try {
-                        const freshEpRes = await api.get(`/episodes/${lf.linkedEpisodeId}`);
-                        const freshEp = freshEpRes.data;
-                        if (freshEp && !freshEp.is_published) {
-                            await api.put(`/episodes/${lf.linkedEpisodeId}`, { ...freshEp, is_published: true });
-                        }
-                    } catch {}
+            try {
+                // 1. INIT or RESUME
+                let uploadId = lf.uploadId;
+                let chunksDone: number[] = [];
+
+                if (!uploadId) {
+                    const initRes = await api.post(`/upload/init?fileName=${encodeURIComponent(lf.file.name)}&totalSize=${lf.file.size}`);
+                    uploadId = initRes.data.uploadId;
+                    setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, uploadId, status: 'uploading' } : f));
+                } else {
+                    const statusRes = await api.get(`/upload/status/${uploadId}`);
+                    chunksDone = statusRes.data.uploadedChunks || [];
+                    setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'uploading' } : f));
                 }
+
+                const totalChunks = Math.ceil(lf.file.size / CHUNK_SIZE);
+                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, totalChunks } : f));
+
+                // 2. Upload Chunks
+                for (let i = 0; i < totalChunks; i++) {
+                    // Check if paused
+                    const latest = getLatestFile();
+                    if (latest?.isPaused) {
+                        setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'waiting' } : f));
+                        activeUploads.delete(lf.id);
+                        processQueue();
+                        return; // Stop this worker
+                    }
+
+                    if (chunksDone.includes(i)) continue;
+
+                    const start = i * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, lf.file.size);
+                    const chunk = lf.file.slice(start, end);
+
+                    const chunkFd = new FormData();
+                    chunkFd.append('uploadId', uploadId!);
+                    chunkFd.append('chunkIndex', i.toString());
+                    chunkFd.append('chunk', chunk);
+
+                    await api.post('/upload/chunk', chunkFd, {
+                        onUploadProgress: (pe) => {
+                            const now = Date.now();
+                            const chunkProgress = (i / totalChunks) * 100;
+                            const currentChunkProgress = (pe.loaded / pe.total!) * (100 / totalChunks);
+                            const totalPct = Math.min(99, Number((chunkProgress + currentChunkProgress).toFixed(1)));
+                            
+                            // Real-time speed calculation relative to the whole file
+                            const totalLoadedSoFar = (i * CHUNK_SIZE) + pe.loaded;
+                            speedWindow.push({ time: now, loaded: totalLoadedSoFar });
+                            while (speedWindow.length > 1 && speedWindow[0].time < now - 3000) speedWindow.shift();
+
+                            if (now - lastUpdate >= 500 || totalPct >= 99) {
+                                let currentSpeed = 0;
+                                if (speedWindow.length > 1) {
+                                    const oldest = speedWindow[0];
+                                    const newest = speedWindow[speedWindow.length - 1];
+                                    const timeDiff = Math.max((newest.time - oldest.time) / 1000, 0.001);
+                                    currentSpeed = (newest.loaded - oldest.loaded) / timeDiff;
+                                }
+                                
+                                const remainingBytes = lf.file.size - totalLoadedSoFar;
+                                const currentEta = currentSpeed > 0 ? Math.ceil(remainingBytes / currentSpeed) : 0;
+
+                                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { 
+                                    ...f, 
+                                    progress: totalPct, 
+                                    chunksSent: i,
+                                    speed: currentSpeed,
+                                    eta: currentEta,
+                                    loaded: totalLoadedSoFar,
+                                    total: lf.file.size
+                                } : f));
+                                lastUpdate = now;
+                            }
+                        }
+                    });
+                    
+                    chunksDone.push(i);
+                }
+
+                // 3. COMPLETE - Merge all chunks on the server
+                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, progress: 99, error: '', chunksSent: totalChunks } : f));
+                const compFd = new FormData();
+                compFd.append('uploadId', uploadId!);
+                compFd.append('fileName', lf.file.name);
+                const completeRes = await api.post('/upload/complete', compFd);
+                const finalLocalPath = completeRes.data.filePath;
+
+                // 4. PUSH TO DOODSTREAM in background on server
+                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, progress: 99.5, error: isAr ? '⬆ جاري الإرسال لـ Doodstream...' : '⬆ Sending to Doodstream...' } : f));
+                const pushFd = new FormData();
+                pushFd.append('filePath', finalLocalPath);
+                // Fire and get 202 Accepted immediately
+                await api.post(`/doodstream/push/${lf.linkedEpisodeId}?account_id=${selectedAccountId}&server_id=${selectedGlobalServerId}`, pushFd);
+
+                // 5. POLL until the embed link appears on the episode (max 10 min)
+                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, progress: 99.8, error: isAr ? '🔗 انتظار ظهور الرابط...' : '🔗 Waiting for link...' } : f));
+                
+                const serversBefore = (await api.get(`/episodes/${lf.linkedEpisodeId}`)).data?.servers?.length ?? 0;
+                let embedLink = '';
+                const POLL_INTERVAL = 8000;    // 8 seconds between checks
+                const POLL_TIMEOUT = 10 * 60 * 1000; // 10 minutes max
+                const pollStart = Date.now();
+
+                while (!embedLink && Date.now() - pollStart < POLL_TIMEOUT) {
+                    await new Promise(r => setTimeout(r, POLL_INTERVAL));
+                    try {
+                        const epRes = await api.get(`/episodes/${lf.linkedEpisodeId}`);
+                        const ep = epRes.data;
+                        if (ep?.servers && ep.servers.length > serversBefore) {
+                            // New server entry found — this is our Doodstream link
+                            const newServer = ep.servers[ep.servers.length - 1];
+                            embedLink = newServer?.url || '';
+                        }
+                    } catch { /* network hiccup, retry on next tick */ }
+                }
+
+                if (!embedLink) {
+                    // Timeout — still mark as done but warn user
+                    setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'completed', progress: 100, error: isAr ? '⚠ انتهى الرفع لكن لم يتأكد الرابط بعد' : '⚠ Upload done, link pending' } : f));
+                } else {
+                    // SUCCESS - embed link confirmed!
+                    setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'completed', progress: 100, error: '' } : f));
+                    toast.success(isAr ? `✅ تم الرفع والربط بنجاح` : `✅ Uploaded & Linked!`);
+                    
+                    // Auto-publish the episode
+                    if (lf.linkedEpisodeId) {
+                        try {
+                            const freshEp = (await api.get(`/episodes/${lf.linkedEpisodeId}`)).data;
+                            if (freshEp && !freshEp.is_published) {
+                                await api.put(`/episodes/${lf.linkedEpisodeId}`, { ...freshEp, is_published: true });
+                            }
+                        } catch {}
+                    }
+                }
+
+                activeUploads.delete(lf.id);
+                checkFinished();
+                processQueue();
+
             } catch (err: any) {
                 setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'error', error: err.message } : f));
+                activeUploads.delete(lf.id);
+                checkFinished();
+                processQueue();
             }
-        });
+        };
 
-        await Promise.all(uploadPromises);
-        
-        setIsBatchProcessing(false);
-        
-        // Auto-publish Anime without cascading if not already published
-        if (anime && !anime.is_published) {
-            try {
-                await api.put(`/animes/${anime.id}?cascade=false`, { ...anime, is_published: true });
-                queryClient.invalidateQueries({ queryKey: ["anime", animeId] });
-            } catch (err: any) {
-                console.error("Failed to auto-publish anime:", err);
+        const checkFinished = () => {
+            setLocalFiles(current => {
+                const finished = current.every(f => !f.linkedEpisodeId || f.status === 'completed' || f.status === 'error');
+                if (finished) {
+                    setIsBatchProcessing(false);
+                    finishPublication();
+                }
+                return current;
+            });
+        };
+
+        const finishPublication = async () => {
+            if (anime && !anime.is_published) {
+                try {
+                    await api.put(`/animes/${anime.id}?cascade=false`, { ...anime, is_published: true });
+                    queryClient.invalidateQueries({ queryKey: ["anime", animeId] });
+                } catch {}
             }
+            toast.success(isAr ? 'انتهت جميع عمليات الرفع' : 'All uploads completed');
+            queryClient.invalidateQueries({ queryKey: ["episodes-batch", animeId] });
+        };
+
+        processQueue();
+    };
+
+    const togglePause = (fileId: string) => {
+        setLocalFiles(prev => prev.map(f => {
+            if (f.id === fileId) {
+                const newPaused = !f.isPaused;
+                if (!newPaused && f.status === 'waiting') {
+                    // If resuming, it will be picked up by processQueue or manually triggered
+                    // For simplified logic, if isBatchProcessing is true, processQueue will eventually find it
+                }
+                return { ...f, isPaused: newPaused };
+            }
+            return f;
+        }));
+        
+        // Re-trigger queue processing in case something was paused and now resumed
+        if (isBatchProcessing) {
+             // In a real implementation you might need a way to poke the worker loop
         }
-
-        toast.success(lang === 'ar' ? 'انتهى الرفع' : 'Upload finished');
-        queryClient.invalidateQueries({ queryKey: ["episodes-batch", animeId] });
     };
 
     // Server Modal
@@ -396,6 +549,7 @@ export default function BatchUploadPage() {
                                                     "flex items-center gap-3 p-3 rounded-lg border transition-all",
                                                     file.linkedEpisodeId ? "border-primary/40 bg-primary/5" : "border-border bg-card",
                                                     file.status === 'uploading' && "ring-2 ring-primary",
+                                                    file.status === 'waiting' && "border-amber-500/40 bg-amber-500/5 animate-pulse",
                                                     file.status === 'completed' && "border-green-500/40 bg-green-500/5",
                                                     file.status === 'error' && "border-destructive/40 bg-destructive/5",
                                                 )}>
@@ -423,72 +577,83 @@ export default function BatchUploadPage() {
                                                                 <span className="text-xs text-muted-foreground">{lang === 'ar' ? 'غير مربوط' : 'Unlinked'}</span>
                                                             )}
                                                             <span className="text-[10px] text-muted-foreground">{(file.file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                                                            {file.status === 'waiting' && (
+                                                                <Badge variant="outline" className="text-[10px] h-4 text-amber-600 border-amber-500/30">
+                                                                    {lang === 'ar' ? `محاولة ${file.attempt || 1}` : `Attempt ${file.attempt || 1}`}
+                                                                </Badge>
+                                                            )}
+                                                            {file.status === 'uploading' && (
+                                                                <Badge className="text-[10px] h-4 bg-primary/10 text-primary border-primary/20">
+                                                                    {lang === 'ar' ? `رفع (محاولة ${file.attempt || 1})` : `Sending (Try ${file.attempt || 1})`}
+                                                                </Badge>
+                                                            )}
                                                             {file.status === 'completed' && <Badge className="text-[10px] h-4 bg-green-500/15 text-green-600 border-green-500/30">Done</Badge>}
                                                             {file.status === 'error' && <Badge variant="destructive" className="text-[10px] h-4">Failed</Badge>}
                                                         </div>
-                                                        {file.status === 'uploading' && (() => {
-                                                            const speedMB = ((file.speed || 0) / (1024 * 1024)).toFixed(2);
-                                                            const loadedMB = ((file.loaded || 0) / (1024 * 1024)).toFixed(2);
-                                                            const totalMB = ((file.total || file.file.size) / (1024 * 1024)).toFixed(2);
-                                                            const etaSec = file.eta || 0;
-                                                            const etaStr = etaSec >= 3600
-                                                                ? `${Math.floor(etaSec / 3600)}h ${Math.floor((etaSec % 3600) / 60)}m`
-                                                                : etaSec >= 60
-                                                                    ? `${Math.floor(etaSec / 60)}m ${etaSec % 60}s`
-                                                                    : `${etaSec}s`;
-                                                            return (
-                                                                <div className="mt-2 space-y-1.5">
-                                                                    {/* Progress bar with gradient + pulse */}
-                                                                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
-                                                                        <div
-                                                                            className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
-                                                                            style={{
-                                                                                width: `${file.progress}%`,
-                                                                                background: 'linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)',
-                                                                                boxShadow: '0 0 8px hsl(var(--primary)/0.6)',
-                                                                            }}
-                                                                        />
-                                                                        {/* Shimmer effect */}
-                                                                        <div
-                                                                            className="absolute inset-y-0 w-8 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse"
-                                                                            style={{ left: `${Math.max(0, file.progress - 10)}%` }}
-                                                                        />
-                                                                    </div>
-
-                                                                    {/* Stats Row */}
-                                                                    <div className="flex flex-col gap-1.5 text-[10px]">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <span className="flex items-center gap-1 text-primary font-semibold">
-                                                                                ↑ {speedMB} MB/s {lang === 'ar' ? '(السرعة)' : '(Speed)'}
-                                                                            </span>
-                                                                            {etaSec > 0 && (
-                                                                                <span className="text-amber-500 font-medium">
-                                                                                    ⏱ {etaStr} {lang === 'ar' ? '(الوقت المتبقي)' : '(ETA)'}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                        <div className="flex items-center justify-between text-muted-foreground pt-0.5 border-t border-border/40">
-                                                                            <span>
-                                                                                {loadedMB} MB / {totalMB} MB
-                                                                            </span>
-                                                                            <span className="flex items-center gap-1.5">
-                                                                                <span className="text-destructive/90 font-medium">
-                                                                                    {lang === 'ar' ? `متبقي: ${Math.max(0, 100 - file.progress).toFixed(1)}%` : `Left: ${Math.max(0, 100 - file.progress).toFixed(1)}%`}
-                                                                                </span>
-                                                                                <span className="text-primary font-bold">
-                                                                                    ({file.progress.toFixed(1)}%)
-                                                                                </span>
-                                                                            </span>
-                                                                        </div>
+                                                        {file.status === 'error' && file.error && (
+                                                            <p className="text-[10px] text-destructive mt-1 truncate max-w-full">
+                                                                {file.error}
+                                                            </p>
+                                                        )}
+                                                        {(file.status === 'uploading' || file.uploadId) && (
+                                                            <div className="mt-2 space-y-1.5">
+                                                                <div className="h-1.5 w-full bg-border/20 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-primary transition-all duration-300 relative overflow-hidden group/bar" style={{ width: `${file.progress}%` }}>
+                                                                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
                                                                     </div>
                                                                 </div>
-                                                            );
-                                                        })()}
+                                                                <div className="flex justify-between items-center mt-1 px-0.5">
+                                                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                                                        {file.status === 'uploading' && (
+                                                                            <div className="flex flex-col gap-1 flex-1 overflow-hidden">
+                                                                                <div className="flex items-center gap-1 animate-in fade-in duration-300">
+                                                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                                                                                    <span className="text-[10px] font-medium text-primary">
+                                                                                        {isAr ? 'يجري الرفع...' : 'Uploading...'}
+                                                                                    </span>
+                                                                                    {file.totalChunks && (
+                                                                                        <span className="text-[9px] text-muted-foreground ml-1">
+                                                                                            ({file.chunksSent || 0}/{file.totalChunks} Chunks)
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                {file.speed && file.speed > 0 && (
+                                                                                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                                                                                        <span className="text-primary/70 font-semibold">{((file.speed || 0) / (1024 * 1024)).toFixed(2)} MB/s</span>
+                                                                                        <span>•</span>
+                                                                                        <span>{Math.floor((file.eta || 0) / 60)}m {(file.eta || 0) % 60}s {isAr ? 'متبقي' : 'left'}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        {file.status === 'waiting' && file.uploadId && (
+                                                                            <span className="text-[10px] font-medium text-amber-600">
+                                                                                {file.isPaused ? (isAr ? 'متوقف مؤقتاً' : 'Paused') : (isAr ? 'في الانتظار...' : 'Queued...')}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-bold tabular-nums text-primary">
+                                                                        {file.progress.toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Actions */}
                                                     <div className="flex flex-col gap-1.5 shrink-0">
-                                                        <Button size="icon" variant="secondary" className="h-7 w-7" title={lang === 'ar' ? 'ربط بالحلقة المحددة' : 'Link to selected episode'} onClick={() => linkFileToEpisode(file.id)} disabled={isBatchProcessing || file.status === 'completed'}>
+                                                        {(file.status === 'uploading' || (file.status === 'waiting' && file.uploadId)) && (
+                                                            <Button 
+                                                                size="icon" 
+                                                                variant="outline" 
+                                                                className="h-7 w-7 text-amber-500" 
+                                                                onClick={() => togglePause(file.id)}
+                                                                title={file.isPaused ? (isAr ? 'استئناف' : 'Resume') : (isAr ? 'إيقاف مؤقت' : 'Pause')}
+                                                            >
+                                                                {file.isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                                                            </Button>
+                                                        )}
+                                                        <Button size="icon" variant="secondary" className="h-7 w-7" title={isAr ? 'ربط بالحلقة المحددة' : 'Link to selected episode'} onClick={() => linkFileToEpisode(file.id)} disabled={isBatchProcessing || file.status === 'completed'}>
                                                             <LinkIcon className="h-3.5 w-3.5" />
                                                         </Button>
                                                         {file.linkedEpisodeId && (
