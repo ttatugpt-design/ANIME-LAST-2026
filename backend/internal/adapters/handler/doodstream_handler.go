@@ -102,33 +102,49 @@ func (h *DoodstreamHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 4. Stream to Doodstream
+	// 4. Stream to Doodstream without fully loading file into RAM
 	fmt.Printf("[Doodstream] Streaming file '%s' to %s (Folder ID: %s)\n", file.Filename, uploadURL, fldID)
 	
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+
+	// Pre-calculate Content-Length to avoid chunked-encoding drop errors on older servers
+	bodyBuf := &bytes.Buffer{}
+	testWriter := multipart.NewWriter(bodyBuf)
+	_ = testWriter.SetBoundary(writer.Boundary())
+	_ = testWriter.WriteField("api_key", apiKey)
+	_ = testWriter.WriteField("fld_id", fldID)
+	_, _ = testWriter.CreateFormFile("file", file.Filename)
+	headerSize := int64(bodyBuf.Len())
 	
-	// Add API Key
-	_ = writer.WriteField("api_key", apiKey)
-	// Add Folder ID
-	_ = writer.WriteField("fld_id", fldID)
+	bodyBuf.Reset()
+	_ = testWriter.Close()
+	footerSize := int64(bodyBuf.Len())
 	
-	// Add File
-	part, err := writer.CreateFormFile("file", file.Filename)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create multipart part"})
-		return
-	}
-	_, _ = io.Copy(part, src)
-	_ = writer.Close()
+	go func() {
+		defer pw.Close()
+		
+		// Add API Key
+		_ = writer.WriteField("api_key", apiKey)
+		// Add Folder ID
+		_ = writer.WriteField("fld_id", fldID)
+		
+		// Add File
+		part, err := writer.CreateFormFile("file", file.Filename)
+		if err == nil {
+			_, _ = io.Copy(part, src)
+		}
+		_ = writer.Close()
+	}()
 
 	// 5. POST to Doodstream
-	req, err := http.NewRequest("POST", uploadURL, body)
+	req, err := http.NewRequest("POST", uploadURL, pr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Doodstream request"})
 		return
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.ContentLength = headerSize + file.Size + footerSize
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

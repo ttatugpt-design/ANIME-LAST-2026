@@ -67,6 +67,28 @@ func (h *BackupHandler) ListBackups(c *gin.Context) {
 	c.JSON(http.StatusOK, backups)
 }
 
+func (h *BackupHandler) GetBackupStats(c *gin.Context) {
+	var animeCount int64
+	var episodeCount int64
+	var userCount int64
+	var accountCount int64
+	var commentCount int64
+
+	h.repo.DB().Table("animes").Count(&animeCount)
+	h.repo.DB().Table("episodes").Count(&episodeCount)
+	h.repo.DB().Table("users").Count(&userCount)
+	h.repo.DB().Table("embed_accounts").Count(&accountCount)
+	h.repo.DB().Table("comments").Count(&commentCount)
+
+	c.JSON(http.StatusOK, gin.H{
+		"animes":         animeCount,
+		"episodes":       episodeCount,
+		"users":          userCount,
+		"embed_accounts": accountCount,
+		"comments":       commentCount,
+	})
+}
+
 func (h *BackupHandler) CreateBackup(c *gin.Context) {
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	backupFilename := fmt.Sprintf("db_backup_%s.db", timestamp)

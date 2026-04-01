@@ -170,11 +170,13 @@ export default function BatchUploadPage() {
         if (!linked.length) { toast.error(lang === 'ar' ? 'لا يوجد ملفات مربوطة' : 'No linked files'); return; }
 
         setIsBatchProcessing(true);
-        for (const lf of linked) {
+        
+        // Execute uploads concurrently for maximum speed using Promise.all
+        const uploadPromises = linked.map(async (lf) => {
             setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'uploading', progress: 0, speed: 0, eta: 0, loaded: 0, total: lf.file.size } : f));
             const startTime = Date.now();
-            let lastLoaded = 0;
-            let lastTime = startTime;
+            const speedWindow: { time: number; loaded: number }[] = [{ time: startTime, loaded: 0 }];
+            let lastUpdate = startTime;
 
             try {
                 const fd = new FormData();
@@ -182,41 +184,42 @@ export default function BatchUploadPage() {
                 await api.post(`/doodstream/upload/${lf.linkedEpisodeId}?account_id=${selectedAccountId}&server_id=${selectedGlobalServerId}`, fd, {
                     onUploadProgress: (pe) => {
                         const now = Date.now();
-                        const elapsedSinceLastMs = now - lastTime;
-                        const bytesSinceLast = pe.loaded - lastLoaded;
+                        speedWindow.push({ time: now, loaded: pe.loaded });
+                        
+                        // Keep only window of last 3 seconds to calculate real moving average speed
+                        while (speedWindow.length > 1 && speedWindow[0].time < now - 3000) {
+                            speedWindow.shift();
+                        }
 
-                        // compute instantaneous speed (bytes/sec) with smoothing
-                        const instantSpeed = elapsedSinceLastMs > 0 ? (bytesSinceLast / (elapsedSinceLastMs / 1000)) : 0;
+                        // Update UI every 500ms or on completion for less jitter and better performance
+                        if (now - lastUpdate >= 500 || pe.loaded === pe.total) {
+                            let currentSpeed = 0;
+                            if (speedWindow.length > 1) {
+                                const oldest = speedWindow[0];
+                                const newest = speedWindow[speedWindow.length - 1];
+                                const timeDiff = Math.max((newest.time - oldest.time) / 1000, 0.001);
+                                currentSpeed = (newest.loaded - oldest.loaded) / timeDiff;
+                            } else {
+                                const timeDiff = Math.max((now - startTime) / 1000, 0.001);
+                                currentSpeed = pe.loaded / timeDiff;
+                            }
+                            
+                            const remaining = pe.total ? pe.total - pe.loaded : 0;
+                            const currentEta = currentSpeed > 0 ? Math.ceil(remaining / currentSpeed) : 0;
+                            const pct = Number(((pe.loaded * 100) / (pe.total || 1)).toFixed(1));
 
-                        // overall speed from start
-                        const elapsedTotal = (now - startTime) / 1000;
-                        const overallSpeed = elapsedTotal > 0 ? pe.loaded / elapsedTotal : 0;
+                            setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
+                                ...f, progress: pct, speed: currentSpeed, eta: currentEta, loaded: pe.loaded, total: pe.total ?? lf.file.size,
+                            } : f));
 
-                        // weighted blend: 70% instant, 30% overall (stabilizes display)
-                        const smoothSpeed = instantSpeed * 0.7 + overallSpeed * 0.3;
-
-                        const remaining = pe.total ? pe.total - pe.loaded : 0;
-                        const eta = smoothSpeed > 0 ? Math.ceil(remaining / smoothSpeed) : 0;
-                        const pct = Math.round((pe.loaded * 100) / (pe.total || 1));
-
-                        lastLoaded = pe.loaded;
-                        lastTime = now;
-
-                        setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
-                            ...f,
-                            progress: pct,
-                            speed: Math.round(smoothSpeed),
-                            eta,
-                            loaded: pe.loaded,
-                            total: pe.total ?? lf.file.size,
-                        } : f));
+                            lastUpdate = now;
+                        }
                     },
                     timeout: 0,
                 });
+                
                 setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'completed', progress: 100, speed: 0, eta: 0 } : f));
 
-                // Auto-publish episode after successful upload
-                // IMPORTANT: fetch fresh episode data first so we don't overwrite the newly added embed link
                 if (lf.linkedEpisodeId) {
                     try {
                         const freshEpRes = await api.get(`/episodes/${lf.linkedEpisodeId}`);
@@ -225,14 +228,14 @@ export default function BatchUploadPage() {
                             await api.put(`/episodes/${lf.linkedEpisodeId}`, { ...freshEp, is_published: true });
                         }
                     } catch {}
-                    queryClient.invalidateQueries({ queryKey: ["episodes-batch", animeId] });
                 }
-
-
             } catch (err: any) {
                 setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'error', error: err.message } : f));
             }
-        }
+        });
+
+        await Promise.all(uploadPromises);
+        
         setIsBatchProcessing(false);
         
         // Auto-publish Anime without cascading if not already published
@@ -424,9 +427,9 @@ export default function BatchUploadPage() {
                                                             {file.status === 'error' && <Badge variant="destructive" className="text-[10px] h-4">Failed</Badge>}
                                                         </div>
                                                         {file.status === 'uploading' && (() => {
-                                                            const speedMB = ((file.speed || 0) / (1024 * 1024)).toFixed(1);
-                                                            const loadedMB = ((file.loaded || 0) / (1024 * 1024)).toFixed(1);
-                                                            const totalMB = ((file.total || file.file.size) / (1024 * 1024)).toFixed(1);
+                                                            const speedMB = ((file.speed || 0) / (1024 * 1024)).toFixed(2);
+                                                            const loadedMB = ((file.loaded || 0) / (1024 * 1024)).toFixed(2);
+                                                            const totalMB = ((file.total || file.file.size) / (1024 * 1024)).toFixed(2);
                                                             const etaSec = file.eta || 0;
                                                             const etaStr = etaSec >= 3600
                                                                 ? `${Math.floor(etaSec / 3600)}h ${Math.floor((etaSec % 3600) / 60)}m`
@@ -453,24 +456,29 @@ export default function BatchUploadPage() {
                                                                     </div>
 
                                                                     {/* Stats Row */}
-                                                                    <div className="flex items-center justify-between text-[10px]">
-                                                                        <div className="flex items-center gap-2">
-                                                                            {/* Speed */}
-                                                                            <span className="flex items-center gap-0.5 text-primary font-semibold">
-                                                                                ↑ {speedMB} MB/s
+                                                                    <div className="flex flex-col gap-1.5 text-[10px]">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="flex items-center gap-1 text-primary font-semibold">
+                                                                                ↑ {speedMB} MB/s {lang === 'ar' ? '(السرعة)' : '(Speed)'}
                                                                             </span>
-                                                                            {/* Transferred */}
-                                                                            <span className="text-muted-foreground">
-                                                                                {loadedMB} / {totalMB} MB
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            {/* ETA */}
                                                                             {etaSec > 0 && (
-                                                                                <span className="text-amber-500 font-medium">⏱ {etaStr}</span>
+                                                                                <span className="text-amber-500 font-medium">
+                                                                                    ⏱ {etaStr} {lang === 'ar' ? '(الوقت المتبقي)' : '(ETA)'}
+                                                                                </span>
                                                                             )}
-                                                                            {/* Percentage */}
-                                                                            <span className="text-primary font-bold">{file.progress}%</span>
+                                                                        </div>
+                                                                        <div className="flex items-center justify-between text-muted-foreground pt-0.5 border-t border-border/40">
+                                                                            <span>
+                                                                                {loadedMB} MB / {totalMB} MB
+                                                                            </span>
+                                                                            <span className="flex items-center gap-1.5">
+                                                                                <span className="text-destructive/90 font-medium">
+                                                                                    {lang === 'ar' ? `متبقي: ${Math.max(0, 100 - file.progress).toFixed(1)}%` : `Left: ${Math.max(0, 100 - file.progress).toFixed(1)}%`}
+                                                                                </span>
+                                                                                <span className="text-primary font-bold">
+                                                                                    ({file.progress.toFixed(1)}%)
+                                                                                </span>
+                                                                            </span>
                                                                         </div>
                                                                     </div>
                                                                 </div>

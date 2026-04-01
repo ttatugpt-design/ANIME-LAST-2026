@@ -147,7 +147,7 @@ func main() {
 	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
 
 	r := gin.Default()
-	r.MaxMultipartMemory = 1024 << 20 // 1GB
+	r.MaxMultipartMemory = 32 << 20 // 32MB instead of 1GB. Files larger than this will be cached into OS temporary disk space instead of RAM!
 
 	// SEO Sitemap
 	r.GET("/sitemap.xml", sitemapHandler.GetSitemap)
@@ -417,6 +417,7 @@ func main() {
 				
 				// Backup Management
 				dashboard.GET("/backups", backupHandler.ListBackups)
+				dashboard.GET("/backup-stats", backupHandler.GetBackupStats)
 				dashboard.POST("/backups", backupHandler.CreateBackup)
 				dashboard.GET("/backups/download/:filename", backupHandler.DownloadBackup)
 				dashboard.DELETE("/backups/:filename", backupHandler.DeleteBackup)
@@ -519,7 +520,7 @@ func main() {
 			protected.Group("/countries").POST("", countryHandler.Create).PUT("/:id", countryHandler.Update).DELETE("/:id", countryHandler.Delete)
 
 			// Embed Accounts Admin Operations
-			protected.Group("/embed-accounts").GET("", embedAccountHandler.GetAll).POST("", embedAccountHandler.Create).PUT("/:id", embedAccountHandler.Update).DELETE("/:id", embedAccountHandler.Delete)
+			protected.Group("/embed-accounts").GET("", embedAccountHandler.GetAll).POST("", embedAccountHandler.Create).PUT("/:id", embedAccountHandler.Update).DELETE("/:id", embedAccountHandler.Delete).GET("/all/export", embedAccountHandler.Export).POST("/all/import", embedAccountHandler.Import)
 
 			// Server Admin Operations
 			protected.Group("/servers").POST("", serverHandler.Create).PUT("/:id", serverHandler.Update).DELETE("/:id", serverHandler.Delete)
