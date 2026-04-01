@@ -61,6 +61,9 @@ import CommunityPage from '@/pages/social/CommunityPage';
 import PostDetailPage from '@/pages/social/PostDetailPage';
 import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
 import BackupPage from '@/pages/dashboard/BackupPage';
+import BatchAnimeSelectionPage from '@/pages/dashboard/BatchAnimeSelectionPage';
+import BatchUploadPage from '@/pages/dashboard/BatchUploadPage';
+import EmbedAccountsPage from '@/pages/dashboard/EmbedAccountsPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -353,6 +356,18 @@ export const routes = [
                             {
                                 path: 'ai-lab',
                                 element: <ThreeDAILabPage />,
+                            },
+                            {
+                                path: 'batch-upload',
+                                element: <BatchAnimeSelectionPage />,
+                            },
+                            {
+                                path: 'batch-upload/:id',
+                                element: <BatchUploadPage />,
+                            },
+                            {
+                                path: 'embed-accounts',
+                                element: <EmbedAccountsPage />,
                             },
                         ],
                     },

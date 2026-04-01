@@ -124,7 +124,7 @@ export default function AnimeDetailsPage() {
     const episodesList = useMemo(() => {
         const list = anime?.episodes || episodesData || [];
         if (!anime?.id) return list;
-        return list.filter((ep: any) => Number(ep.anime_id) === Number(anime.id));
+        return list.filter((ep: any) => Number(ep.anime_id) === Number(anime.id) && ep.is_published);
     }, [anime, episodesData]);
 
     // Derived Data
@@ -804,9 +804,11 @@ function EpisodeListItem({ episode, lang, animeTitle }: { episode: any; lang: st
                 <h3 className="text-sm md:text-xl font-bold text-gray-900 dark:text-white mb-1 md:mb-3 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-2">
                     {title}
                 </h3>
-                <p className="text-[12.5px] md:text-base text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3 mb-1 md:mb-2 font-normal">
-                    {description}
-                </p>
+                <div className="hidden md:block w-full">
+                    <p className="text-[12.5px] md:text-base text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3 mb-1 md:mb-2 font-normal">
+                        {description}
+                    </p>
+                </div>
                 <div className="mt-auto flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-6 w-full pt-1">
                     <p className="text-lg md:text-xl font-black text-gray-900 dark:text-white">
                         {isRtl ? `الحلقة ${episode.episode_number}` : `Episode ${episode.episode_number}`}

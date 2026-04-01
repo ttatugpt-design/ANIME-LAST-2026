@@ -7,11 +7,15 @@ import (
 )
 
 type AnimeService struct {
-	repo port.AnimeRepository
+	repo        port.AnimeRepository
+	episodeRepo port.EpisodeRepository
 }
 
-func NewAnimeService(repo port.AnimeRepository) *AnimeService {
-	return &AnimeService{repo: repo}
+func NewAnimeService(repo port.AnimeRepository, episodeRepo port.EpisodeRepository) *AnimeService {
+	return &AnimeService{
+		repo:        repo,
+		episodeRepo: episodeRepo,
+	}
 }
 
 func (s *AnimeService) Create(anime *domain.Anime) (*domain.Anime, error) {
@@ -55,7 +59,7 @@ func (s *AnimeService) GetBySlug(slug string) (*domain.Anime, error) {
 	return s.repo.GetAnimeBySlug(slug)
 }
 
-func (s *AnimeService) Update(anime *domain.Anime) (*domain.Anime, error) {
+func (s *AnimeService) Update(anime *domain.Anime, cascadeEpisodes bool) (*domain.Anime, error) {
 	existing, err := s.repo.GetAnimeByID(anime.ID)
 	if err != nil {
 		return nil, err
@@ -80,6 +84,12 @@ func (s *AnimeService) Update(anime *domain.Anime) (*domain.Anime, error) {
 	existing.Language = anime.Language
 	existing.Trailer = anime.Trailer
 	existing.Type = anime.Type
+
+	// Cascade publication status
+	if existing.IsPublished != anime.IsPublished && cascadeEpisodes {
+		_ = s.episodeRepo.UpdateEpisodesStatusByAnimeID(anime.ID, anime.IsPublished)
+	}
+
 	existing.IsPublished = anime.IsPublished
 	existing.UpdatedAt = time.Now()
 

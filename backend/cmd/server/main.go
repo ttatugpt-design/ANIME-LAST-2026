@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Auto-migrate
-	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{}, &domain.MessageReaction{})
+	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{}, &domain.MessageReaction{}, &domain.EmbedAccount{})
 
 	// Repositories (Special cases that need DB)
 	notifRepo := repository.NewNotificationRepository(repo.DB())
@@ -79,7 +79,7 @@ func main() {
 	seasonService := service.NewSeasonService(repo)
 	studioService := service.NewStudioService(repo)
 	languageService := service.NewLanguageService(repo)
-	animeService := service.NewAnimeService(repo)
+	animeService := service.NewAnimeService(repo, repo)
 	episodeService := service.NewEpisodeService(repo)
 	chapterService := service.NewChapterService(repo)
 	modelService := service.NewModelService(repo)
@@ -140,6 +140,11 @@ func main() {
 
 	messageService := service.NewMessageService(messageRepo, notifRepo, repo, wsHub)
 	messageHandler := handler.NewMessageHandler(messageService)
+
+	embedAccountService := service.NewEmbedAccountService(repo)
+	embedAccountHandler := handler.NewEmbedAccountHandler(embedAccountService)
+
+	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 1024 << 20 // 1GB
@@ -504,11 +509,17 @@ func main() {
 			protected.POST("/episodes/:id/reactions", episodeHandler.ToggleReaction)
 			protected.GET("/episodes/:id/stats", episodeHandler.GetStats)
 
+			// Doodstream Routes
+			protected.POST("/doodstream/upload/:episode_id", doodstreamHandler.HandleUpload)
+
 			// Quick News Admin Operations
 			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)
 
 			// Country Admin Operations
 			protected.Group("/countries").POST("", countryHandler.Create).PUT("/:id", countryHandler.Update).DELETE("/:id", countryHandler.Delete)
+
+			// Embed Accounts Admin Operations
+			protected.Group("/embed-accounts").GET("", embedAccountHandler.GetAll).POST("", embedAccountHandler.Create).PUT("/:id", embedAccountHandler.Update).DELETE("/:id", embedAccountHandler.Delete)
 
 			// Server Admin Operations
 			protected.Group("/servers").POST("", serverHandler.Create).PUT("/:id", serverHandler.Update).DELETE("/:id", serverHandler.Delete)

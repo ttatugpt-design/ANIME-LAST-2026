@@ -120,7 +120,7 @@ func (r *SQLiteRepository) DeleteEpisode(id uint) error {
 
 func (r *SQLiteRepository) GetEpisodesByAnimeID(animeID uint) ([]domain.Episode, error) {
 	var episodes []domain.Episode
-	err := r.db.Preload("Servers").Where("anime_id = ? AND is_published = ?", animeID, true).Find(&episodes).Error
+	err := r.db.Preload("Servers").Where("anime_id = ?", animeID).Order("episode_number asc").Find(&episodes).Error
 	return episodes, err
 }
 
@@ -154,4 +154,10 @@ func (r *SQLiteRepository) IncrementEpisodeViews(episodeID uint) error {
 	return r.db.Model(&domain.Episode{}).
 		Where("id = ?", episodeID).
 		UpdateColumn("views_count", gorm.Expr("views_count + 1")).Error
+}
+
+func (r *SQLiteRepository) UpdateEpisodesStatusByAnimeID(animeID uint, isPublished bool) error {
+	return r.db.Model(&domain.Episode{}).
+		Where("anime_id = ?", animeID).
+		Update("is_published", isPublished).Error
 }

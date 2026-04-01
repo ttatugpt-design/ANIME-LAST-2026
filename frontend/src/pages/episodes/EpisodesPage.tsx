@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import axios from "axios";
 import api from "@/lib/api";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash } from "lucide-react";
+import { Plus, Pencil, Trash, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +78,52 @@ export default function EpisodesPage() {
     const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
     const [uploadingBanner, setUploadingBanner] = useState(false);
     const [editingEpisode, setEditingEpisode] = useState<any>(null);
+
+    // Doodstream Upload state
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
+    const [isDoodUploading, setIsDoodUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    const handleDoodstreamClick = (episodeId: number) => {
+        setSelectedEpisodeId(episodeId);
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedEpisodeId) return;
+
+        setIsDoodUploading(true);
+        setUploadProgress(0);
+        const toastId = toast.loading(`Uploading to Doodstream (via Backend): 0%`);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // POST to our backend (The backend handles Doodstream API, folder creation, and linking)
+            const response = await api.post(`/doodstream/upload/${selectedEpisodeId}`, formData, {
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+                    setUploadProgress(percentCompleted);
+                    toast.loading(`Uploading to Doodstream: ${percentCompleted}%`, { id: toastId });
+                },
+                timeout: 0 // Disable timeout for large video uploads
+            });
+
+            toast.success(response.data.message || "Episode uploaded and linked successfully!", { id: toastId });
+            queryClient.invalidateQueries({ queryKey: ["episodes"] });
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Upload failed: " + (err.response?.data?.error || err.message), { id: toastId });
+        } finally {
+            setIsDoodUploading(false);
+            setUploadProgress(0);
+            setSelectedEpisodeId(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
 
     // Data Queries
     const { data: episodeResponse, isLoading: isLoadingEpisodes } = useQuery({
@@ -455,6 +502,16 @@ export default function EpisodesPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="text-blue-500 hover:text-blue-600"
+                                                onClick={() => handleDoodstreamClick(ep.id)}
+                                                disabled={isDoodUploading}
+                                                title="Upload to Doodstream"
+                                            >
+                                                <UploadCloud className="h-4 w-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" onClick={() => handleEditClick(ep)}>
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -506,6 +563,15 @@ export default function EpisodesPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Hidden File Input for Doodstream */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                accept="video/*"
+                onChange={handleFileChange}
+            />
         </div>
     );
 }

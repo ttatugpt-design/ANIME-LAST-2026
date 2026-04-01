@@ -88,6 +88,10 @@ func SeedStudios(db *gorm.DB) {
 		{"Haunted Studio", "Haunted Studio", "2016-01-01"},
 		{"MAPPA", "MAPPA", "2011-06-14"},
 		{"White Fox", "White Fox", "2007-04-01"},
+		{"A-1 Pictures", "A-1 Pictures", "2005-05-09"},
+		{"Brain's Base", "Brain's Base", "1996-07-01"},
+		{"J.C.Staff", "J.C.Staff", "1986-01-18"},
+		{"Studio Kai", "Studio Kai", "2019-06-01"},
 	}
 
 	for _, s := range studios {

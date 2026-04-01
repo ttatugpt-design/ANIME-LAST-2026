@@ -196,7 +196,10 @@ func (h *AnimeHandler) Update(c *gin.Context) {
 		}
 	}
 
-	updatedAnime, err := h.service.Update(&anime)
+	cascadeStr := c.DefaultQuery("cascade", "true")
+	cascadeEpisodes := cascadeStr == "true"
+
+	updatedAnime, err := h.service.Update(&anime, cascadeEpisodes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

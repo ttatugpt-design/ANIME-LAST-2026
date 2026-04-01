@@ -143,6 +143,7 @@ type EpisodeRepository interface {
 	GetLatestEpisodes(limit, offset int) ([]domain.Episode, error)
 	SearchEpisodes(query string) ([]domain.Episode, error)
 	IncrementEpisodeViews(episodeID uint) error
+	UpdateEpisodesStatusByAnimeID(animeID uint, isPublished bool) error
 }
 
 type QuickNewsRepository interface {
@@ -204,4 +205,12 @@ type ChapterRepository interface {
 	DeleteChapter(id uint) error
 	GetChaptersByAnimeID(animeID uint) ([]domain.Chapter, error)
 	IncrementChapterViews(chapterID uint) error
+}
+
+type EmbedAccountRepository interface {
+	CreateEmbedAccount(acc *domain.EmbedAccount) error
+	GetEmbedAccountByID(id uint) (*domain.EmbedAccount, error)
+	GetAllEmbedAccounts() ([]domain.EmbedAccount, error)
+	UpdateEmbedAccount(acc *domain.EmbedAccount) error
+	DeleteEmbedAccount(id uint) error
 }

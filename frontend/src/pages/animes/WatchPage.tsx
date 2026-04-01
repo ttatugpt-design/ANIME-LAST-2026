@@ -366,7 +366,7 @@ export default function WatchPage() {
 
     const filteredEpisodes = useMemo(() => {
         if (!anime?.id) return [];
-        return episodesList.filter((ep: any) => Number(ep.anime_id) === Number(anime.id));
+        return episodesList.filter((ep: any) => Number(ep.anime_id) === Number(anime.id) && ep.is_published);
     }, [episodesList, anime?.id]);
 
     // Determine Current Episode
@@ -1197,15 +1197,17 @@ export default function WatchPage() {
                         getImageUrl={getImageUrl}
                     />
                 )}
-                {/* Mobile Sticky Fullscreen Button */}
-                <div className="md:hidden fixed bottom-6 left-6 z-[90]">
-                    <button
-                        onClick={handleFullscreen}
-                        className="w-12 h-12 bg-black/80 backdrop-blur-md rounded-full text-white shadow-xl flex items-center justify-center hover:bg-black transition-colors border border-white/10 outline-none focus:outline-none"
-                    >
-                        <Maximize2 className="w-5 h-5" />
-                    </button>
-                </div>
+            </div>
+
+            {/* Sticky Fullscreen Button - Always visible on Mobile & Desktop */}
+            <div className="fixed bottom-6 left-6 z-[999]">
+                <button
+                    onClick={handleFullscreen}
+                    className="w-12 h-12 bg-black/80 backdrop-blur-md rounded-full text-white shadow-xl flex items-center justify-center hover:bg-black transition-colors border border-white/10 outline-none focus:outline-none ring-0 active:scale-95"
+                    title={lang === 'ar' ? 'ملء الشاشة' : 'Fullscreen'}
+                >
+                    <Maximize2 className="w-5 h-5 pointer-events-none" />
+                </button>
             </div>
         </div>
     );
