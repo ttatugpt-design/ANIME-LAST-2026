@@ -145,6 +145,7 @@ func main() {
 	embedAccountHandler := handler.NewEmbedAccountHandler(embedAccountService)
 
 	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
+	mirroredHandler := handler.NewMirroredHandler(episodeService, serverService, embedAccountService, repo.DB())
 	resumableHandler := handler.NewResumableUploadHandler()
 
 	r := gin.Default()
@@ -514,6 +515,14 @@ func main() {
 			// Doodstream Routes
 			protected.POST("/doodstream/upload/:episode_id", doodstreamHandler.HandleUpload)
 			protected.POST("/doodstream/push/:episode_id", doodstreamHandler.PushMergedFile)
+			protected.GET("/doodstream/folders", doodstreamHandler.GetFolders)
+			protected.GET("/doodstream/files", doodstreamHandler.ListFiles)
+			protected.GET("/doodstream/file/info", doodstreamHandler.GetFileInfo)
+			protected.POST("/doodstream/file/rename", doodstreamHandler.RenameFile)
+			protected.DELETE("/doodstream/file/delete", doodstreamHandler.DeleteFile)
+
+			// Mirrored.to Routes
+			protected.POST("/mirrored/push/:episode_id", mirroredHandler.PushMergedFile)
 
 			// Resumable Upload Routes
 			protected.POST("/upload/init", resumableHandler.InitUpload)

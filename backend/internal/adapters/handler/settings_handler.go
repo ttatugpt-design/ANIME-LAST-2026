@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +30,10 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 		if err == gorm.ErrRecordNotFound {
 			// Create default settings
 			settings = domain.Settings{
-				AppName: "SaaS Platform",
+				AppName:           "SaaS Platform",
+				FakeNamingActive:  false,
+				FakeNamingPrefix:  "ab",
+				FakeNamingCounter: 1,
 			}
 			h.db.Create(&settings)
 		} else {
@@ -101,6 +105,22 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 		fmt.Printf("SettingsHandler: Logo saved to: %s\n", settings.Logo)
 	} else if err != http.ErrMissingFile {
 		fmt.Printf("SettingsHandler: Error retrieving logo file: %v\n", err)
+	}
+
+	// Update Fake Naming Settings
+	fakeActive := c.PostForm("fake_naming_active")
+	if fakeActive != "" {
+		settings.FakeNamingActive = fakeActive == "true" || fakeActive == "1"
+	}
+	fakePrefix := c.PostForm("fake_naming_prefix")
+	if fakePrefix != "" {
+		settings.FakeNamingPrefix = fakePrefix
+	}
+	fakeCounter := c.PostForm("fake_naming_counter")
+	if fakeCounter != "" {
+		if val, err := strconv.Atoi(fakeCounter); err == nil {
+			settings.FakeNamingCounter = val
+		}
 	}
 
 	settings.UpdatedAt = time.Now()

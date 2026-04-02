@@ -68,3 +68,4 @@ backend/test_image.png
 !backend/uploads/posts/
 !backend/uploads/servers/
 !backend/uploads/settings/
+backend/uploads/finished/

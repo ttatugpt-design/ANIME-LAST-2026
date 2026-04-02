@@ -65,7 +65,7 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		&domain.Friendship{}, &domain.Block{},
 		&domain.Post{}, &domain.PostMedia{}, &domain.PostLike{},
 		&domain.PostComment{}, &domain.PostCommentLike{},
-		&domain.Country{}, &domain.Server{}, &domain.Chapter{},
+		&domain.Country{}, &domain.Server{}, &domain.Chapter{}, &domain.EmbedAccount{},
 	)
 
 	if err != nil {

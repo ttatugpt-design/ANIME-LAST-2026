@@ -433,3 +433,160 @@ func (h *DoodstreamHandler) getUploadServer(apiKey string) string {
 	}
 	return ""
 }
+
+func (h *DoodstreamHandler) GetFolders(c *gin.Context) {
+	accountIDStr := c.Query("account_id")
+	if accountIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Account ID is required"})
+		return
+	}
+	accountID, _ := strconv.ParseUint(accountIDStr, 10, 32)
+	account, err := h.embedAccountSvc.GetByID(uint(accountID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Embed Account not found"})
+		return
+	}
+
+	resp, err := http.Get(fmt.Sprintf("https://doodapi.co/api/folder/list?key=%s", account.ApiKey))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result DoodResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse Doodstream response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *DoodstreamHandler) ListFiles(c *gin.Context) {
+	accountIDStr := c.Query("account_id")
+	fldID := c.Query("fld_id")
+	if accountIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Account ID is required"})
+		return
+	}
+	accountID, _ := strconv.ParseUint(accountIDStr, 10, 32)
+	account, err := h.embedAccountSvc.GetByID(uint(accountID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Embed Account not found"})
+		return
+	}
+
+	apiURL := fmt.Sprintf("https://doodapi.co/api/file/list?key=%s", account.ApiKey)
+	if fldID != "" {
+		apiURL += "&fld_id=" + fldID
+	}
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result DoodResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse Doodstream response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *DoodstreamHandler) GetFileInfo(c *gin.Context) {
+	accountIDStr := c.Query("account_id")
+	fileCode := c.Query("file_code")
+	if accountIDStr == "" || fileCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Account ID and File Code are required"})
+		return
+	}
+	accountID, _ := strconv.ParseUint(accountIDStr, 10, 32)
+	account, err := h.embedAccountSvc.GetByID(uint(accountID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Embed Account not found"})
+		return
+	}
+
+	resp, err := http.Get(fmt.Sprintf("https://doodapi.co/api/file/info?key=%s&file_code=%s", account.ApiKey, fileCode))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result DoodResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse Doodstream response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *DoodstreamHandler) RenameFile(c *gin.Context) {
+	var input struct {
+		AccountID uint   `json:"account_id" binding:"required"`
+		FileCode  string `json:"file_code" binding:"required"`
+		Title     string `json:"title" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	account, err := h.embedAccountSvc.GetByID(input.AccountID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Embed Account not found"})
+		return
+	}
+
+	resp, err := http.Get(fmt.Sprintf("https://doodapi.co/api/file/rename?key=%s&file_code=%s&title=%s", account.ApiKey, input.FileCode, url.QueryEscape(input.Title)))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result DoodResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse Doodstream response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *DoodstreamHandler) DeleteFile(c *gin.Context) {
+	accountIDStr := c.Query("account_id")
+	fileCode := c.Query("file_code")
+	if accountIDStr == "" || fileCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Account ID and File Code are required"})
+		return
+	}
+	accountID, _ := strconv.ParseUint(accountIDStr, 10, 32)
+	account, err := h.embedAccountSvc.GetByID(uint(accountID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Embed Account not found"})
+		return
+	}
+
+	resp, err := http.Get(fmt.Sprintf("https://doodapi.co/api/file/delete?key=%s&file_code=%s", account.ApiKey, fileCode))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result DoodResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse Doodstream response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

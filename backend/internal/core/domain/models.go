@@ -15,11 +15,14 @@ type Permission struct {
 }
 
 type Settings struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	AppName   string    `gorm:"default:'SaaS Platform'" json:"app_name"`
-	Logo      string    `json:"logo"` // Path to logo
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                uint      `gorm:"primaryKey" json:"id"`
+	AppName           string    `gorm:"default:'SaaS Platform'" json:"app_name"`
+	Logo              string    `json:"logo"` // Path to logo
+	FakeNamingActive  bool      `gorm:"default:false" json:"fake_naming_active"`
+	FakeNamingPrefix  string    `gorm:"default:'ab'" json:"fake_naming_prefix"`
+	FakeNamingCounter int       `gorm:"default:1" json:"fake_naming_counter"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type Role struct {

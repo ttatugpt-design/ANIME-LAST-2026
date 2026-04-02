@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { useSettingsStore } from "@/stores/settings-store";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +15,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-    Upload, 
-    Link as LinkIcon, 
-    Trash, 
-    CheckCircle2, 
+import {
+    Upload,
+    Hash,
+    Link as LinkIcon,
+    Trash,
+    CheckCircle2,
     PlayCircle,
     Search,
     FileVideo,
@@ -59,9 +61,11 @@ export default function BatchUploadPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { fakeNamingActive, fakeNamingPrefix, fakeNamingCounter, fetchSettings } = useSettingsStore();
 
     const [localFiles, setLocalFiles] = useState<LocalFile[]>([]);
     const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
+    const [uploadProvider, setUploadProvider] = useState<'doodstream' | 'mirrored'>('doodstream');
     const [selectedAccountId, setSelectedAccountId] = useState<number | ''>('');
     const [selectedGlobalServerId, setSelectedGlobalServerId] = useState<number | ''>('');
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
@@ -111,7 +115,8 @@ export default function BatchUploadPage() {
         queryKey: ["embed-accounts"],
         queryFn: async () => (await api.get(`/embed-accounts`)).data,
     });
-    const accounts: any[] = Array.isArray(accountsRes) ? accountsRes : [];
+    const allAccounts: any[] = Array.isArray(accountsRes) ? accountsRes : [];
+    const accounts = allAccounts.filter(a => (uploadProvider === 'mirrored' ? a.type === 'mirrored' : (a.type === 'doodstream' || !a.type)));
 
     // Fetch System Servers
     const { data: serversRes } = useQuery({
@@ -175,12 +180,12 @@ export default function BatchUploadPage() {
     const startBatchUpload = async () => {
         if (!selectedAccountId) { toast.error(lang === 'ar' ? 'اختر حساب الرفع' : 'Select upload account'); return; }
         if (!selectedGlobalServerId) { toast.error(lang === 'ar' ? 'اختر اسم السيرفر' : 'Select server name'); return; }
-        
+
         const filesToUpload = localFiles.filter(f => f.linkedEpisodeId && f.status !== 'completed');
         if (!filesToUpload.length) { toast.error(lang === 'ar' ? 'لا يوجد ملفات مربوطة للرفع' : 'No linked files ready for upload'); return; }
 
         setIsBatchProcessing(true);
-        
+
         // Initial state: mark all as waiting
         setLocalFiles(prev => prev.map(f => (f.linkedEpisodeId && f.status !== 'completed') ? { ...f, status: 'waiting', progress: 0, attempt: 1, isPaused: false } : f));
 
@@ -258,7 +263,7 @@ export default function BatchUploadPage() {
                             const chunkProgress = (i / totalChunks) * 100;
                             const currentChunkProgress = (pe.loaded / pe.total!) * (100 / totalChunks);
                             const totalPct = Math.min(99, Number((chunkProgress + currentChunkProgress).toFixed(1)));
-                            
+
                             // Real-time speed calculation relative to the whole file
                             const totalLoadedSoFar = (i * CHUNK_SIZE) + pe.loaded;
                             speedWindow.push({ time: now, loaded: totalLoadedSoFar });
@@ -272,13 +277,13 @@ export default function BatchUploadPage() {
                                     const timeDiff = Math.max((newest.time - oldest.time) / 1000, 0.001);
                                     currentSpeed = (newest.loaded - oldest.loaded) / timeDiff;
                                 }
-                                
+
                                 const remainingBytes = lf.file.size - totalLoadedSoFar;
                                 const currentEta = currentSpeed > 0 ? Math.ceil(remainingBytes / currentSpeed) : 0;
 
-                                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { 
-                                    ...f, 
-                                    progress: totalPct, 
+                                setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
+                                    ...f,
+                                    progress: totalPct,
                                     chunksSent: i,
                                     speed: currentSpeed,
                                     eta: currentEta,
@@ -289,7 +294,7 @@ export default function BatchUploadPage() {
                             }
                         }
                     });
-                    
+
                     chunksDone.push(i);
                 }
 
@@ -301,16 +306,44 @@ export default function BatchUploadPage() {
                 const completeRes = await api.post('/upload/complete', compFd);
                 const finalLocalPath = completeRes.data.filePath;
 
-                // 4. PUSH TO DOODSTREAM in background on server
-                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, progress: 99.5, error: isAr ? '⬆ جاري الإرسال لـ Doodstream...' : '⬆ Sending to Doodstream...' } : f));
+                // 4. PUSH TO PROVIDER in background on server
+                const providerLabel = uploadProvider === 'mirrored' ? 'Mirrored.to' : 'Doodstream';
+                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, progress: 99.2, error: isAr ? `⬆ جاري الإرسال لـ ${providerLabel}...` : `⬆ Sending to ${providerLabel}...` } : f));
                 const pushFd = new FormData();
                 pushFd.append('filePath', finalLocalPath);
-                // Fire and get 202 Accepted immediately
-                await api.post(`/doodstream/push/${lf.linkedEpisodeId}?account_id=${selectedAccountId}&server_id=${selectedGlobalServerId}`, pushFd);
 
-                // 5. POLL until the embed link appears on the episode (max 10 min)
-                setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, progress: 99.8, error: isAr ? '🔗 انتظار ظهور الرابط...' : '🔗 Waiting for link...' } : f));
-                
+                // Fire and get 202 Accepted immediately
+                try {
+                    if (uploadProvider === 'mirrored') {
+                        await api.post(`/mirrored/push/${lf.linkedEpisodeId}?account_id=${selectedAccountId}&server_id=${selectedGlobalServerId}&fileName=${encodeURIComponent(lf.file.name)}`, pushFd);
+                    } else {
+                        await api.post(`/doodstream/push/${lf.linkedEpisodeId}?account_id=${selectedAccountId}&server_id=${selectedGlobalServerId}`, pushFd);
+                    }
+                } catch (err: any) {
+                    const errorMsg = err.response?.status === 401
+                        ? (isAr ? '❌ انتهت الجلسة، يرجى إعادة تسجيل الدخول' : '❌ Session expired, please login again')
+                        : (isAr ? '❌ فشل إرسال طلب الرفع' : '❌ Push request failed');
+
+                    setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
+                        ...f,
+                        status: 'error',
+                        progress: 99,
+                        error: errorMsg
+                    } : f));
+                    toast.error(errorMsg);
+                    return; // Stop here, do not start polling
+                }
+
+                // 5. POLL until at least one embed link appears on the episode (max 10 min)
+                const isMirrored = uploadProvider === 'mirrored';
+                setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
+                    ...f,
+                    progress: 99.5,
+                    error: isMirrored
+                        ? (isAr ? '🔍 البحث في السيرفرات المربوطة...' : '🔍 Searching linked servers...')
+                        : (isAr ? '🔗 انتظار ظهور الرابط...' : '🔗 Waiting for link...')
+                } : f));
+
                 const serversBefore = (await api.get(`/episodes/${lf.linkedEpisodeId}`)).data?.servers?.length ?? 0;
                 let embedLink = '';
                 const POLL_INTERVAL = 8000;    // 8 seconds between checks
@@ -322,10 +355,23 @@ export default function BatchUploadPage() {
                     try {
                         const epRes = await api.get(`/episodes/${lf.linkedEpisodeId}`);
                         const ep = epRes.data;
-                        if (ep?.servers && ep.servers.length > serversBefore) {
-                            // New server entry found — this is our Doodstream link
-                            const newServer = ep.servers[ep.servers.length - 1];
-                            embedLink = newServer?.url || '';
+                        const currentCount = ep?.servers?.length ?? 0;
+
+                        if (currentCount > serversBefore) {
+                            if (isMirrored) {
+                                // For mirrored, we show the count and wait a bit more or just finish on the first one
+                                const foundCount = currentCount - serversBefore;
+                                setLocalFiles(prev => prev.map(f => f.id === lf.id ? {
+                                    ...f,
+                                    error: isAr ? `✅ تم إيجاد ${foundCount} سيرفرات` : `✅ Found ${foundCount} servers`
+                                } : f));
+                                // We'll wait for at least one, then we can mark as completed. 
+                                // The background task will continue adding others.
+                                embedLink = 'found';
+                            } else {
+                                const newServer = ep.servers[ep.servers.length - 1];
+                                embedLink = newServer?.url || '';
+                            }
                         }
                     } catch { /* network hiccup, retry on next tick */ }
                 }
@@ -337,7 +383,7 @@ export default function BatchUploadPage() {
                     // SUCCESS - embed link confirmed!
                     setLocalFiles(prev => prev.map(f => f.id === lf.id ? { ...f, status: 'completed', progress: 100, error: '' } : f));
                     toast.success(isAr ? `✅ تم الرفع والربط بنجاح` : `✅ Uploaded & Linked!`);
-                    
+
                     // Auto-publish the episode
                     if (lf.linkedEpisodeId) {
                         try {
@@ -345,7 +391,7 @@ export default function BatchUploadPage() {
                             if (freshEp && !freshEp.is_published) {
                                 await api.put(`/episodes/${lf.linkedEpisodeId}`, { ...freshEp, is_published: true });
                             }
-                        } catch {}
+                        } catch { }
                     }
                 }
 
@@ -377,7 +423,11 @@ export default function BatchUploadPage() {
                 try {
                     await api.put(`/animes/${anime.id}?cascade=false`, { ...anime, is_published: true });
                     queryClient.invalidateQueries({ queryKey: ["anime", animeId] });
-                } catch {}
+                } catch { }
+            }
+            // Refresh fake naming counter so FakeNumbers page stays in sync
+            if (uploadProvider === 'mirrored') {
+                try { await fetchSettings(); } catch { }
             }
             toast.success(isAr ? 'انتهت جميع عمليات الرفع' : 'All uploads completed');
             queryClient.invalidateQueries({ queryKey: ["episodes-batch", animeId] });
@@ -398,10 +448,10 @@ export default function BatchUploadPage() {
             }
             return f;
         }));
-        
+
         // Re-trigger queue processing in case something was paused and now resumed
         if (isBatchProcessing) {
-             // In a real implementation you might need a way to poke the worker loop
+            // In a real implementation you might need a way to poke the worker loop
         }
     };
 
@@ -471,12 +521,25 @@ export default function BatchUploadPage() {
                     {/* Controls */}
                     <div className="flex flex-wrap items-center gap-2">
                         <select
+                            className="h-9 flex-1 sm:flex-none sm:w-40 rounded-md border border-input bg-background px-3 text-sm outline-none font-semibold text-primary"
+                            value={uploadProvider}
+                            onChange={e => {
+                                setUploadProvider(e.target.value as any);
+                                setSelectedAccountId(''); // Reset account when provider changes
+                            }}
+                            disabled={isBatchProcessing}
+                        >
+                            <option value="doodstream">Doodstream</option>
+                            <option value="mirrored">Mirrored.to</option>
+                        </select>
+
+                        <select
                             className="h-9 flex-1 sm:flex-none sm:w-44 rounded-md border border-input bg-background px-3 text-sm outline-none"
                             value={selectedAccountId}
                             onChange={e => setSelectedAccountId(e.target.value ? Number(e.target.value) : '')}
                             disabled={isBatchProcessing}
                         >
-                            <option value="">{lang === 'ar' ? 'حساب الرفع...' : 'Upload account...'}</option>
+                            <option value="">{lang === 'ar' ? 'اختر الحساب...' : 'Select account...'}</option>
                             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
 
@@ -490,6 +553,14 @@ export default function BatchUploadPage() {
                             {systemServers.map(s => <option key={s.id} value={s.id}>{s.name_ar || s.name_en}</option>)}
                         </select>
 
+                        {uploadProvider === 'mirrored' && fakeNamingActive && (
+                            <div className="flex items-center gap-1.5 h-9 px-3 rounded-md border border-primary/30 bg-primary/5 shrink-0" title={isAr ? 'اسم الملف القادم' : 'Next file name'}>
+                                <Hash className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-xs font-mono text-primary font-bold tracking-wider">
+                                    {`${fakeNamingPrefix}${String(fakeNamingCounter).padStart(7, '0')}`}
+                                </span>
+                            </div>
+                        )}
                         <Button className="flex-1 sm:flex-none h-9" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isBatchProcessing}>
                             <Upload className="h-4 w-4 mr-1.5" />
                             {lang === 'ar' ? 'إضافة ملفات' : 'Add Files'}
@@ -643,10 +714,10 @@ export default function BatchUploadPage() {
                                                     {/* Actions */}
                                                     <div className="flex flex-col gap-1.5 shrink-0">
                                                         {(file.status === 'uploading' || (file.status === 'waiting' && file.uploadId)) && (
-                                                            <Button 
-                                                                size="icon" 
-                                                                variant="outline" 
-                                                                className="h-7 w-7 text-amber-500" 
+                                                            <Button
+                                                                size="icon"
+                                                                variant="outline"
+                                                                className="h-7 w-7 text-amber-500"
                                                                 onClick={() => togglePause(file.id)}
                                                                 title={file.isPaused ? (isAr ? 'استئناف' : 'Resume') : (isAr ? 'إيقاف مؤقت' : 'Pause')}
                                                             >

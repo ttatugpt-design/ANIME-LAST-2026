@@ -19,7 +19,7 @@ func GenerateTokenPair(userID uint, role string, secret, rtSecret string) (strin
 		UserID: userID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "saas-app",
 		},
 	}
@@ -52,7 +52,7 @@ func GenerateAccessToken(userID uint, role string, secret string) (string, error
 		UserID: userID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "saas-app",
 		},
 	}

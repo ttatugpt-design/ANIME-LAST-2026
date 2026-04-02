@@ -64,6 +64,10 @@ import BackupPage from '@/pages/dashboard/BackupPage';
 import BatchAnimeSelectionPage from '@/pages/dashboard/BatchAnimeSelectionPage';
 import BatchUploadPage from '@/pages/dashboard/BatchUploadPage';
 import EmbedAccountsPage from '@/pages/dashboard/EmbedAccountsPage';
+import MirroredAccountsPage from '@/pages/dashboard/MirroredAccountsPage';
+import ServerFileSelectionPage from '@/pages/dashboard/ServerFileSelectionPage';
+import ServerFileBrowserPage from '@/pages/dashboard/ServerFileBrowserPage';
+import FakeNumbersPage from '@/pages/dashboard/FakeNumbersPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -368,6 +372,22 @@ export const routes = [
                             {
                                 path: 'embed-accounts',
                                 element: <EmbedAccountsPage />,
+                            },
+                            {
+                                path: 'mirrored-accounts',
+                                element: <MirroredAccountsPage />,
+                            },
+                            {
+                                path: 'server-files',
+                                element: <ServerFileSelectionPage />,
+                            },
+                            {
+                                path: 'server-files/:id',
+                                element: <ServerFileBrowserPage />,
+                            },
+                            {
+                                path: 'fake-numbers',
+                                element: <FakeNumbersPage />,
                             },
                         ],
                     },
