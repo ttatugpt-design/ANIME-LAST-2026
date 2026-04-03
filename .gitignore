@@ -69,3 +69,7 @@ backend/test_image.png
 !backend/uploads/servers/
 !backend/uploads/settings/
 backend/uploads/finished/
+backend/stderr.txt
+backend/stdout.txt
+backend/test_node.js
+frontend/tsconfig.app.tsbuildinfo

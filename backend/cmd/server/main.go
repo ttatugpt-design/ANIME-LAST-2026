@@ -147,6 +147,7 @@ func main() {
 	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
 	mirroredHandler := handler.NewMirroredHandler(episodeService, serverService, embedAccountService, repo.DB())
 	resumableHandler := handler.NewResumableUploadHandler()
+	scraperHandler := handler.NewScraperHandler()
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 32 << 20 // 32MB instead of 1GB. Files larger than this will be cached into OS temporary disk space instead of RAM!
@@ -529,6 +530,9 @@ func main() {
 			protected.POST("/upload/chunk", resumableHandler.UploadChunk)
 			protected.GET("/upload/status/:uploadId", resumableHandler.GetStatus)
 			protected.POST("/upload/complete", resumableHandler.CompleteUpload)
+
+			// Scraper Routes
+			protected.POST("/scraper/test-fetch", scraperHandler.TestFetchLink)
 
 			// Quick News Admin Operations
 			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)

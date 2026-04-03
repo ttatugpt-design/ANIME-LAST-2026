@@ -68,6 +68,7 @@ import MirroredAccountsPage from '@/pages/dashboard/MirroredAccountsPage';
 import ServerFileSelectionPage from '@/pages/dashboard/ServerFileSelectionPage';
 import ServerFileBrowserPage from '@/pages/dashboard/ServerFileBrowserPage';
 import FakeNumbersPage from '@/pages/dashboard/FakeNumbersPage';
+import FetchLinksPage from '@/pages/dashboard/FetchLinksPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -388,6 +389,10 @@ export const routes = [
                             {
                                 path: 'fake-numbers',
                                 element: <FakeNumbersPage />,
+                            },
+                            {
+                                path: 'fetch-links',
+                                element: <FetchLinksPage />,
                             },
                         ],
                     },

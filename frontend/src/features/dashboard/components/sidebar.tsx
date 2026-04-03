@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database, Upload, Hash } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database, Upload, Hash, Link2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -148,6 +148,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Hash,
             href: `/${lang}/dashboard/fake-numbers`,
             active: pathname.startsWith(`/${lang}/dashboard/fake-numbers`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'جلب الروابط' : 'Fetch Links',
+            icon: Link2,
+            href: `/${lang}/dashboard/fetch-links`,
+            active: pathname.startsWith(`/${lang}/dashboard/fetch-links`),
         },
         {
             label: i18n.language === 'ar' ? 'الفصول' : 'Chapters',
