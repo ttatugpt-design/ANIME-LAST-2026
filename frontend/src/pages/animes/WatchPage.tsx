@@ -1185,7 +1185,7 @@ export default function WatchPage() {
 
                         {/* Dynamic Main Content & Right Sidebar */}
                         {(!anime || !currentEpisode || isLoading || isLoadingActiveEpisode) ? (
-                            <div className="col-span-1 lg:col-span-12 min-h-[70vh] flex items-center justify-center">
+                            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white/40 dark:bg-black/40 backdrop-blur-[3px] animate-fade-in">
                                 <CentralSpinner />
                             </div>
                         ) : (

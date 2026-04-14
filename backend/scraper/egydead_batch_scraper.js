@@ -193,7 +193,19 @@ const scrapeEpisode = async (browser, episodeUrl) => {
 
     let browser;
     try {
-        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'] });
+        browser = await puppeteer.launch({ 
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
+            headless: true, 
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ] 
+        });
         const discoveryPage = await browser.newPage();
         await discoveryPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
         await discoveryPage.goto(startUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });

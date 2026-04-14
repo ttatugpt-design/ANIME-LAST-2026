@@ -37,14 +37,22 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Auto-seed if it was a new DB
+	// Auto-seed if it was a new DB OR if the DB is empty
 	if isNewDB {
 		log.Println("New database detected. Running auto-seeding...")
 		seeder.SeedAll(repo.DB())
 	} else {
-		// Ensure countries are seeded even if DB already existed
-		log.Println("Seeding countries for existing database...")
-		seeder.SeedCountries(repo.DB())
+		// Even if file existed, check if it has data. This protects against "mixed data" issues on Railway
+		var animeCount int64
+		repo.DB().Table("animes").Count(&animeCount)
+		if animeCount == 0 {
+			log.Println("Database existed but is empty. Running auto-seeding...")
+			seeder.SeedAll(repo.DB())
+		} else {
+			// Ensure countries are seeded even if DB already existed
+			log.Println("Seeding countries for existing database...")
+			seeder.SeedCountries(repo.DB())
+		}
 	}
 
 	// ALWAYS run localhost cleanup migration (safe to run multiple times)

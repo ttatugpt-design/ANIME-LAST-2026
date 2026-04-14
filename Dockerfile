@@ -21,7 +21,21 @@ RUN CGO_ENABLED=1 GOOS=linux go build -o server ./cmd/server/main.go
 # Using node image to have Node.js available for SSR sidecar
 FROM node:22-alpine
 WORKDIR /app
-RUN apk add --no-cache sqlite-libs ca-certificates
+
+# Install dependencies for SQLite, SSL, and Chromium (for Puppeteer scrapers)
+RUN apk add --no-cache \
+    sqlite-libs \
+    ca-certificates \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    dbus
+
+# Tell Puppeteer to use the system-installed Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # 1. Copy Backend Binary directly to /app/server so Railway's startCommand './server' works
 COPY --from=backend /app/backend/server ./server

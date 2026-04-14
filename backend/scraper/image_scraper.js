@@ -303,8 +303,18 @@ const scrapeGeneric = async (browser, url, maxImages) => {
     let browser;
     try {
         browser = await puppeteer.launch({
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
             headless: 'new',
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-blink-features=AutomationControlled'
+            ]
         });
 
         let pageTitle = 'anime3rb.com';

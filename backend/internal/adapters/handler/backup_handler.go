@@ -212,6 +212,11 @@ func (h *BackupHandler) performRestore(backupPath string) error {
 	}
 
 	// 3. Overwrite the live DB file with the backup
+	// Robustness: Delete any existing WAL/SHM files before overwriting the main .db file
+	// This ensures the new DB doesn't try to merge with old WAL data.
+	os.Remove(h.cfg.DBUrl + "-wal")
+	os.Remove(h.cfg.DBUrl + "-shm")
+
 	if err := h.copyFile(backupPath, h.cfg.DBUrl); err != nil {
 		// Try to reopen regardless so the server doesn't stay broken
 		rerr := h.repo.ReopenWithDSN(h.cfg.DBUrl)
