@@ -582,7 +582,9 @@ func main() {
 		ReadTimeout: 0, WriteTimeout: 0, IdleTimeout: 0,
 	}
 
-	log.Printf("Server running on port %s", cfg.Port)
+	log.Printf("Server configuration complete. Listening on port %s", cfg.Port)
+	log.Printf("Healthcheck path: /api/health (ready)")
+	
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}

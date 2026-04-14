@@ -196,43 +196,60 @@ func (h *BackupHandler) scheduleRestart() {
 }
 
 func (h *BackupHandler) performRestore(backupPath string) error {
+	log.Printf("[RESTORE START] Attempting to restore database from: %s", backupPath)
+
 	// Get the underlying *sql.DB
 	sqlDB, err := h.repo.DB().DB()
 	if err != nil {
 		return fmt.Errorf("failed to get DB instance: %v", err)
 	}
 
-	// 1. Flush all pending connections so file is not locked
-	// Set max open conns to 0 to drain them, then reset to 1
+	// 1. Force flush and close all connections
 	sqlDB.SetMaxOpenConns(0)
-
-	// 2. Close the underlying connection pool
+	sqlDB.SetConnMaxLifetime(0)
+	
 	if err := sqlDB.Close(); err != nil {
-		log.Printf("Warning: failed to close DB before restore: %v", err)
+		log.Printf("[RESTORE] Warning: failed to close DB before restore: %v", err)
 	}
 
-	// 3. Overwrite the live DB file with the backup
-	// Robustness: Delete any existing WAL/SHM files before overwriting the main .db file
-	// This ensures the new DB doesn't try to merge with old WAL data.
+	// 2. Aggressively purge any cached SQLite state files
+	// This is the CRITICAL STEP to prevent data conflicts
+	log.Println("[RESTORE] Purging existing database and WAL/SHM files...")
+	os.Remove(h.cfg.DBUrl)
 	os.Remove(h.cfg.DBUrl + "-wal")
 	os.Remove(h.cfg.DBUrl + "-shm")
+	os.Remove(h.cfg.DBUrl + "-journal")
 
+	// 3. Copy the backup file to the live DB path
+	log.Printf("[RESTORE] Copying backup to live path: %s", h.cfg.DBUrl)
 	if err := h.copyFile(backupPath, h.cfg.DBUrl); err != nil {
-		// Try to reopen regardless so the server doesn't stay broken
-		rerr := h.repo.ReopenWithDSN(h.cfg.DBUrl)
-		if rerr != nil {
-			log.Printf("[RESTORE CRITICAL] Failed to reopen DB after failed restore: %v", rerr)
-		}
+		// Attempt to reopen to prevent infinite crash loop
+		log.Printf("[RESTORE ERROR] Build copy failed: %v", err)
+		h.repo.ReopenWithDSN(h.cfg.DBUrl)
 		return fmt.Errorf("failed to copy backup to live DB: %v", err)
 	}
 
-	// 4. Reopen the connection with the same pragmas
+	// 4. Verification Check
+	if _, err := os.Stat(h.cfg.DBUrl); err != nil {
+		return fmt.Errorf("restored DB file missing after copy: %v", err)
+	}
+
+	// 5. Reopen the database fresh
+	log.Println("[RESTORE] Reopening database with fresh connection pool...")
 	if err := h.repo.ReopenWithDSN(h.cfg.DBUrl); err != nil {
 		return fmt.Errorf("failed to reopen DB after restore: %v", err)
 	}
 
-	log.Printf("[RESTORE] Database restored successfully from %s", backupPath)
+	log.Printf("[RESTORE SUCCESS] Database fully replaced. New size: %d bytes", h.getFileSize(h.cfg.DBUrl))
 	return nil
+}
+
+func (h *BackupHandler) getFileSize(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return info.Size()
 }
 
 func (h *BackupHandler) copyFile(src, dst string) error {
