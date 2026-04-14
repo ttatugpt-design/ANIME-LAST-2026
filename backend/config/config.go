@@ -3,8 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
 
 	"github.com/joho/godotenv"
 )
