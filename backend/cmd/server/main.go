@@ -154,7 +154,7 @@ func main() {
 	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
 	mirroredHandler := handler.NewMirroredHandler(episodeService, serverService, embedAccountService, repo.DB())
 	resumableHandler := handler.NewResumableUploadHandler()
-	scraperHandler := handler.NewScraperHandler(repo.DB())
+	scraperHandler := handler.NewScraperHandler(repo.DB(), baseDir)
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 32 << 20 // 32MB instead of 1GB. Files larger than this will be cached into OS temporary disk space instead of RAM!

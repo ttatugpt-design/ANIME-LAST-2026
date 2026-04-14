@@ -56,6 +56,12 @@ RUN npm install --production --legacy-peer-deps
 WORKDIR /app
 COPY emoji ./emoji
 
+# 5. Copy Scraper Directory & Install Dependencies
+# We copy to /app/scraper to match ScraperHandler's expected path
+COPY backend/scraper ./scraper
+WORKDIR /app/scraper
+RUN npm install --production --legacy-peer-deps
+
 # Set WORKDIR to project root so os.Getwd() returns /app
 WORKDIR /app
 

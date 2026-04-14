@@ -26,7 +26,8 @@ const (
 )
 
 type ScraperHandler struct {
-	db *gorm.DB
+	db      *gorm.DB
+	BaseDir string
 }
 
 type AnimeImportRequest struct {
@@ -44,8 +45,8 @@ type AnimeImportRequest struct {
 	AutoScrape  bool     `json:"auto_scrape"`
 }
 
-func NewScraperHandler(db *gorm.DB) *ScraperHandler {
-	return &ScraperHandler{db: db}
+func NewScraperHandler(db *gorm.DB, baseDir string) *ScraperHandler {
+	return &ScraperHandler{db: db, BaseDir: baseDir}
 }
 
 func (h *ScraperHandler) RefreshAnime3rbVideo(c *gin.Context) {
@@ -64,8 +65,8 @@ func (h *ScraperHandler) RefreshAnime3rbVideo(c *gin.Context) {
 
 	// The system will now always fetch, as requested by the user, regardless of last update time.
 
-	// Run anime3rb_batch_scraper.js with the source_url
-	scriptPath := filepath.Join("scraper", "anime3rb_batch_scraper.js")
+	// Standard path resolution using BaseDir
+	scriptPath := filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -131,17 +132,9 @@ func (h *ScraperHandler) TestFetchLink(c *gin.Context) {
 		return
 	}
 
-	// Determine the path to the scraper script (Try multiple relative locations)
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "index.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		// Try one level up (if running from cmd/server)
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "index.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		// Try absolute path if we can guess it or just fallback to currentDir/scraper/index.js
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "index.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "index.js")
+	log.Printf("[Scraper] Using script: %s", scraperPath)
 
 	// Execute the node script
 	const batchTimeout = 15 * 60 * time.Second
@@ -211,15 +204,8 @@ func (h *ScraperHandler) FetchEgyDead(c *gin.Context) {
 		return
 	}
 
-	// Resolve scraper path
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "egydead_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "egydead_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "egydead_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "egydead_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*60*time.Second)
 	defer cancel()
@@ -262,15 +248,8 @@ func (h *ScraperHandler) FetchEgyDeadBatch(c *gin.Context) {
 		return
 	}
 
-	// Resolve scraper path
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "egydead_batch_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "egydead_batch_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "egydead_batch_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "egydead_batch_scraper.js")
 
 	// Batch scraping takes longer, so we increase the timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
@@ -314,14 +293,8 @@ func (h *ScraperHandler) FetchAnime4Up(c *gin.Context) {
 		return
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "anime4up_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "anime4up_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "anime4up_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "anime4up_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*60*time.Second)
 	defer cancel()
@@ -364,14 +337,8 @@ func (h *ScraperHandler) FetchAnime4UpBatch(c *gin.Context) {
 		return
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "anime4up_batch_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "anime4up_batch_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "anime4up_batch_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "anime4up_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
 	defer cancel()
@@ -414,14 +381,8 @@ func (h *ScraperHandler) FetchRistoAnime(c *gin.Context) {
 		return
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "ristoanime_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "ristoanime_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "ristoanime_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "ristoanime_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*60*time.Second)
 	defer cancel()
@@ -464,14 +425,8 @@ func (h *ScraperHandler) FetchRistoAnimeBatch(c *gin.Context) {
 		return
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "ristoanime_batch_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "ristoanime_batch_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "ristoanime_batch_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "ristoanime_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
 	defer cancel()
@@ -513,14 +468,8 @@ func (h *ScraperHandler) FetchWitAnimeBatch(c *gin.Context) {
 		return
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "witanime_batch_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "witanime_batch_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "witanime_batch_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "witanime_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
 	defer cancel()
@@ -563,14 +512,8 @@ func (h *ScraperHandler) FetchAnime3rbBatch(c *gin.Context) {
 		return
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "anime3rb_batch_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "anime3rb_batch_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "anime3rb_batch_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second)
 	defer cancel()
@@ -618,14 +561,8 @@ func (h *ScraperHandler) FetchPageImages(c *gin.Context) {
 		body.MaxImages = 50
 	}
 
-	currentDir, _ := os.Getwd()
-	scraperPath := filepath.Join(currentDir, "scraper", "image_scraper.js")
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "..", "scraper", "image_scraper.js")
-	}
-	if _, err := os.Stat(scraperPath); os.IsNotExist(err) {
-		scraperPath = filepath.Join(currentDir, "backend", "scraper", "image_scraper.js")
-	}
+	// Standard path resolution
+	scraperPath := filepath.Join(h.BaseDir, "scraper", "image_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*60*time.Second) 
 	defer cancel()
@@ -880,15 +817,16 @@ func (h *ScraperHandler) DeepImportAnime(c *gin.Context) {
 	}
 
 	// 3. Determine scraper script
+	// Standard path resolution using BaseDir
 	scriptPath := ""
 	if strings.Contains(body.DetailURL, "anime3rb.com") {
-		scriptPath = filepath.Join("scraper", "anime3rb_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
 	} else if strings.Contains(body.DetailURL, "ristoanime.co") {
-		scriptPath = filepath.Join("scraper", "ristoanime_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "ristoanime_batch_scraper.js")
 	} else if strings.Contains(body.DetailURL, "witanime.life") || strings.Contains(body.DetailURL, "witanime.com") {
-		scriptPath = filepath.Join("scraper", "witanime_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "witanime_batch_scraper.js")
 	} else if strings.Contains(body.DetailURL, "egydead") {
-		scriptPath = filepath.Join("scraper", "egydead_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "egydead_batch_scraper.js")
 	}
 
 	if scriptPath == "" {
@@ -1008,15 +946,16 @@ func (h *ScraperHandler) DeepImportAnime(c *gin.Context) {
 
 func (h *ScraperHandler) autoScrapeServers(anime domain.Anime, detailURL string) {
 	// 1. Determine script path
+	// Standard path resolution using BaseDir
 	scriptPath := ""
 	if strings.Contains(detailURL, "anime3rb.com") {
-		scriptPath = filepath.Join("scraper", "anime3rb_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
 	} else if strings.Contains(detailURL, "ristoanime.co") {
-		scriptPath = filepath.Join("scraper", "ristoanime_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "ristoanime_batch_scraper.js")
 	} else if strings.Contains(detailURL, "witanime.life") || strings.Contains(detailURL, "witanime.com") {
-		scriptPath = filepath.Join("scraper", "witanime_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "witanime_batch_scraper.js")
 	} else if strings.Contains(detailURL, "egydead") {
-		scriptPath = filepath.Join("scraper", "egydead_batch_scraper.js")
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "egydead_batch_scraper.js")
 	}
 
 	if scriptPath == "" {
@@ -1123,9 +1062,8 @@ func (h *ScraperHandler) downloadPoster(url, title string) (string, error) {
 	filename := h.slugify(title) + ext
 	relPath := filepath.Join("uploads", "animes", filename)
 	
-	// Ensure directory exists
-	currentDir, _ := os.Getwd()
-	absPath := filepath.Join(currentDir, relPath)
+	// Ensure directory exists using absolute path
+	absPath := filepath.Join(h.BaseDir, relPath)
 	os.MkdirAll(filepath.Dir(absPath), os.ModePerm)
 
 	out, err := os.Create(absPath)
