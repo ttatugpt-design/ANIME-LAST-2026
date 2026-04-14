@@ -1034,7 +1034,7 @@ export default function WatchPage() {
     const metaImage = getImageUrl(episodeData?.thumbnail || episodeData?.banner || anime?.banner || anime?.cover || "");
     const canonicalUrl = `${window.location.origin}${window.location.pathname}`;
 
-    const genres = anime?.categories?.map((c: any) => lang === 'ar' ? c.title : (c.title_en || c.title)).filter(Boolean).join(', ') || '';
+    const genres = anime?.categories?.map((c: any) => lang === 'ar' ? c?.title : (c?.title_en || c?.title)).filter(Boolean).join(', ') || '';
     const studioName = anime?.studio?.name || anime?.studio_name || "";
 
     const keywords = [animeTitle, epTitle, genres, studioName].filter(Boolean).join(', ');
@@ -1083,7 +1083,7 @@ export default function WatchPage() {
             "@type": "TVSeries",
             "name": animeTitle,
             "description": animeDesc,
-            "genre": anime?.categories?.map((c: any) => lang === 'ar' ? c.title : (c.title_en || c.title)).filter(Boolean) || [],
+            "genre": anime?.categories?.map((c: any) => lang === 'ar' ? c?.title : (c?.title_en || c?.title)).filter(Boolean) || [],
             "productionCompany": {
                 "@type": "Organization",
                 "name": studioName
@@ -1298,25 +1298,25 @@ export default function WatchPage() {
                                             <div className="p-3 flex flex-col gap-3">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1 flex gap-2 min-w-0 pr-2">
-                                                        <Link to={`/${lang}/animes/${lang === 'ar' ? (anime.slug || anime.id) : (anime.slug_en || anime.slug || anime.id)}`} className="shrink-0">
+                                                        <Link to={`/${lang}/animes/${lang === 'ar' ? (anime?.slug || anime?.id) : (anime?.slug_en || anime?.slug || anime?.id)}`} className="shrink-0">
                                                             <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 dark:bg-[#2a2a2a] border border-gray-50 dark:border-[#333]">
                                                                 <img src={getImageUrl(anime?.cover || anime?.banner)} alt={animeTitle} className="w-full h-full object-cover" />
                                                             </div>
                                                         </Link>
                                                         <div className="flex-1 min-w-0">
-                                                            <Link to={`/${lang}/animes/${lang === 'ar' ? (anime.slug || anime.id) : (anime.slug_en || anime.slug || anime.id)}`} className="font-bold text-gray-900 dark:text-white hover:underline block leading-tight truncate">
+                                                            <Link to={`/${lang}/animes/${lang === 'ar' ? (anime?.slug || anime?.id) : (anime?.slug_en || anime?.slug || anime?.id)}`} className="font-bold text-gray-900 dark:text-white hover:underline block leading-tight truncate">
                                                                 {renderEmojiContent(animeTitle)}
                                                             </Link>
                                                             <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mt-1">
                                                                 <span className="text-[11px] font-medium">
-                                                                    {(lang === 'ar' ? currentEpisode.title : currentEpisode.title_en) || `${lang === 'ar' ? 'الحلقة' : 'Episode'} ${currentEpisode.episode_number}`}
+                                                                    {(lang === 'ar' ? currentEpisode?.title : currentEpisode?.title_en) || `${lang === 'ar' ? 'الحلقة' : 'Episode'} ${currentEpisode?.episode_number}`}
                                                                 </span>
                                                                 <span>•</span>
                                                                 <span className="text-[11px] font-bold text-black dark:text-white">
-                                                                    {lang === 'ar' ? `الحلقة ${currentEpisode.episode_number}` : `Episode ${currentEpisode.episode_number}`}
+                                                                    {lang === 'ar' ? `الحلقة ${currentEpisode?.episode_number}` : `Episode ${currentEpisode?.episode_number}`}
                                                                 </span>
                                                                 <span>•</span>
-                                                                <span className="text-[11px]">{currentEpisode.duration}m</span>
+                                                                <span className="text-[11px]">{currentEpisode?.duration}m</span>
                                                                 <span>•</span>
                                                                 <Globe className="w-3 h-3" />
                                                             </div>
@@ -1604,10 +1604,10 @@ export default function WatchPage() {
                                                 <div className="flex-1 flex items-center justify-center font-bold text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400">
                                                     <WatchLaterButton
                                                         animeId={Number(anime?.id)}
-                                                        episodeId={Number(currentEpisode.id)}
+                                                        episodeId={Number(currentEpisode?.id)}
                                                         episodeTitle={epTitle}
-                                                        episodeNumber={currentEpisode.episode_number}
-                                                        episodeImage={getImageUrl(currentEpisode.thumbnail)}
+                                                        episodeNumber={currentEpisode?.episode_number}
+                                                        episodeImage={getImageUrl(currentEpisode?.thumbnail)}
                                                         variant="default"
                                                         className="w-full flex items-center justify-center gap-2 py-2 h-auto rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-500 dark:text-gray-400 px-0 [&_svg]:w-5 [&_svg]:h-5 bg-transparent border-0 font-bold"
                                                         showLabel={true}
