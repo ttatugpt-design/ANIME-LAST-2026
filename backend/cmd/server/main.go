@@ -77,6 +77,37 @@ func main() {
 	wsHub := ws.NewHub()
 	go wsHub.Run()
 
+	// Determine root directory robustly. 
+	// In production (Railway/Docker), we assume the app runs in the project root.
+	// In dev, we might be in backend/cmd/server/.
+	cwd, _ := os.Getwd()
+	log.Printf("Current working directory: %s", cwd)
+
+	// Determine if we are in the backend subdirectory or root
+	baseDir := cwd
+	if filepath.Base(cwd) == "server" && strings.Contains(cwd, filepath.Join("backend", "cmd", "server")) {
+		// We are in backend/cmd/server, root is 3 levels up
+		baseDir = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		// We are in backend/, root is 1 level up
+		baseDir = filepath.Dir(cwd)
+	}
+
+	log.Printf("Determined Base Project Directory: %s", baseDir)
+
+	// Helper for absolute paths inside the project
+	absPath := func(parts ...string) string {
+		p := filepath.Join(append([]string{baseDir}, parts...)...)
+		// Clean the path to handle ../ or ./
+		p = filepath.Clean(p)
+		if _, err := os.Stat(p); err == nil {
+			log.Printf("Path Verified: %s", p)
+		} else {
+			log.Printf("Warning: Path missing: %s", p)
+		}
+		return p
+	}
+
 	// Services
 	authService := service.NewAuthService(repo, repo, cfg)
 	userService := service.NewUserService(repo, repo, notifRepo, repo, repo, wsHub)
@@ -192,37 +223,6 @@ func main() {
 
 	// Register SVG mime type explicitly just in case Windows registry is broken
 	mime.AddExtensionType(".svg", "image/svg+xml")
-
-	// Determine root directory robustly. 
-	// In production (Railway/Docker), we assume the app runs in the project root.
-	// In dev, we might be in backend/cmd/server/.
-	cwd, _ := os.Getwd()
-	log.Printf("Current working directory: %s", cwd)
-
-	// Determine if we are in the backend subdirectory or root
-	baseDir := cwd
-	if filepath.Base(cwd) == "server" && strings.Contains(cwd, filepath.Join("backend", "cmd", "server")) {
-		// We are in backend/cmd/server, root is 3 levels up
-		baseDir = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
-	} else if filepath.Base(cwd) == "backend" {
-		// We are in backend/, root is 1 level up
-		baseDir = filepath.Dir(cwd)
-	}
-	
-	log.Printf("Determined Base Project Directory: %s", baseDir)
-	
-	// Helper for absolute paths inside the project
-	absPath := func(parts ...string) string {
-		p := filepath.Join(append([]string{baseDir}, parts...)...)
-		// Clean the path to handle ../ or ./
-		p = filepath.Clean(p)
-		if _, err := os.Stat(p); err == nil {
-			log.Printf("Path Verified: %s", p)
-		} else {
-			log.Printf("Warning: Path missing: %s", p)
-		}
-		return p
-	}
 
 	backupHandler := handler.NewBackupHandler(repo, cfg)
 
