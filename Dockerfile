@@ -23,9 +23,8 @@ FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache sqlite-libs ca-certificates
 
-# 1. Copy Backend Binary to /app/backend/ so the server binary location
-#    allows os.Getwd() == /app (the project root)
-COPY --from=backend /app/backend/server ./backend/server
+# 1. Copy Backend Binary directly to /app/server so Railway's startCommand './server' works
+COPY --from=backend /app/backend/server ./server
 
 # 2. Copy Backend Uploads
 COPY --from=backend /app/backend/uploads ./backend/uploads
@@ -50,4 +49,4 @@ ENV GIN_MODE=release
 EXPOSE 8080
 
 # Run server from project root - os.Getwd() will be /app
-CMD ["./backend/server"]
+CMD ["./server"]
