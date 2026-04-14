@@ -1185,8 +1185,13 @@ export default function WatchPage() {
 
                         {/* Dynamic Main Content & Right Sidebar */}
                         {(isLoading || isLoadingActiveEpisode) ? (
-                            <div className="col-span-1 lg:col-span-12">
-                                <WatchPageSkeleton lang={lang} />
+                            <div className="col-span-1 lg:col-span-12 relative min-h-[70vh]">
+                                <div className="absolute inset-0 z-0">
+                                    <WatchPageSkeleton lang={lang} />
+                                </div>
+                                <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/30 dark:bg-black/30 backdrop-blur-[2px]">
+                                    <CentralSpinner />
+                                </div>
                             </div>
                         ) : (!!episodeError || !anime || !currentEpisode) ? (
                             <div className="col-span-1 lg:col-span-9 flex flex-col items-center justify-center text-gray-900 dark:text-white p-4 min-h-[60vh]">
