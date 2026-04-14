@@ -1,13 +1,15 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useInView } from "react-intersection-observer";
+import { Reorder, motion } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 import {
     Play, Plus, Share2, Flag, Download, MessageCircle,
     Globe, Clock, Eye, ChevronUp, ChevronLeft, Star, Filter, Library,
     ThumbsUp, ThumbsDown, MoreHorizontal, X, Check, Copy, Link as LinkIcon,
-    Maximize2, Minimize2, Loader2
+    Maximize2, Minimize2, Loader2, Trash2
 } from "lucide-react";
 import { toast } from 'sonner';
 import api from "@/lib/api";
@@ -17,6 +19,7 @@ import { slugify } from "@/utils/slug";
 import CrunchyrollSkeleton from "@/components/skeleton/CrunchyrollSkeleton";
 import SpinnerImage from "@/components/ui/SpinnerImage";
 import CentralSpinner from "@/components/ui/CentralSpinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import AnimeHoverCard from "@/components/AnimeHoverCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +43,22 @@ import { NewsTicker } from '@/components/common/NewsTicker';
 import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
 
 import { getImageUrl } from '@/utils/image-utils';
+import { useAuthStore } from '@/stores/auth-store';
+import BulkDeleteServersModal from '@/components/episodes/BulkDeleteServersModal';
+import CustomVideoPlayer from '@/components/episodes/CustomVideoPlayer';
 
+
+
+const isVideoFile = (url: string) => {
+    if (!url) return false;
+    // Remove query parameters for extension check
+    const cleanUrl = url.split('?')[0].toLowerCase();
+    return cleanUrl.endsWith('.mp4') || 
+           cleanUrl.endsWith('.webm') || 
+           cleanUrl.endsWith('.ogv') ||
+           url.includes('googleusercontent.com') ||
+           url.includes('files.vid3rb.com');
+};
 
 // Helper for relative time display
 const getRelativeTime = (dateString: string, lang: string) => {
@@ -69,11 +87,109 @@ const getRelativeTime = (dateString: string, lang: string) => {
     }
 };
 
+const WatchPageSkeleton = ({ lang }: { lang: string }) => {
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
+            {/* Main Content Skeleton */}
+            <div className="col-span-1 lg:col-span-7 lg:col-start-3 px-0 lg:px-6 pb-6 space-y-4">
+                <div className="max-w-[900px] mx-auto space-y-4">
+                    {/* Breadcrumbs Skeleton */}
+                    <div className="flex items-center gap-2 px-4 lg:px-0 py-2">
+                        <Skeleton className="h-4 w-20 md:w-32" />
+                        <Skeleton className="h-4 w-4" />
+                        <Skeleton className="h-4 w-24 md:w-40" />
+                    </div>
+
+                    {/* Player Card Skeleton */}
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-none md:rounded-xl shadow-sm border-y md:border border-gray-100 dark:border-[#2a2a2a] overflow-hidden">
+                        {/* 1. Player Area */}
+                        <div className="w-full aspect-video bg-neutral-900 animate-pulse flex items-center justify-center">
+                            <Skeleton className="w-16 h-16 rounded-full opacity-20" />
+                        </div>
+
+                        {/* 2. Metadata Area */}
+                        <div className="p-3 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div className="flex gap-2 flex-1">
+                                    <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                                    <div className="space-y-2 flex-1">
+                                        <Skeleton className="h-5 w-3/4" />
+                                        <Skeleton className="h-3 w-1/2" />
+                                    </div>
+                                </div>
+                                <Skeleton className="h-8 w-8 rounded-full" />
+                            </div>
+
+                            {/* 3. Servers Skeleton */}
+                            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-50 dark:border-white/5">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <Skeleton key={i} className="h-8 w-20 rounded-lg" />
+                                ))}
+                            </div>
+
+                            {/* 4. Stats Row Skeleton */}
+                            <div className="flex justify-between items-center pt-2">
+                                <div className="flex gap-3">
+                                    <Skeleton className="h-4 w-12" />
+                                    <Skeleton className="h-4 w-12" />
+                                </div>
+                                <Skeleton className="h-4 w-16" />
+                            </div>
+                        </div>
+
+                        {/* 5. Reactions Row */}
+                        <div className="flex border-t border-gray-50 dark:border-[#2a2a2a]">
+                            {[1, 2, 3].map((i) => (
+                                <Skeleton key={i} className="flex-1 h-10 m-1 rounded-lg" />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Comments Placeholder */}
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl p-4 space-y-4 border border-gray-100 dark:border-[#2a2a2a]">
+                        <div className="flex gap-3">
+                            <Skeleton className="w-10 h-10 rounded-full" />
+                            <Skeleton className="h-10 flex-1 rounded-xl" />
+                        </div>
+                        {[1, 2].map((i) => (
+                            <div key={i} className="flex gap-3 ml-4">
+                                <Skeleton className="w-8 h-8 rounded-full" />
+                                <div className="space-y-2 flex-1">
+                                    <Skeleton className="h-4 w-1/4" />
+                                    <Skeleton className="h-12 w-full rounded-lg" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Sidebar Skeleton (Right side) */}
+            <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] px-2 pt-4">
+                <div className="flex justify-between items-center mb-4 px-2">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-8 w-16 rounded-lg" />
+                </div>
+                <div className="border border-gray-100 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] rounded-lg overflow-hidden p-1 space-y-1">
+                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                        <div key={i} className="flex items-center gap-3 p-2">
+                            <Skeleton className="h-4 w-6 shrink-0" />
+                            <Skeleton className="h-4 flex-1" />
+                            <Skeleton className="h-4 w-12" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function WatchPage() {
     const { id, episodeNum, slug: currentSlug } = useParams(); // URL params: /watch/:id/:episodeNum/:slug?
     const navigate = useNavigate();
     const { i18n } = useTranslation();
     const lang = i18n.language;
+    const user = useAuthStore((state) => state.user);
 
     // Force scroll to top on mount and param change — robust fix
     useEffect(() => {
@@ -104,6 +220,8 @@ export default function WatchPage() {
         };
     }, [id, episodeNum]);
 
+    const queryClient = useQueryClient();
+
     // State
     const [activeTab, setActiveTab] = useState<'episodes' | 'comments'>('episodes');
     const [selectedServer, setSelectedServer] = useState<number>(0);
@@ -112,13 +230,18 @@ export default function WatchPage() {
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [isEpisodeInfoOpen, setIsEpisodeInfoOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [isSwapMode, setIsSwapMode] = useState(false);
+    const [selectedServersForSwap, setSelectedServersForSwap] = useState<number[]>([]);
     const [showMobileActions, setShowMobileActions] = useState(false);
     const activeEpisodeRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
+    const sidebarRef = useRef<HTMLDivElement>(null);
 
     // Mobile Expansion State
     const [isEpisodesExpanded, setIsEpisodesExpanded] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
 
     // Episode Stats State
     const [stats, setStats] = useState<EpisodeStats | null>(null);
@@ -126,12 +249,84 @@ export default function WatchPage() {
     const [isAnimating, setIsAnimating] = useState<string | null>(null);
     const [isTheaterMode, setIsTheaterMode] = useState(false);
     const [isVideoLoading, setIsVideoLoading] = useState(false);
+    const [isRefreshingVideo, setIsRefreshingVideo] = useState(false);
+    const [dynamicVideoUrl, setDynamicVideoUrl] = useState<string | null>(null);
+    const backgroundScrapedRef = useRef<string | null>(null);
+
+    // Fetch Anime Data (includes episodes) using id
+    const { data: anime, isLoading: isQueryLoading } = useQuery({
+        queryKey: ["anime", id],
+        queryFn: async () => {
+            const response = await api.get(`/animes/${id}`);
+            return response.data;
+        },
+        enabled: !!id,
+    });
+
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 1024); // lg breakpoint is usually where sidebar moves
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Fullscreen change listener
+    const [showControls, setShowControls] = useState(true);
+    const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const resetControlsTimer = useCallback(() => {
+        if (!isBrowserFullscreen) {
+            setShowControls(true);
+            return;
+        }
+        setShowControls(true);
+        if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+        controlsTimerRef.current = setTimeout(() => {
+            setShowControls(false);
+        }, 3000); // Hide after 3 seconds of inactivity
+    }, [isBrowserFullscreen]);
+
+    useEffect(() => {
+        const handleFSChange = () => {
+            const isFS = !!document.fullscreenElement;
+            setIsBrowserFullscreen(isFS);
+            if (!isFS) {
+                setShowControls(true);
+                if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+            } else {
+                resetControlsTimer();
+            }
+        };
+        document.addEventListener('fullscreenchange', handleFSChange);
+        document.addEventListener('webkitfullscreenchange', handleFSChange);
+        document.addEventListener('mozfullscreenchange', handleFSChange);
+        document.addEventListener('MSFullscreenChange', handleFSChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFSChange);
+            document.removeEventListener('webkitfullscreenchange', handleFSChange);
+            document.removeEventListener('mozfullscreenchange', handleFSChange);
+            document.removeEventListener('MSFullscreenChange', handleFSChange);
+        };
+    }, [resetControlsTimer]);
+
+    useEffect(() => {
+        if (isBrowserFullscreen) {
+            window.addEventListener('mousemove', resetControlsTimer);
+            window.addEventListener('touchstart', resetControlsTimer);
+            window.addEventListener('click', resetControlsTimer);
+            resetControlsTimer();
+        } else {
+            window.removeEventListener('mousemove', resetControlsTimer);
+            window.removeEventListener('touchstart', resetControlsTimer);
+            window.removeEventListener('click', resetControlsTimer);
+            setShowControls(true);
+        }
+        return () => {
+            window.removeEventListener('mousemove', resetControlsTimer);
+            window.removeEventListener('touchstart', resetControlsTimer);
+            window.removeEventListener('click', resetControlsTimer);
+        };
+    }, [isBrowserFullscreen, resetControlsTimer]);
 
     // Handling mobile back button to close modals
     useEffect(() => {
@@ -187,6 +382,108 @@ export default function WatchPage() {
         { key: 'super_sad', label: lang === 'ar' ? 'أحززنني جداً' : 'So Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحززنني جدا.png') },
     ];
 
+    // Server Ordering Logic
+    const [serverPriority, setServerPriority] = useState<string[]>([]);
+    
+    // Load priority from anime data instead of localStorage
+    useEffect(() => {
+        if (anime?.server_priority) {
+            try {
+                setServerPriority(anime.server_priority.split(','));
+            } catch (e) {
+                console.error("Failed to parse server priority", e);
+            }
+        }
+    }, [anime]);
+
+    const saveServerPriority = async (newOrder: string[]) => {
+        setServerPriority(newOrder);
+        
+        // Save to database regardless of role
+        if (anime?.id) {
+            try {
+                const priorityString = newOrder.join(',');
+                await api.patch(`/animes/${anime.id}/server-priority`, {
+                    priority: priorityString
+                });
+                // Invalidate anime query so that on next load the new order is fetched
+                queryClient.invalidateQueries({ queryKey: ['anime', id] });
+                toast.success(lang === 'ar' ? 'تم حفظ الترتيب في قاعدة البيانات ✓' : 'Server order saved to database ✓');
+            } catch (err) {
+                console.error('Failed to save server priority:', err);
+                toast.error(lang === 'ar' ? 'فشل حفظ الترتيب في قاعدة البيانات' : 'Failed to save server order to database');
+            }
+        }
+    };
+
+    const handleConfirmSwap = () => {
+        if (selectedServersForSwap.length !== 2) return;
+        
+        const [idx1, idx2] = selectedServersForSwap;
+        if (idx1 === idx2) return;
+
+        // name1 and name2 are names of servers in the CURRENT filtered list
+        const name1 = servers[idx1].name;
+        const name2 = servers[idx2].name;
+
+        // Create copy of global priority list
+        let newPriority = [...serverPriority];
+
+        // Ensure both names exist in priority list to perform the swap
+        if (!newPriority.includes(name1)) newPriority.push(name1);
+        if (!newPriority.includes(name2)) newPriority.push(name2);
+
+        // Find positions in global list and swap
+        const gIdx1 = newPriority.indexOf(name1);
+        const gIdx2 = newPriority.indexOf(name2);
+        
+        [newPriority[gIdx1], newPriority[gIdx2]] = [newPriority[gIdx2], newPriority[gIdx1]];
+
+        saveServerPriority(newPriority);
+        toast.success(lang === 'ar' ? 'تم تبديل الأماكن بنجاح' : 'Positions swapped successfully');
+        
+        setSelectedServersForSwap([]);
+        setIsSwapMode(false);
+    };
+
+
+    const handleServerClick = async (idx: number) => {
+        if (isSwapMode) {
+            setSelectedServersForSwap(prev => {
+                if (prev.includes(idx)) {
+                    return prev.filter(i => i !== idx);
+                }
+                if (prev.length >= 2) {
+                    return [prev[1], idx];
+                }
+                return [...prev, idx];
+            });
+        } else {
+            setIsVideoLoading(true);
+            setSelectedServer(idx);
+            setDynamicVideoUrl(null); // reset
+
+            const chosenServer = servers[idx];
+            if (chosenServer && (chosenServer.name.toLowerCase().includes('anime3rb') || chosenServer.url.includes('anime3rb.com'))) {
+                setIsRefreshingVideo(true);
+                try {
+                    const res = await api.post('/scraper/anime3rb-refresh', {
+                        source_url: currentEpisode.source_url,
+                        episode_id: currentEpisode.id
+                    });
+                    if (res.data?.url) {
+                        setDynamicVideoUrl(res.data.url);
+                    }
+                } catch (e) {
+                    console.error("Anime3rb fetch failed", e);
+                    toast.error(lang === 'ar' ? 'فشل جلب رابط السيرفر من المصدر' : 'Failed to fetch server link');
+                } finally {
+                    setIsRefreshingVideo(false);
+                }
+            }
+        }
+    };
+
     const handleLikeMouseEnter = () => {
         if (reactionLeaveTimer.current) clearTimeout(reactionLeaveTimer.current);
         reactionEnterTimer.current = setTimeout(() => setShowReactionPopup(true), 100);
@@ -237,15 +534,6 @@ export default function WatchPage() {
         if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     };
 
-    // Fetch Anime Data (includes episodes) using id
-    const { data: anime, isLoading: isQueryLoading } = useQuery({
-        queryKey: ["anime", id],
-        queryFn: async () => {
-            const response = await api.get(`/animes/${id}`);
-            return response.data;
-        },
-        enabled: !!id,
-    });
 
 
 
@@ -369,11 +657,27 @@ export default function WatchPage() {
         return episodesList.filter((ep: any) => Number(ep.anime_id) === Number(anime.id) && ep.is_published);
     }, [episodesList, anime?.id]);
 
+    // Fetch specific active episode directly to bypass pagination limits
+    const { data: activeEpisodeData, isLoading: isLoadingActiveEpisode } = useQuery({
+        queryKey: ["activeEpisode", id, episodeNum],
+        queryFn: async () => {
+            const response = await api.get('/episodes', {
+                params: {
+                    anime_id: id,
+                    episode_number: episodeNum
+                }
+            });
+            return response.data[0]; // Backend returns array of 1 for specific match
+        },
+        enabled: !!id && !!episodeNum,
+    });
+
     // Determine Current Episode
     const currentEpisode = useMemo(() => {
+        if (activeEpisodeData) return activeEpisodeData;
         if (!filteredEpisodes.length) return null;
         return filteredEpisodes.find((ep: any) => Number(ep.episode_number) === Number(episodeNum));
-    }, [filteredEpisodes, episodeNum]);
+    }, [activeEpisodeData, filteredEpisodes, episodeNum]);
 
     // Define servers and comments count (Fixes build errors)
     const servers = useMemo(() => {
@@ -388,21 +692,168 @@ export default function WatchPage() {
         // Actually, looking at previous code, `EpisodeServer` struct likely has it.
         // If not, we might need to rely on `type` if it contains language info.
 
-        return allServers.filter((server: any) => {
+        const filtered = allServers.filter((server: any) => {
             // If distinct language field exists
             if (server.language) {
                 return server.language.toLowerCase() === (lang === 'ar' ? 'ar' : 'en');
             }
             // Fallback: If no language field, maybe show all (or hide all if strict)?
-            // Let's try to match by name or type if needed, but 'language' is standard.
             return true;
         });
-    }, [currentEpisode, episodeData, lang]);
+
+        // Sort based on priority
+        if (serverPriority.length > 0) {
+            return [...filtered].sort((a: any, b: any) => {
+                const indexA = serverPriority.indexOf(a.name);
+                const indexB = serverPriority.indexOf(b.name);
+                
+                // If both are in priority list, sort by their position
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                // If only one is in priority list, it goes first
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                // If neither are in list, keep original order
+                return 0;
+            });
+        }
+        return filtered;
+    }, [currentEpisode, episodeData, lang, serverPriority]);
+
+    // Derive qualities for the custom player
+    const playerQualities = useMemo(() => {
+        const currentServer = servers[selectedServer];
+        if (!currentServer || !isVideoFile(currentServer.url)) return [];
+
+        const qualityRegex = /(\d{3,4}p)/i;
+        const currentName = currentServer.name;
+        const currentUrl = currentServer.url;
+
+        // Try to find quality in name or URL
+        const extractQuality = (name: string, url: string) => {
+            const nameMatch = name.match(qualityRegex);
+            if (nameMatch) return nameMatch[0].toLowerCase();
+            const urlMatch = url.match(qualityRegex);
+            if (urlMatch) return urlMatch[0].toLowerCase();
+            return null;
+        };
+
+        const currentQualityLabel = extractQuality(currentName, currentUrl);
+
+        // Find all direct servers and try to extract their qualities
+        const directServers = servers.filter(s => isVideoFile(s.url));
+        
+        const qualitiesMap = directServers.map(s => {
+            const label = extractQuality(s.name, s.url);
+            return {
+                label: label || s.name,
+                url: s.url,
+                serverId: servers.indexOf(s)
+            };
+        });
+
+        // Dedup by label if needed, or just return all
+        if (qualitiesMap.length > 1) {
+            return qualitiesMap;
+        }
+
+        return [{ label: currentQualityLabel || 'Original', url: currentServer.url, serverId: selectedServer }];
+    }, [servers, selectedServer]);
+
+    const handleQualityChange = (url: string) => {
+        const quality = playerQualities.find(q => q.url === url);
+        if (quality) {
+            setSelectedServer(quality.serverId);
+        }
+    };
+
+    // Infinite Scroll Logic for Episodes
+    const initialPage = useMemo(() => {
+        if (!episodeNum) return 1;
+        // Calculate which page the current episode number belongs to (25 per page)
+        return Math.max(1, Math.ceil(Number(episodeNum) / 25));
+    }, [episodeNum]);
+
+    const { 
+        data: infiniteEpisodesData, 
+        fetchNextPage, 
+        hasNextPage, 
+        isFetchingNextPage 
+    } = useInfiniteQuery({
+        queryKey: ["episodes-infinite", anime?.id],
+        queryFn: async ({ pageParam = 1 }) => {
+            const response = await api.get(`/episodes`, { 
+                params: { 
+                    anime_id: anime?.id,
+                    paginate: true,
+                    limit: 25,
+                    page: pageParam
+                } 
+            });
+            return response.data;
+        },
+        getNextPageParam: (lastPage) => {
+            if (lastPage.page < lastPage.last_page) {
+                return lastPage.page + 1;
+            }
+            return undefined;
+        },
+        enabled: !!anime?.id,
+        initialPageParam: 1, // Start from page 1 and auto-expand to include current episode
+    });
+    const { ref: observerRef, inView } = useInView({
+        threshold: 0.1,
+        rootMargin: '400px',
+    });
+
+    // Trigger next page when sentinel is in view
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const filteredEpisodesFlattened = useMemo(() => {
+        return infiniteEpisodesData?.pages.flatMap(page => page.data) || [];
+    }, [infiniteEpisodesData]);
+
+    // Sidebar scroll listener - works with the sidebar's own scroll container
+    useEffect(() => {
+        const container = sidebarRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = container;
+            // Trigger when within 200px of bottom
+            if (scrollHeight - scrollTop - clientHeight < 200 && hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+            }
+        };
+
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    // Auto-expand until active episode is visible (fetch enough pages)
+    useEffect(() => {
+        if (episodeNum && hasNextPage && !isFetchingNextPage) {
+            const num = Number(episodeNum);
+            const maxVisible = filteredEpisodesFlattened.length > 0
+                ? Math.max(...filteredEpisodesFlattened.map(e => Number(e.episode_number)))
+                : 0;
+            if (num > maxVisible) {
+                fetchNextPage();
+            }
+        }
+    }, [episodeNum, filteredEpisodesFlattened.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const displayedEpisodesView = filteredEpisodesFlattened;
 
     // Reset selected server when language changes or filtered servers change
     useEffect(() => {
         setSelectedServer(0);
     }, [lang, servers]);
+
+    // On-demand Server logic has been moved to handleServerClick
 
     const { data: commentsData } = useQuery({
         queryKey: ['comments', currentEpisode?.id],
@@ -531,17 +982,27 @@ export default function WatchPage() {
     };
 
     const handleFullscreen = () => {
-        const iframe = document.getElementById('video-player-iframe') as any;
-        if (!iframe) return;
+        const container = document.getElementById('video-container');
+        if (!container) return;
         
-        if (iframe.requestFullscreen) {
-            iframe.requestFullscreen();
-        } else if (iframe.webkitRequestFullscreen) {
-            iframe.webkitRequestFullscreen();
-        } else if (iframe.msRequestFullscreen) {
-            iframe.msRequestFullscreen();
+        if (!document.fullscreenElement) {
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if ((container as any).webkitRequestFullscreen) {
+                (container as any).webkitRequestFullscreen();
+            } else if ((container as any).msRequestFullscreen) {
+                (container as any).msRequestFullscreen();
+            } else {
+                toast.error(lang === 'ar' ? 'المتصفح لا يدعم تكبير الشاشة' : 'Fullscreen not supported by browser');
+            }
         } else {
-            toast.error(lang === 'ar' ? 'المتصفح لا يدعم تكبير الشاشة' : 'Fullscreen not supported by browser');
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if ((document as any).webkitExitFullscreen) {
+                (document as any).webkitExitFullscreen();
+            } else if ((document as any).msExitFullscreen) {
+                (document as any).msExitFullscreen();
+            }
         }
     };
 
@@ -651,11 +1112,8 @@ export default function WatchPage() {
 
     const animeReleaseDate = safeIsoDate(anime?.release_date);
 
-    let videoUrl = servers[selectedServer]?.url || "";
-    // Force autoplay for supported servers
-    if (videoUrl && !videoUrl.includes('autoplay')) {
-        videoUrl += videoUrl.includes('?') ? '&autoplay=1&autostart=1&mute=0&muted=0' : '?autoplay=1&autostart=1&mute=0&muted=0';
-    }
+    let videoUrl = dynamicVideoUrl || servers[selectedServer]?.url || "";
+    // Allow the server's default play behavior without forcing autoplay constraints that freeze cross-origin iframes
 
     // Determine Robots status outside JSX
     const shouldIndex = !((!anime && !isQueryLoading) || !!episodeError || (!currentEpisode && !episodeData));
@@ -726,14 +1184,11 @@ export default function WatchPage() {
                         </div>
 
                         {/* Dynamic Main Content & Right Sidebar */}
-                        {isLoading ? (
-                            <div className="col-span-1 lg:col-span-9 flex items-center justify-center min-h-[60vh]">
-                                <div className="relative w-20 h-20">
-                                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-                                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                                </div>
+                        {(isLoading || isLoadingActiveEpisode) ? (
+                            <div className="col-span-1 lg:col-span-12">
+                                <WatchPageSkeleton lang={lang} />
                             </div>
-                        ) : !!episodeError || !anime || !currentEpisode ? (
+                        ) : (!!episodeError || !anime || !currentEpisode) ? (
                             <div className="col-span-1 lg:col-span-9 flex flex-col items-center justify-center text-gray-900 dark:text-white p-4 min-h-[60vh]">
                                 <h1 className="text-4xl font-bold mb-4">{lang === 'ar' ? 'عفواً، لم يتم العثور على الحلقة' : 'Oops, Episode Not Found'}</h1>
                                 <Link to="/animes" className="text-blue-600 hover:text-blue-700 transition-all font-bold">
@@ -750,9 +1205,85 @@ export default function WatchPage() {
                                         <div className="bg-white dark:bg-[#1a1a1a] rounded-none md:rounded-xl shadow-sm border-y md:border border-gray-100 dark:border-[#2a2a2a] overflow-hidden mt-0 md:mt-4">
                                             
                                             {/* 1. Player - Now at the Top */}
-                                            <div className="w-full aspect-video bg-black overflow-hidden relative group md:rounded-t-xl">
+                                            <div 
+                                                id="video-container" 
+                                                className="w-full aspect-video bg-black relative group md:rounded-t-xl overflow-visible"
+                                            >
                                                 {videoUrl ? (
-                                                    <iframe id="video-player-iframe" src={videoUrl} className="w-full h-full" allowFullScreen allow="autoplay; fullscreen" onLoad={() => setIsVideoLoading(false)} />
+                                                    <>
+                                                        {isVideoFile(videoUrl) ? (
+                                                            <CustomVideoPlayer
+                                                                src={videoUrl}
+                                                                poster={metaImage}
+                                                                qualities={playerQualities}
+                                                                onQualityChange={handleQualityChange}
+                                                                currentQuality={playerQualities.find(q => q.url === videoUrl)?.label}
+                                                            />
+                                                        ) : (
+                                                            <iframe 
+                                                                id="video-player-iframe" 
+                                                                src={videoUrl} 
+                                                                className="w-full h-full border-0" 
+                                                                allowFullScreen={true}
+                                                                // @ts-ignore
+                                                                webkitallowfullscreen="true"
+                                                                // @ts-ignore
+                                                                mozallowfullscreen="true"
+                                                                // @ts-ignore
+                                                                msallowfullscreen="true"
+                                                                allow="autoplay; fullscreen; picture-in-picture"
+                                                                referrerPolicy="no-referrer"
+                                                                onLoad={() => setIsVideoLoading(false)} 
+                                                            />
+                                                        )}
+
+                                                        {/* Fullscreen Sensor Layer: Detects move/touch when controls are hidden */}
+                                                        {isBrowserFullscreen && (
+                                                            <div 
+                                                                className={cn(
+                                                                    "absolute inset-0 z-30 transition-all duration-300 bg-transparent",
+                                                                    showControls ? "pointer-events-none" : "pointer-events-auto cursor-none"
+                                                                )}
+                                                                onMouseMove={resetControlsTimer}
+                                                                onTouchStart={resetControlsTimer}
+                                                                onPointerMove={resetControlsTimer}
+                                                            />
+                                                        )}
+
+                                                        {/* Overlaid Fullscreen Button (Smart-responsive placement) */}
+                                                        <div className={cn(
+                                                            "z-[100] transition-all duration-300",
+                                                            // Logic for Fullscreen vs Normal mode
+                                                            isBrowserFullscreen 
+                                                                ? (showControls ? "opacity-100 pointer-events-auto scale-100" : "opacity-0 pointer-events-none") 
+                                                                : "opacity-100 pointer-events-auto",
+                                                            // Logic for Mobile (Fixed at bottom screen) vs Desktop (Absolute in player)
+                                                            isMobile && !isBrowserFullscreen
+                                                                ? "fixed bottom-6 z-[1000]" // Mobile Sticky
+                                                                : "absolute bottom-4 z-40", // Desktop Overlay
+                                                            // Direction logic
+                                                            lang === 'ar' ? "right-4" : "left-4"
+                                                        )}>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    handleFullscreen();
+                                                                }}
+                                                                className={cn(
+                                                                    "bg-black/60 backdrop-blur-sm text-white shadow-xl flex items-center justify-center hover:bg-black/90 transition-all border border-white/10 outline-none focus:outline-none ring-0 active:scale-90",
+                                                                    isMobile && !isBrowserFullscreen ? "w-14 h-14 rounded-full" : "w-10 h-10 rounded-lg"
+                                                                )}
+                                                                title={isBrowserFullscreen ? (lang === 'ar' ? 'خروج من ملء الشاشة' : 'Exit Fullscreen') : (lang === 'ar' ? 'ملء الشاشة' : 'Fullscreen')}
+                                                            >
+                                                                {isBrowserFullscreen ? (
+                                                                    <Minimize2 className={cn(isMobile && !isBrowserFullscreen ? "w-7 h-7" : "w-5 h-5", "pointer-events-none")} />
+                                                                ) : (
+                                                                    <Maximize2 className={cn(isMobile && !isBrowserFullscreen ? "w-7 h-7" : "w-5 h-5", "pointer-events-none")} />
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </>
                                                 ) : (
                                                     <div className="absolute inset-0 flex items-center justify-center font-bold text-white bg-neutral-900 border-2 border-dashed border-neutral-700 m-2 rounded-lg">
                                                         <div className="text-center">
@@ -764,41 +1295,86 @@ export default function WatchPage() {
                                             </div>
 
                                             {/* 2. Post Header (Anime Metadata) - Under Player */}
-                                            <div className="p-3 flex justify-between items-start">
-                                                <div className="flex gap-2 w-full">
-                                                    <Link to={`/${lang}/animes/${lang === 'ar' ? (anime.slug || anime.id) : (anime.slug_en || anime.slug || anime.id)}`} className="shrink-0">
-                                                        <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 dark:bg-[#2a2a2a] border border-gray-50 dark:border-[#333]">
-                                                            <img src={getImageUrl(anime?.cover || anime?.banner)} alt={animeTitle} className="w-full h-full object-cover" />
-                                                        </div>
-                                                    </Link>
-                                                    <div className="flex-1 min-w-0">
-                                                        <Link to={`/${lang}/animes/${lang === 'ar' ? (anime.slug || anime.id) : (anime.slug_en || anime.slug || anime.id)}`} className="font-bold text-gray-900 dark:text-white hover:underline block leading-tight truncate">
-                                                            {renderEmojiContent(animeTitle)}
+                                            <div className="p-3 flex flex-col gap-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1 flex gap-2 min-w-0 pr-2">
+                                                        <Link to={`/${lang}/animes/${lang === 'ar' ? (anime.slug || anime.id) : (anime.slug_en || anime.slug || anime.id)}`} className="shrink-0">
+                                                            <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 dark:bg-[#2a2a2a] border border-gray-50 dark:border-[#333]">
+                                                                <img src={getImageUrl(anime?.cover || anime?.banner)} alt={animeTitle} className="w-full h-full object-cover" />
+                                                            </div>
                                                         </Link>
-                                                        <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mt-1">
-                                                            <span className="text-[11px] font-medium">
-                                                                {(lang === 'ar' ? currentEpisode.title : currentEpisode.title_en) || `${lang === 'ar' ? 'الحلقة' : 'Episode'} ${currentEpisode.episode_number}`}
-                                                            </span>
-                                                            <span>•</span>
-                                                            <span className="text-[11px] font-bold text-black dark:text-white">
-                                                                {lang === 'ar' ? `الحلقة ${currentEpisode.episode_number}` : `Episode ${currentEpisode.episode_number}`}
-                                                            </span>
-                                                            <span>•</span>
-                                                            <span className="text-[11px]">{currentEpisode.duration}m</span>
-                                                            <span>•</span>
-                                                            <Globe className="w-3 h-3" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <Link to={`/${lang}/animes/${lang === 'ar' ? (anime.slug || anime.id) : (anime.slug_en || anime.slug || anime.id)}`} className="font-bold text-gray-900 dark:text-white hover:underline block leading-tight truncate">
+                                                                {renderEmojiContent(animeTitle)}
+                                                            </Link>
+                                                            <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mt-1">
+                                                                <span className="text-[11px] font-medium">
+                                                                    {(lang === 'ar' ? currentEpisode.title : currentEpisode.title_en) || `${lang === 'ar' ? 'الحلقة' : 'Episode'} ${currentEpisode.episode_number}`}
+                                                                </span>
+                                                                <span>•</span>
+                                                                <span className="text-[11px] font-bold text-black dark:text-white">
+                                                                    {lang === 'ar' ? `الحلقة ${currentEpisode.episode_number}` : `Episode ${currentEpisode.episode_number}`}
+                                                                </span>
+                                                                <span>•</span>
+                                                                <span className="text-[11px]">{currentEpisode.duration}m</span>
+                                                                <span>•</span>
+                                                                <Globe className="w-3 h-3" />
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                    <button className="p-2 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] rounded-full text-gray-500 transition-colors shrink-0" onClick={() => openModal(setIsEpisodeInfoOpen)}>
+                                                        <MoreHorizontal className="w-5 h-5" />
+                                                    </button>
                                                 </div>
 
-                                                <button className="p-2 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] rounded-full text-gray-500 transition-colors" onClick={() => openModal(setIsEpisodeInfoOpen)}>
-                                                    <MoreHorizontal className="w-5 h-5" />
-                                                </button>
+                                                {(user?.role?.name?.toLowerCase() === 'admin' || user?.role?.name?.toLowerCase() === 'super_admin' || true) && (
+                                                    <div className="flex items-center gap-1.5 px-11 -mt-1 flex-wrap">
+                                                        <button 
+                                                            onClick={() => {
+                                                                setIsSwapMode(!isSwapMode);
+                                                                setSelectedServersForSwap([]);
+                                                            }}
+                                                            className={cn(
+                                                                "flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border",
+                                                                isSwapMode 
+                                                                    ? "bg-blue-500 text-white border-blue-600 shadow-md"
+                                                                    : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border-blue-500/20"
+                                                            )}
+                                                            title={lang === 'ar' ? 'تبديل أماكن السيرفرات' : 'Swap Server Positions'}
+                                                        >
+                                                            <Star className={cn("w-4 h-4", isSwapMode && "animate-spin")} />
+                                                            <span className="text-xs font-bold whitespace-nowrap">
+                                                                {isSwapMode ? (lang === 'ar' ? 'وضع التبديل نشط' : 'Swap Mode Active') : (lang === 'ar' ? 'تبديل أماكن' : 'Swap Mode')}
+                                                            </span>
+                                                        </button>
+
+                                                        {isSwapMode && selectedServersForSwap.length === 2 && (
+                                                            <button 
+                                                                onClick={handleConfirmSwap}
+                                                                className="flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white rounded-lg transition-all border border-green-600 shadow-lg animate-bounce"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                                <span className="text-xs font-black uppercase">OK</span>
+                                                            </button>
+                                                        )}
+
+                                                        <button 
+                                                            onClick={() => setIsBulkDeleteModalOpen(true)}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-all border border-red-500/20"
+                                                            title={lang === 'ar' ? 'تحديد حذف السيرفر' : 'Bulk Delete Servers'}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                            <span className="text-xs font-bold whitespace-nowrap">
+                                                                {lang === 'ar' ? 'تحديد حذف السيرفر' : 'Bulk Delete'}
+                                                            </span>
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            {/* 3. Servers block - Under Header */}
+                                             {/* 3. Servers block - Under Header */}
                                             {servers.length > 0 && (
-                                                <div className="px-3 pb-3 flex flex-wrap items-center gap-2 border-b border-gray-50 dark:border-white/5">
+                                                <div className="px-3 pb-3 flex flex-wrap items-center gap-2.5 border-b border-gray-50 dark:border-white/5 relative">
                                                     {servers.map((server: any, idx: number) => {
                                                         const matchedServer = globalServers?.find((gs: any) =>
                                                             gs.name_en === server.name ||
@@ -808,35 +1384,51 @@ export default function WatchPage() {
                                                         );
                                                         const hasImage = !!matchedServer?.image;
                                                         const isSelected = selectedServer === idx;
+                                                        const isSelectedForSwap = selectedServersForSwap.includes(idx);
 
                                                         return (
-                                                            <button
-                                                                key={idx}
-                                                                onClick={() => setSelectedServer(idx)}
-                                                                className={cn(
-                                                                    "relative flex items-center justify-center h-8 rounded-lg overflow-hidden transition-all duration-300",
-                                                                    hasImage ? "w-20 bg-white dark:bg-[#1a1a1a] p-1" : "px-4 bg-transparent",
-                                                                    isSelected
-                                                                        ? hasImage
-                                                                            ? "bg-gray-200 dark:bg-white text-black dark:text-black font-black shadow-md scale-105"
-                                                                            : "bg-black dark:bg-white text-white dark:text-black font-bold font-sans text-sm shadow-md scale-105"
-                                                                        : "bg-gray-100 dark:bg-[#222] text-gray-500 dark:text-gray-400 opacity-70 hover:opacity-100"
-                                                                )}
+                                                            <motion.div
+                                                                key={server.name + server.id}
+                                                                layout
+                                                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                                             >
-                                                                {hasImage ? (
-                                                                    <img 
-                                                                        src={getImageUrl(matchedServer.image)} 
-                                                                        alt={server.name} 
-                                                                        className={cn(
-                                                                            "w-full h-full object-contain object-center transition-transform",
-                                                                            isSelected ? "scale-110" : "scale-100",
-                                                                            "mix-blend-multiply dark:mix-blend-normal"
-                                                                        )} 
-                                                                    />
-                                                                ) : (
-                                                                    <span className="text-xs font-bold uppercase tracking-wider">{server.name}</span>
-                                                                )}
-                                                            </button>
+                                                                <button
+                                                                    onClick={() => handleServerClick(idx)}
+                                                                    disabled={isRefreshingVideo && isSelected}
+                                                                    className={cn(
+                                                                        "relative flex items-center justify-center h-8 rounded-lg overflow-hidden transition-all duration-300",
+                                                                        hasImage ? "w-20 bg-white dark:bg-[#1a1a1a] p-1" : "px-4 bg-transparent",
+                                                                        isSelected
+                                                                            ? hasImage
+                                                                                ? "bg-gray-200 dark:bg-white text-black dark:text-black font-black shadow-md scale-105"
+                                                                                : "bg-black dark:bg-white text-white dark:text-black font-bold font-sans text-sm shadow-md scale-105"
+                                                                            : "bg-gray-100 dark:bg-[#222] text-gray-500 dark:text-gray-400 opacity-70 hover:opacity-100",
+                                                                        isSelectedForSwap && "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-[#1a1a1a] scale-110 !opacity-100 !bg-blue-500/10",
+                                                                        isSwapMode ? "cursor-pointer" : "cursor-pointer",
+                                                                        (isRefreshingVideo && isSelected) ? "opacity-50 cursor-wait" : ""
+                                                                    )}
+                                                                >
+                                                                    {hasImage ? (
+                                                                        <img 
+                                                                            src={getImageUrl(matchedServer.image)} 
+                                                                            alt={server.name} 
+                                                                            className={cn(
+                                                                                "w-full h-full object-contain object-center transition-transform pointer-events-none",
+                                                                                (isSelected || isSelectedForSwap) ? "scale-110" : "scale-100",
+                                                                                "mix-blend-multiply dark:mix-blend-normal"
+                                                                            )} 
+                                                                        />
+                                                                    ) : (
+                                                                        <span className="text-xs font-bold uppercase tracking-wider pointer-events-none">{server.name}</span>
+                                                                    )}
+                                                                    
+                                                                    {isSelectedForSwap && (
+                                                                        <div className="absolute top-0 right-0 bg-blue-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg">
+                                                                            <span className="text-[10px]">{selectedServersForSwap.indexOf(idx) + 1}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </button>
+                                                            </motion.div>
                                                         );
                                                     })}
                                                 </div>
@@ -1023,7 +1615,7 @@ export default function WatchPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-gray-50/30 dark:bg-black/20 pb-20 lg:pb-4" id="comments-section">
+                                            <div className="border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-gray-50/30 dark:bg-black/20 pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
                                                
                                                 <div className="min-h-[100px]">
                                                     <CommentsSection 
@@ -1039,7 +1631,7 @@ export default function WatchPage() {
                                 </div>
 
                                 {/* Right Sidebar - Episodes List */}
-                                <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30 px-2 pt-2 md:pt-4 pb-4">
+                                <div ref={sidebarRef} className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30 px-2 pt-2 md:pt-4 pb-4">
                                     <div className="flex items-center justify-between px-2 border-b border-gray-200 dark:border-[#333] pb-2 mb-2">
                                         <h3 className="font-black text-gray-900 dark:text-gray-400 text-base md:text-lg">
                                             {lang === 'ar' ? 'حلقات الأنمي' : 'Anime Episodes'}
@@ -1056,22 +1648,23 @@ export default function WatchPage() {
                                         </button>
                                     </div>
                                     <div className="border border-gray-100 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-sm">
-                                        {filteredEpisodes.length > 0 ? (
-                                            filteredEpisodes.map((ep: any) => {
-                                                const isActive = Number(ep.episode_number) === Number(episodeNum);
-                                                const epItemTitle = lang === 'ar' ? (ep.title || `الحلقة ${ep.episode_number}`) : (ep.title_en || `Episode ${ep.episode_number}`);
-                                                const epUrl = `/${lang}/watch/${anime?.id || ep.anime_id}/${ep.episode_number}/${slugify(lang === 'ar' ? anime?.title : (anime?.title_en || anime?.title))}`;
+                                        {displayedEpisodesView.length > 0 ? (
+                                            <>
+                                                {displayedEpisodesView.map((ep: any) => {
+                                                    const isActive = Number(ep.episode_number) === Number(episodeNum);
+                                                    const epItemTitle = lang === 'ar' ? (ep.title || `الحلقة ${ep.episode_number}`) : (ep.title_en || `Episode ${ep.episode_number}`);
+                                                    const epUrl = `/${lang}/watch/${anime?.id || ep.anime_id}/${ep.episode_number}/${slugify(lang === 'ar' ? anime?.title : (anime?.title_en || anime?.title))}`;
 
-                                                return (
-                                                    <div
-                                                        key={ep.id}
-                                                        className={cn(
-                                                            "group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all",
-                                                            isActive ? "bg-gray-100 dark:bg-neutral-800" : "hover:bg-gray-50 dark:hover:bg-[#222]"
-                                                        )}
-                                                    >
-                                                        <Link
-                                                            to={epUrl}
+                                                    return (
+                                                        <div
+                                                            key={ep.id}
+                                                            className={cn(
+                                                                "group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all",
+                                                                isActive ? "bg-gray-100 dark:bg-neutral-800" : "hover:bg-gray-50 dark:hover:bg-[#222]"
+                                                            )}
+                                                        >
+                                                            <Link
+                                                                to={epUrl}
                                                             className="flex-1 flex items-center min-w-0"
                                                         >
                                                             {/* Left: Indicator */}
@@ -1130,7 +1723,18 @@ export default function WatchPage() {
                                                         </div>
                                                     </div>
                                                 );
-                                            })
+                                            })}
+                                            {hasNextPage && (
+                                                <div ref={observerRef} className="py-3 flex justify-center border-t border-gray-50 dark:border-white/5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-700 border-t-black dark:border-t-white rounded-full animate-spin"></div>
+                                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                                            {lang === 'ar' ? 'جاري تحميل المزيد...' : 'Loading more...'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            </>
                                         ) : (
                                             <p className="text-center text-gray-500 py-6 text-sm">
                                                 {lang === 'ar' ? 'لا توجد حلقات مطابقة.' : 'No episodes found.'}
@@ -1148,14 +1752,17 @@ export default function WatchPage() {
                 <EpisodesModal
                     isOpen={isEpisodesModalOpen}
                     onClose={() => setIsEpisodesModalOpen(false)}
-                    episodes={filteredEpisodes}
+                    episodes={filteredEpisodesFlattened}
                     activeEpisodeNum={Number(episodeNum)}
                     animeId={Number(anime?.id)}
                     slug={currentSlug}
                     lang={lang}
-                    isLoading={isQueryLoading || isEpisodesLoading}
+                    isLoading={isQueryLoading}
                     getImageUrl={getImageUrl}
                     getRelativeTime={getRelativeTime}
+                    hasNextPage={hasNextPage}
+                    fetchNextPage={fetchNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
                 />
 
                 <MobileCommentsModal
@@ -1197,17 +1804,19 @@ export default function WatchPage() {
                         getImageUrl={getImageUrl}
                     />
                 )}
-            </div>
 
-            {/* Sticky Fullscreen Button - Always visible on Mobile & Desktop */}
-            <div className="fixed bottom-6 left-6 z-[999]">
-                <button
-                    onClick={handleFullscreen}
-                    className="w-12 h-12 bg-black/80 backdrop-blur-md rounded-full text-white shadow-xl flex items-center justify-center hover:bg-black transition-colors border border-white/10 outline-none focus:outline-none ring-0 active:scale-95"
-                    title={lang === 'ar' ? 'ملء الشاشة' : 'Fullscreen'}
-                >
-                    <Maximize2 className="w-5 h-5 pointer-events-none" />
-                </button>
+                {anime && (
+                    <BulkDeleteServersModal
+                        isOpen={isBulkDeleteModalOpen}
+                        onClose={() => setIsBulkDeleteModalOpen(false)}
+                        animeId={anime.id}
+                        animeTitle={animeTitle}
+                        onSuccess={() => {
+                            // Optionally refetch current servers/episodes if needed
+                            window.location.reload(); 
+                        }}
+                    />
+                )}
             </div>
         </div>
     );
