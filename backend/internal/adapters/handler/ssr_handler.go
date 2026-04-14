@@ -32,18 +32,14 @@ func NewSSRHandler() *SSRHandler {
 
 // StartNodeServer attempts to start the Node.js sidecar
 func (h *SSRHandler) StartNodeServer() {
-	// Re-evaluate root strictly for production (/app)
-	projectRoot := "/app"
-	if _, err := os.Stat(projectRoot); err != nil {
-		// Fallback for local
-		_, filename, _, ok := runtime.Caller(0)
-		if ok {
-			backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filename))))
-			projectRoot = filepath.Dir(backendDir)
-		} else {
-			projectRoot = ".."
-		}
+	cwd, _ := os.Getwd()
+	projectRoot := cwd
+	if filepath.Base(cwd) == "server" {
+		projectRoot = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		projectRoot = filepath.Dir(cwd)
 	}
+	projectRoot = filepath.Clean(projectRoot)
 
 	frontendDir := filepath.Join(projectRoot, "frontend")
 	serverJs := filepath.Join(frontendDir, "server.js")
@@ -97,19 +93,14 @@ func (h *SSRHandler) ServeSSR(c *gin.Context) {
 
 	appHtml, _ := result["html"].(string)
 
-	// Read index.html from dist
-	// Re-evaluate root strictly for production (/app)
-	projectRoot := "/app"
-	if _, err := os.Stat(projectRoot); err != nil {
-		// Fallback for local
-		_, ssrFile, _, ok := runtime.Caller(0)
-		if ok {
-			backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
-			projectRoot = filepath.Dir(backendDir)
-		} else {
-			projectRoot = ".."
-		}
+	cwd, _ := os.Getwd()
+	projectRoot := cwd
+	if filepath.Base(cwd) == "server" {
+		projectRoot = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		projectRoot = filepath.Dir(cwd)
 	}
+	projectRoot = filepath.Clean(projectRoot)
 	templatePath := filepath.Join(projectRoot, "frontend/dist/client/index.html")
 
 	template, err := os.ReadFile(templatePath)
@@ -148,18 +139,14 @@ func (h *SSRHandler) ServeSSR(c *gin.Context) {
 }
 
 func (h *SSRHandler) serveFallback(c *gin.Context) {
-	// Re-evaluate root strictly for production (/app)
-	projectRoot := "/app"
-	if _, err := os.Stat(projectRoot); err != nil {
-		// Fallback for local
-		_, ssrFile, _, ok := runtime.Caller(0)
-		if ok {
-			backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
-			projectRoot = filepath.Dir(backendDir)
-		} else {
-			projectRoot = ".."
-		}
+	cwd, _ := os.Getwd()
+	projectRoot := cwd
+	if filepath.Base(cwd) == "server" {
+		projectRoot = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		projectRoot = filepath.Dir(cwd)
 	}
+	projectRoot = filepath.Clean(projectRoot)
 	templatePath := filepath.Join(projectRoot, "frontend/dist/client/index.html")
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
 	c.File(templatePath)

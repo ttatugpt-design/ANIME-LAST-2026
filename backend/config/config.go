@@ -45,17 +45,9 @@ func LoadConfig() (*Config, error) {
 
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
-		// Determine database path relative to project root reliably
-		_, filename, _, ok := runtime.Caller(0)
-		if ok {
-			// filename is .../backend/config/config.go
-			// root is .../backend/
-			root := filepath.Dir(filepath.Dir(filename))
-			dbUrl = filepath.Join(root, "cmd", "server", "saas.db")
-			fmt.Printf("Defaulting database to stable path: %s\n", dbUrl)
-		} else {
-			dbUrl = filepath.Join("cmd", "server", "saas.db")
-		}
+		// Use a standard relative path that works well in both dev and prod
+		dbUrl = "saas.db"
+		fmt.Printf("Defaulting database to relative path: %s\n", dbUrl)
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")

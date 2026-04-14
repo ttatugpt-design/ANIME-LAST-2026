@@ -186,60 +186,46 @@ func main() {
 	// Register SVG mime type explicitly just in case Windows registry is broken
 	mime.AddExtensionType(".svg", "image/svg+xml")
 
-	// Determine backend root dir (where `uploads` lives).
-	// Since we know this file is `backend/cmd/server/main.go`, we can use
-	// runtime.Caller to get the exact absolute path of this file on disk,
-	// and then navigate up to the `backend` directory.
-	var backendRoot string
-	_, filename, _, ok := runtime.Caller(0)
-	if ok {
-		// filename is /path/to/backend/cmd/server/main.go
-		// We want /path/to/backend
-		backendRoot = filepath.Dir(filepath.Dir(filepath.Dir(filename)))
-		log.Printf("Detected backend root via runtime.Caller: %s", backendRoot)
-	}
+	// Determine root directory robustly. 
+	// In production (Railway/Docker), we assume the app runs in the project root.
+	// In dev, we might be in backend/cmd/server/.
+	cwd, _ := os.Getwd()
+	log.Printf("Current working directory: %s", cwd)
 
-	// Fallback to cwd just in case (should rarely happen)
-	if backendRoot == "" || !filepath.IsAbs(backendRoot) {
-		cwd, _ := os.Getwd()
-		backendRoot = cwd
-		log.Printf("WARNING: Could not determine backend root via runtime.Caller, using cwd: %s", cwd)
+	// Determine if we are in the backend subdirectory or root
+	baseDir := cwd
+	if filepath.Base(cwd) == "server" && strings.Contains(cwd, filepath.Join("backend", "cmd", "server")) {
+		// We are in backend/cmd/server, root is 3 levels up
+		baseDir = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		// We are in backend/, root is 1 level up
+		baseDir = filepath.Dir(cwd)
 	}
-
-	// Change working directory to backend root so all relative paths in handlers (./uploads) work correctly
-	if err := os.Chdir(backendRoot); err != nil {
-		log.Printf("Failed to change directory to backend root: %v", err)
-	} else {
-		log.Printf("Changed working directory to: %s", backendRoot)
+	
+	log.Printf("Determined Base Project Directory: %s", baseDir)
+	
+	// Helper for absolute paths inside the project
+	absPath := func(parts ...string) string {
+		p := filepath.Join(append([]string{baseDir}, parts...)...)
+		// Clean the path to handle ../ or ./
+		p = filepath.Clean(p)
+		if _, err := os.Stat(p); err == nil {
+			log.Printf("Path Verified: %s", p)
+		} else {
+			log.Printf("Warning: Path missing: %s", p)
+		}
+		return p
 	}
 
 	backupHandler := handler.NewBackupHandler(repo, cfg)
 
-	// Determine absolute paths for static content (to be robust in container)
-	// We assume /app is our project root in production
-	projectRoot := "/app"
-	if _, err := os.Stat(projectRoot); err != nil {
-		// Fallback to detected backend root if /app doesn't exist (local)
-		projectRoot = filepath.Dir(backendRoot)
-		log.Printf("Non-standard projectRoot (local?): %s", projectRoot)
-	}
-
-	absPath := func(parts ...string) string {
-		path := filepath.Join(append([]string{projectRoot}, parts...)...)
-		if _, err := os.Stat(path); err == nil {
-			log.Printf("Static Path OK: %s", path)
-		} else {
-			log.Printf("Warning: Static path does not exist: %s", path)
-		}
-		return path
-	}
-
-	r.Static("/uploads", absPath("backend/uploads"))
-	r.Static("/flag-icons", absPath("backend/uploads/flag-icons"))
-	r.Static("/assets", absPath("frontend/dist/client/assets"))
+	r.Static("/uploads", absPath("backend", "uploads"))
+	r.Static("/flag-icons", absPath("backend", "uploads", "flag-icons"))
+	r.Static("/assets", absPath("frontend", "dist", "client", "assets"))
 	r.Static("/custom-emojis", absPath("emoji"))
-	r.StaticFile("/favicon.ico", absPath("frontend/dist/client/favicon.ico"))
-	r.StaticFile("/vite.svg", absPath("frontend/dist/client/vite.svg"))
+	r.StaticFile("/favicon.ico", absPath("frontend", "dist", "client", "favicon.ico"))
+	r.StaticFile("/vite.svg", absPath("frontend", "dist", "client", "vite.svg"))
+	r.StaticFile("/favicon.png", absPath("frontend", "dist", "client", "favicon.png"))
 
 	// SSR Setup
 	ssrHandler := handler.NewSSRHandler()
@@ -278,6 +264,18 @@ func main() {
 		// Health Check
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(200, gin.H{"status": "ok"})
+		})
+
+		// Root Health Check for Railway (Fast response)
+		r.GET("/", func(c *gin.Context) {
+			// If it's a browser requesting HTML, maybe they want SSR, 
+			// but for health checks, we want a 200 OK.
+			// Let's check headers or just return 200 if they don't explicitly want HTML.
+			if strings.Contains(c.GetHeader("Accept"), "text/html") {
+				ssrHandler.ServeSSR(c)
+				return
+			}
+			c.JSON(200, gin.H{"status": "ok", "message": "AnimeLast API is running"})
 		})
 
 		// Version Check (for deployment verification)
