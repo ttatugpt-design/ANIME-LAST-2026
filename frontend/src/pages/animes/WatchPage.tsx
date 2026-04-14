@@ -740,9 +740,9 @@ export default function WatchPage() {
         const currentQualityLabel = extractQuality(currentName, currentUrl);
 
         // Find all direct servers and try to extract their qualities
-        const directServers = servers.filter(s => isVideoFile(s.url));
+        const directServers = servers.filter((s: any) => isVideoFile(s.url));
         
-        const qualitiesMap = directServers.map(s => {
+        const qualitiesMap = directServers.map((s: any) => {
             const label = extractQuality(s.name, s.url);
             return {
                 label: label || s.name,
@@ -760,7 +760,7 @@ export default function WatchPage() {
     }, [servers, selectedServer]);
 
     const handleQualityChange = (url: string) => {
-        const quality = playerQualities.find(q => q.url === url);
+        const quality = playerQualities.find((q: any) => q.url === url);
         if (quality) {
             setSelectedServer(quality.serverId);
         }
@@ -1217,7 +1217,7 @@ export default function WatchPage() {
                                                                 poster={metaImage}
                                                                 qualities={playerQualities}
                                                                 onQualityChange={handleQualityChange}
-                                                                currentQuality={playerQualities.find(q => q.url === videoUrl)?.label}
+                                                                currentQuality={playerQualities.find((q: any) => q.url === videoUrl)?.label}
                                                             />
                                                         ) : (
                                                             <iframe 
