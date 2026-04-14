@@ -40,7 +40,8 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 # 1. Copy Backend Binary directly to /app/server so Railway's startCommand './server' works
 COPY --from=backend /app/backend/server ./server
 
-# 2. Copy Backend Uploads
+# 2. Copy Backend Uploads & Create Critical Paths
+RUN mkdir -p backend/cmd/server backend/uploads/backups
 COPY --from=backend /app/backend/uploads ./backend/uploads
 
 # 3. Copy Frontend Assets & SSR Sidecar

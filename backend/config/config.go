@@ -22,30 +22,36 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	// Load .env file if exists
-	err := godotenv.Load()
+	// Resolve base directory (current working directory)
+	baseDir, err := os.Getwd()
 	if err != nil {
-		// Try loading from root if running from cmd/server
-		err = godotenv.Load("../../.env")
-		if err != nil {
-			fmt.Printf("Error loading .env file: %v\n", err)
-		} else {
-			fmt.Println(".env file loaded successfully from ../../.env")
-		}
-	} else {
-		fmt.Println(".env file loaded successfully")
+		fmt.Printf("Warning: Failed to get current working directory: %v\n", err)
+		baseDir = "."
 	}
+	fmt.Printf("Config: Project base directory resolved to: %s\n", baseDir)
+
+	// Load .env file
+	_ = godotenv.Load() // Optional from current dir
+	_ = godotenv.Load("../../.env")
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
+	// ─── DATABASE CONFIGURATION ──────────────────────────────────────────────
+	// The user explicitly wants everything in backend/cmd/server/saas.db
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
-		// Use a standard relative path that works well in both dev and prod
-		dbUrl = "saas.db"
-		fmt.Printf("Defaulting database to relative path: %s\n", dbUrl)
+		// Use absolute path to avoid ambiguity in Docker/Railway
+		dbUrl = filepath.Join(baseDir, "backend", "cmd", "server", "saas.db")
+		fmt.Printf("Config: Database forced to absolute path: %s\n", dbUrl)
+	}
+
+	// Ensure the directory for the database exists
+	dbDir := filepath.Dir(dbUrl)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		fmt.Printf("Warning: Failed to create database directory %s: %v\n", dbDir, err)
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -64,17 +70,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	meshyKey := os.Getenv("MESHY_API_KEY")
-	if meshyKey == "" {
-		fmt.Println("Warning: MESHY_API_KEY not found in environment")
-	} else {
-		fmt.Printf("MESHY_API_KEY found (length: %d)\n", len(meshyKey))
-	}
 
 	// Blender configuration
 	blenderPath := os.Getenv("BLENDER_PATH")
 	if blenderPath == "" {
-		blenderPath = "blender" // Try system PATH
-		fmt.Println("Warning: BLENDER_PATH not set, using 'blender' from PATH")
+		blenderPath = "blender"
 	}
 
 	exportTimeout := 300 // Default 5 minutes
@@ -82,15 +82,24 @@ func LoadConfig() (*Config, error) {
 		fmt.Sscanf(timeoutStr, "%d", &exportTimeout)
 	}
 
+	// ─── DIRECTORY CONFIGURATION ─────────────────────────────────────────────
 	exportDir := os.Getenv("EXPORT_DIR")
 	if exportDir == "" {
-		exportDir = "uploads/exports"
+		exportDir = filepath.Join(baseDir, "backend", "uploads", "exports")
+	} else if !filepath.IsAbs(exportDir) {
+		exportDir = filepath.Join(baseDir, exportDir)
 	}
 
 	backupDir := os.Getenv("BACKUP_DIR")
 	if backupDir == "" {
-		backupDir = "uploads/backups"
+		backupDir = filepath.Join(baseDir, "backend", "uploads", "backups")
+	} else if !filepath.IsAbs(backupDir) {
+		backupDir = filepath.Join(baseDir, backupDir)
 	}
+
+	// Ensure directories exist
+	os.MkdirAll(exportDir, 0755)
+	os.MkdirAll(backupDir, 0755)
 
 	return &Config{
 		Port:          port,
