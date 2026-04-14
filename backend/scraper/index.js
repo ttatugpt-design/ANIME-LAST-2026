@@ -4,6 +4,7 @@ puppeteer.use(StealthPlugin());
 
 const seedUrl = process.argv[2];
 const seriesName = process.argv[3] || "";
+const targetEpisode = process.argv[4] || null; // Optional: Only fetch this episode
 
 if (!seedUrl) {
     console.error(JSON.stringify({ error: "No URL provided" }));
@@ -24,34 +25,79 @@ if (!seedUrl) {
 
         // 1. Visit the initial page
         await page.goto(seedUrl, { waitUntil: 'networkidle2' });
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 4000));
+
+        // 1.1 Auto-Scroll to trigger lazy loading (for long lists and sidebars)
+        await page.evaluate(async () => {
+            // Function to scroll a container
+            const scrollEl = async (el, dist = 300, max = 15000) => {
+                if (!el) return;
+                await new Promise((resolve) => {
+                    let cur = 0;
+                    let timer = setInterval(() => {
+                        el.scrollBy(0, dist);
+                        cur += dist;
+                        if (cur >= el.scrollHeight || cur > max) {
+                            clearInterval(timer);
+                            resolve();
+                        }
+                    }, 50);
+                });
+            };
+
+            // 1. Scroll main window
+            await scrollEl(window, 500);
+            
+            // 2. Scroll specific WitAnime sidebars if they exist
+            const sidebar = document.querySelector('.episodes-list, .mCSB_container, [class*="scrollbar"]');
+            if (sidebar) {
+                // If it's a mCustomScrollbar, it might need to scroll the parent or the container
+                await scrollEl(sidebar, 200);
+                // Try scrolling the parent as well
+                if (sidebar.parentElement) await scrollEl(sidebar.parentElement, 200);
+            }
+        });
+        await new Promise(r => setTimeout(r, 2000)); // wait for final items
 
         // 2. Discover episodes (WitAnime onclick focus)
         const episodes = await page.evaluate(() => {
             const results = [];
             const seen = new Set();
-            const witBtns = Array.from(document.querySelectorAll('a[onclick*="openEpisode"]'));
-            for (const btn of witBtns) {
-                const text = (btn.innerText || "").trim();
-                const onclick = btn.getAttribute('onclick');
-                if (text && onclick && !seen.has(onclick)) {
-                    seen.add(onclick);
-                    results.push({ text, onclick });
-                }
-            }
-            if (results.length === 0) {
-                const links = Array.from(document.querySelectorAll('.episode-item, .episodes-list a'));
-                for (const a of links) {
-                    if (a.href && !seen.has(a.href)) {
-                        seen.add(a.href);
-                        results.push({ text: a.innerText.trim(), href: a.href });
-                    }
+            // Look for any link with openEpisode or belonging to episodes-list/sidebar
+            const raw = Array.from(document.querySelectorAll('a[onclick*="openEpisode"], .episodes-list a, .episode-item a, .mCSB_container a'));
+            
+            for (const el of raw) {
+                const onclick = el.getAttribute('onclick');
+                const href = el.href;
+                
+                // Prioritize 'onclick' for WitAnime as it's more specific
+                const key = onclick || href;
+                if (!key || seen.has(key)) continue;
+
+                // Skip javascript voids unless they have an onclick
+                if (href?.includes('javascript:void(0)') && !onclick) continue;
+
+                const text = (el.innerText || "").trim();
+                // Filter: must have text and some action
+                if (text && (onclick || (href && !href.includes('javascript')))) {
+                    seen.add(key);
+                    results.push({ text, onclick, href: href && !href.includes('javascript') ? href : null });
                 }
             }
             return results;
         });
 
-        const targets = episodes.length > 0 ? episodes : [{ text: "Episode 1", href: seedUrl }];
+        process.stderr.write(`Discovered: ${episodes.length} potential episodes\n`);
+
+        let targets = episodes.length > 0 ? episodes : [{ text: "Initial Page", href: seedUrl }];
+        
+        // Filter if targetEpisode provided
+        if (targetEpisode) {
+            const matched = targets.filter(t => t.text.includes(targetEpisode) || targetEpisode.includes(t.text));
+            if (matched.length > 0) targets = matched;
+            process.stderr.write(`Single Target Mode: ${targets[0].text}\n`);
+        }
+
         const finalLinks = [];
 
         for (const ep of targets) {
@@ -60,62 +106,76 @@ if (!seedUrl) {
                 
                 if (ep.onclick) {
                     await page.evaluate((script) => { try { eval(script); } catch (e) {} }, ep.onclick);
-                    await new Promise(r => setTimeout(r, 6000));
+                    await new Promise(r => setTimeout(r, 4000));
                 } else if (ep.href && ep.href !== page.url()) {
                     await page.goto(ep.href, { waitUntil: 'networkidle2' });
                 }
 
-                // 3. Click "streamwish" specifically
+                // 3. Click "streamwish" or best available server
                 const serverClicked = await page.evaluate(() => {
-                    const btns = Array.from(document.querySelectorAll('a.server-link, .server-item a, #option-1'));
+                    const btns = Array.from(document.querySelectorAll('a.server-link, .server-item a, #option-1, [data-server*="streamwish"]'));
+                    let target = null;
                     for (const btn of btns) {
                         const txt = (btn.innerText || "").toLowerCase();
-                        if (txt.includes('streamwish')) {
-                            btn.click();
-                            return true;
+                        if (txt.includes('streamwish') || txt.includes('wish')) {
+                            target = btn;
+                            break;
                         }
                     }
-                    if (btns.length > 0) { btns[0].click(); return true; }
+                    if (!target && btns.length > 0) target = btns[0];
+                    if (target) {
+                        target.click();
+                        return true;
+                    }
                     return false;
                 });
 
                 if (serverClicked) {
-                    // 4. Wait for iframe injection
-                    await new Promise(r => setTimeout(r, 5000));
-                    
-                    // 5. CLICK PLAY (Common for hglink to activate)
-                    await page.evaluate(() => {
-                        const cyanBtn = document.querySelector('.jw-icon-display, .jw-display-icon-container, [aria-label="Play"], .play-button, .play-icon');
-                        if (cyanBtn) cyanBtn.click();
-                    });
-                    
-                    await new Promise(r => setTimeout(r, 3000));
-
-                    // 6. Extract hglink.to specifically
-                    const link = await page.evaluate(() => {
-                        // Scan iframes first
-                        const iframes = Array.from(document.querySelectorAll('iframe'));
-                        for (const f of iframes) {
-                            const src = f.src || f.getAttribute('data-src');
-                            if (src && src.includes('hglink.to')) return src;
+                    // 4. Poll for hglink.to instead of fixed timeout
+                    let link = null;
+                    const maxRetries = 15; // 15 seconds max
+                    for (let i = 0; i < maxRetries; i++) {
+                        // Click play periodically to trigger injection if needed
+                        if (i % 5 === 0) {
+                            await page.evaluate(() => {
+                                const playBtn = document.querySelector('.jw-icon-display, .jw-display-icon-container, [aria-label="Play"], .play-button, .play-icon, #player_vid_play');
+                                if (playBtn) playBtn.click();
+                            });
                         }
-                        
-                        // Scan HTML as fallback
-                        const html = document.documentElement.innerHTML;
-                        const match = html.match(/https:\/\/hglink\.to\/e\/[a-zA-Z0-9]+/);
-                        if (match) return match[0];
-                        
-                        // Deep check for any iframe
-                        if (iframes.length > 0 && iframes[0].src && iframes[0].src.startsWith('http')) return iframes[0].src;
 
-                        return null;
-                    });
+                        link = await page.evaluate(() => {
+                            function findHgLink(doc) {
+                                // 1. Scan iframes recursively
+                                const iframes = Array.from(doc.querySelectorAll('iframe'));
+                                for (const f of iframes) {
+                                    try {
+                                        const src = f.src || f.getAttribute('data-src');
+                                        if (src && /https:\/\/hg[a-z0-9]*\.to/.test(src)) return src;
+                                        // Try searching inside iframe content if accessible
+                                        if (f.contentDocument) {
+                                            const res = findHgLink(f.contentDocument);
+                                            if (res) return res;
+                                        }
+                                    } catch (e) {}
+                                }
+                                // 2. Scan HTML
+                                const html = doc.documentElement.innerHTML;
+                                const match = html.match(/https:\/\/hg[a-z0-9]*\.to\/e\/[a-zA-Z0-9]+/);
+                                if (match) return match[0];
+                                return null;
+                            }
+                            return findHgLink(document);
+                        });
+
+                        if (link) break;
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
 
                     if (link) {
                         finalLinks.push({ episode: ep.text, link: link });
                         process.stderr.write(`Success: Found ${link}\n`);
                     } else {
-                        process.stderr.write(`Warning: Failed to find hglink for ${ep.text}\n`);
+                        process.stderr.write(`Warning: Failed to find hglink for ${ep.text} after 15s\n`);
                     }
                 }
             } catch (err) {

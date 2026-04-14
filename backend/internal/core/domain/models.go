@@ -179,6 +179,7 @@ type Anime struct {
 	Trailer              string         `json:"trailer"`
 	Type                 string         `json:"type"`
 	IsPublished          bool           `gorm:"default:true" json:"is_published"`
+	ServerPriority       string         `json:"server_priority"`
 	UserID               *uint          `json:"user_id"`
 	CreatedAt            time.Time      `json:"created_at"`
 	UpdatedAt            time.Time      `json:"updated_at"`

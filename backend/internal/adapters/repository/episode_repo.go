@@ -18,10 +18,32 @@ func (r *SQLiteRepository) GetEpisodeByID(id uint) (*domain.Episode, error) {
 	return &episode, err
 }
 
-func (r *SQLiteRepository) GetAllEpisodes(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Episode, error) {
-	var episodes []domain.Episode
-	db := r.db.Preload("Anime").Preload("Servers")
+func (r *SQLiteRepository) GetEpisodeByAnimeAndNumber(animeID uint, episodeNumber int) (*domain.Episode, error) {
+	var episode domain.Episode
+	err := r.db.Preload("Anime").Preload("Servers").Where("anime_id = ? AND episode_number = ?", animeID, episodeNumber).First(&episode).Error
+	return &episode, err
+}
 
+func (r *SQLiteRepository) GetAllEpisodes(animeID uint, categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Episode, error) {
+	var episodes []domain.Episode
+	db := r.db.Preload("Servers")
+
+	// If fetching for a specific anime, no type-isolation needed
+	if animeID > 0 {
+		db = db.Where("episodes.anime_id = ?", animeID)
+		if animeType != "all_admin" {
+			db = db.Where("episodes.is_published = ?", true)
+		}
+		db = db.Order("episodes.episode_number asc")
+		if limit > 0 {
+			db = db.Limit(limit).Offset(offset)
+		}
+		err := db.Find(&episodes).Error
+		return episodes, err
+	}
+
+	// General queries (no specific anime)
+	db = db.Preload("Anime")
 	if animeType != "all_admin" {
 		db = db.Where("episodes.is_published = ?", true)
 	}
@@ -46,10 +68,8 @@ func (r *SQLiteRepository) GetAllEpisodes(categoryID uint, letter string, search
 		db = db.Joins("JOIN animes as a_isolation ON a_isolation.id = episodes.anime_id").
 			Where("a_isolation.type IN (?, ?)", "tv_en", "moves_en")
 	} else if animeType == "all_admin" {
-		// No isolation filter for episodes in admin
 		db = db.Joins("JOIN animes as a_isolation ON a_isolation.id = episodes.anime_id")
 	} else {
-		// Default isolation
 		db = db.Joins("JOIN animes as a_isolation ON a_isolation.id = episodes.anime_id").
 			Where("a_isolation.type NOT IN (?, ?)", "tv_en", "moves_en")
 	}
@@ -68,10 +88,21 @@ func (r *SQLiteRepository) GetAllEpisodes(categoryID uint, letter string, search
 	return episodes, err
 }
 
-func (r *SQLiteRepository) CountEpisodes(categoryID uint, letter string, search string, animeType string) (int64, error) {
+func (r *SQLiteRepository) CountEpisodes(animeID uint, categoryID uint, letter string, search string, animeType string) (int64, error) {
 	var count int64
 	db := r.db.Model(&domain.Episode{})
 
+	// If fetching for a specific anime, no type-isolation needed
+	if animeID > 0 {
+		db = db.Where("episodes.anime_id = ?", animeID)
+		if animeType != "all_admin" {
+			db = db.Where("episodes.is_published = ?", true)
+		}
+		err := db.Count(&count).Error
+		return count, err
+	}
+
+	// General queries
 	if animeType != "all_admin" {
 		db = db.Where("is_published = ?", true)
 	}
@@ -118,10 +149,20 @@ func (r *SQLiteRepository) DeleteEpisode(id uint) error {
 	return r.db.Delete(&domain.Episode{}, id).Error
 }
 
-func (r *SQLiteRepository) GetEpisodesByAnimeID(animeID uint) ([]domain.Episode, error) {
+func (r *SQLiteRepository) GetEpisodesByAnimeID(animeID uint, limit, offset int) ([]domain.Episode, error) {
 	var episodes []domain.Episode
-	err := r.db.Preload("Servers").Where("anime_id = ?", animeID).Order("episode_number asc").Find(&episodes).Error
+	db := r.db.Preload("Servers").Where("anime_id = ?", animeID).Order("episode_number asc")
+	if limit > 0 {
+		db = db.Limit(limit).Offset(offset)
+	}
+	err := db.Find(&episodes).Error
 	return episodes, err
+}
+
+func (r *SQLiteRepository) CountEpisodesByAnimeID(animeID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.Episode{}).Where("anime_id = ?", animeID).Count(&count).Error
+	return count, err
 }
 
 func (r *SQLiteRepository) GetLatestEpisodes(limit, offset int) ([]domain.Episode, error) {

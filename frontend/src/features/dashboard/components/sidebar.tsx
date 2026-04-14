@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database, Upload, Hash, Link2 } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Globe2, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database, Upload, Hash, Link2, Image as ImageIconLucide, Zap } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -154,6 +154,48 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Link2,
             href: `/${lang}/dashboard/fetch-links`,
             active: pathname.startsWith(`/${lang}/dashboard/fetch-links`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب EgyDead' : 'EgyDead Scraper',
+            icon: Link2,
+            href: `/${lang}/dashboard/egydead-scraper`,
+            active: pathname.startsWith(`/${lang}/dashboard/egydead-scraper`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب Anime4Up' : 'Anime4Up Scraper',
+            icon: Link2,
+            href: `/${lang}/dashboard/anime4up-scraper`,
+            active: pathname.startsWith(`/${lang}/dashboard/anime4up-scraper`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب RistoAnime' : 'RistoAnime Scraper',
+            icon: Link2,
+            href: `/${lang}/dashboard/ristoanime-scraper`,
+            active: pathname.startsWith(`/${lang}/dashboard/ristoanime-scraper`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب WitAnime' : 'WitAnime Scraper',
+            icon: Zap,
+            href: `/${lang}/dashboard/witanime-scraper`,
+            active: pathname.startsWith(`/${lang}/dashboard/witanime-scraper`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب الصور' : 'Image Scraper',
+            icon: ImageIconLucide,
+            href: `/${lang}/dashboard/image-scraper`,
+            active: pathname.startsWith(`/${lang}/dashboard/image-scraper`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب صور EgyDead' : 'EgyDead Image Scraper',
+            icon: ImageIconLucide,
+            href: `/${lang}/dashboard/egydead-images`,
+            active: pathname.startsWith(`/${lang}/dashboard/egydead-images`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'ساحب انمي العرب' : 'Anime3rb Scraper',
+            icon: Globe2,
+            href: `/${lang}/dashboard/anime3rb-images`,
+            active: pathname.startsWith(`/${lang}/dashboard/anime3rb-images`),
         },
         {
             label: i18n.language === 'ar' ? 'الفصول' : 'Chapters',

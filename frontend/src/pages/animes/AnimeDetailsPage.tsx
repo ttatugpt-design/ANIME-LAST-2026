@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useInView } from "react-intersection-observer";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 import { Search, Play, Plus, Share2, Star, Filter, ArrowUpDown, LayoutGrid, ChevronLeft, Loader2, Bookmark, BookmarkCheck } from "lucide-react";
@@ -73,15 +74,40 @@ export default function AnimeDetailsPage() {
     });
 
     // Fetch Episodes separately as fallback (if not included in anime details)
-    const { data: episodesData } = useQuery({
-        queryKey: ["episodes", anime?.id],
-        queryFn: async () => {
-            // Try standard filtering patterns
-            const response = await api.get(`/episodes`, { params: { anime_id: anime?.id } });
-            return response.data;
+    const { 
+        data: infiniteEpisodesData, 
+        fetchNextPage, 
+        hasNextPage, 
+        isFetchingNextPage 
+    } = useInfiniteQuery({
+        queryKey: ["episodes-infinite", anime?.id, searchQuery, selectedNumber],
+        queryFn: async ({ pageParam = 1 }) => {
+            const response = await api.get(`/episodes`, { 
+                params: { 
+                    anime_id: anime?.id,
+                    paginate: true,
+                    limit: 25,
+                    page: pageParam,
+                    search: searchQuery || undefined,
+                    // If selectedNumber is a specific episode number prefix, we can pass it as search or handle uniquely.
+                    // For now, let's treat selectedNumber as part of the search if it's set.
+                } 
+            });
+            return response.data; // { data: [], total, page, last_page }
         },
-        enabled: !!anime?.id, // Only fetch if anime is loaded and episodes not present
+        getNextPageParam: (lastPage) => {
+            if (lastPage.page < lastPage.last_page) {
+                return lastPage.page + 1;
+            }
+            return undefined;
+        },
+        enabled: !!anime?.id,
+        initialPageParam: 1,
     });
+
+    const episodesData = useMemo(() => {
+        return infiniteEpisodesData?.pages.flatMap(page => page.data) || [];
+    }, [infiniteEpisodesData]);
 
     // Track Anime View (once per anime)
     const trackedAnimeRef = useRef<number | null>(null);
@@ -141,42 +167,30 @@ export default function AnimeDetailsPage() {
     }, [episodesList]);
 
     const filteredEpisodes = useMemo(() => {
-        if (!episodesList) return [];
-        let filtered = episodesList;
-
-        if (selectedNumber !== null) {
-            filtered = filtered.filter((ep: any) =>
-                ep.episode_number?.toString().startsWith(selectedNumber)
-            );
-        }
-
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            filtered = filtered.filter((ep: any) =>
-                (ep.title && ep.title.toLowerCase().includes(query)) ||
-                (ep.episode_number && ep.episode_number.toString().includes(query))
-            );
-        }
-        return filtered;
-    }, [episodesList, searchQuery, selectedNumber]);
+        return episodesList; // Server-side filtering is now handled by the query
+    }, [episodesList]);
 
 
     // Pagination / Load More
-    const [visibleCount, setVisibleCount] = useState(8);
+    const [visibleCount, setVisibleCount] = useState(25);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    
+    const { ref: loadMoreRef, inView } = useInView({
+        threshold: 0.1,
+        rootMargin: '200px',
+    });
+
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const handleShowMore = () => {
-        setIsLoadingMore(true);
-        // Simulate network request
-        setTimeout(() => {
-            setVisibleCount(prev => prev + 12);
-            setIsLoadingMore(false);
-        }, 800);
+        if (hasNextPage) fetchNextPage();
     };
 
-    const displayedEpisodes = useMemo(() => {
-        return filteredEpisodes.slice(0, visibleCount);
-    }, [filteredEpisodes, visibleCount]);
+    const displayedEpisodes = filteredEpisodes;
 
     const handleWatchLaterToggle = async () => {
         if (!isAuthenticated) {
@@ -633,19 +647,14 @@ export default function AnimeDetailsPage() {
                                                                 </div>
                                                             ))}
 
-                                                            {visibleCount < filteredEpisodes.length && (
-                                                                <div className="flex justify-center mt-12">
-                                                                    <button
-                                                                        onClick={handleShowMore}
-                                                                        disabled={isLoadingMore}
-                                                                        className="px-10 py-3 bg-black dark:bg-white text-white dark:text-black font-black uppercase tracking-widest rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all disabled:opacity-50 flex items-center gap-3"
-                                                                    >
-                                                                        {isLoadingMore ? (
-                                                                            <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-700 border-t-white dark:border-t-black rounded-full animate-spin"></div>
-                                                                        ) : (
-                                                                            lang === 'ar' ? 'إظهار المزيد' : 'Load More'
-                                                                        )}
-                                                                    </button>
+                                                            {hasNextPage && (
+                                                                <div ref={loadMoreRef} className="flex justify-center mt-12 py-4">
+                                                                    <div className="flex items-center gap-3 text-gray-500">
+                                                                        <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-700 border-t-black dark:border-t-white rounded-full animate-spin"></div>
+                                                                        <span className="text-sm font-bold uppercase tracking-widest">
+                                                                            {lang === 'ar' ? 'جاري تحميل المزيد من قاعدة البيانات...' : 'Loading more from database...'}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </>
@@ -752,6 +761,16 @@ export default function AnimeDetailsPage() {
                                         <p className="text-center text-gray-500 py-6 text-sm">
                                             {lang === 'ar' ? 'لا توجد حلقات مطابقة.' : 'No episodes found.'}
                                         </p>
+                                    )}
+                                    {hasNextPage && (
+                                        <div ref={loadMoreRef} className="py-4 flex justify-center border-t border-gray-50 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-700 border-t-black dark:border-t-white rounded-full animate-spin"></div>
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                                    {lang === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+                                                </span>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>

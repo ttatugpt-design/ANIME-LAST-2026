@@ -106,3 +106,15 @@ func (s *AnimeService) Delete(id uint) error {
 func (s *AnimeService) Search(query string) ([]domain.Anime, error) {
 	return s.repo.SearchAnimes(query)
 }
+
+func (s *AnimeService) GetUniqueServers(animeID uint) ([]string, error) {
+	return s.repo.GetUniqueServerNamesByAnimeID(animeID)
+}
+
+func (s *AnimeService) DeleteServersBulk(animeID uint, names []string) error {
+	return s.repo.DeleteServersByAnimeIDAndNames(animeID, names)
+}
+
+func (s *AnimeService) UpdateServerPriority(animeID uint, priority string) error {
+	return s.repo.UpdateServerPriority(animeID, priority)
+}

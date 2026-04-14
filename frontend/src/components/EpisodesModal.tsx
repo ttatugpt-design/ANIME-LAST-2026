@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useInView } from 'react-intersection-observer';
 import { Search, X } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,9 @@ interface EpisodesModalProps {
     slug?: string;
     lang: string;
     isLoading?: boolean;
+    hasNextPage?: boolean;
+    fetchNextPage?: () => void;
+    isFetchingNextPage?: boolean;
     getImageUrl: (path?: string) => string;
     getRelativeTime: (date: string, lang: string) => string;
 }
@@ -29,6 +33,9 @@ export default function EpisodesModal({
     slug,
     lang,
     isLoading = false,
+    hasNextPage = false,
+    fetchNextPage,
+    isFetchingNextPage = false,
     getImageUrl,
     getRelativeTime,
 }: EpisodesModalProps) {
@@ -59,6 +66,22 @@ export default function EpisodesModal({
             ep.episode_number.toString().includes(query)
         );
     }, [episodes, searchQuery]);
+
+    // Infinite Scroll Logic (Server-side)
+    const { ref: loadMoreRef, inView } = useInView({
+        threshold: 0.1,
+        rootMargin: '100px',
+    });
+
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage && fetchNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const displayedEpisodes = filteredEpisodes;
+
+    // Remove client-side reset logic
 
     // Show loading skeleton when modal first opens
     const [showLoading, setShowLoading] = useState(false);
@@ -146,7 +169,7 @@ export default function EpisodesModal({
                                 {lang === 'ar' ? 'لا توجد حلقات' : 'No episodes found'}
                             </div>
                         ) : (
-                            filteredEpisodes.map((ep: any) => {
+                            displayedEpisodes.map((ep: any) => {
                                 const title = (lang === 'ar' ? ep.title : ep.title_en) || `Episode ${ep.episode_number}`;
                                 return (
                                     <div
@@ -209,6 +232,12 @@ export default function EpisodesModal({
                                     </div>
                                 );
                             })
+                        )}
+                        {hasNextPage && (
+                            <div ref={loadMoreRef} className="py-4 flex justify-center items-center gap-2 text-gray-500">
+                                <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-700 border-t-black dark:border-t-white rounded-full animate-spin"></div>
+                                <span className="text-xs font-bold uppercase tracking-widest">{lang === 'ar' ? 'جاري تحميل المزيد من قاعدة البيانات...' : 'Loading more from database...'}</span>
+                            </div>
                         )}
                     </div>
                 )}

@@ -69,6 +69,12 @@ import ServerFileSelectionPage from '@/pages/dashboard/ServerFileSelectionPage';
 import ServerFileBrowserPage from '@/pages/dashboard/ServerFileBrowserPage';
 import FakeNumbersPage from '@/pages/dashboard/FakeNumbersPage';
 import FetchLinksPage from '@/pages/dashboard/FetchLinksPage';
+import EgyDeadScraperPage from '@/pages/dashboard/EgyDeadScraperPage';
+import Anime4UpScraperPage from '@/pages/dashboard/Anime4UpScraperPage';
+import RistoAnimeScraperPage from '@/pages/dashboard/RistoAnimeScraperPage';
+import WitAnimeScraperPage from '@/pages/dashboard/WitAnimeScraperPage';
+import Anime3rbScraperPage from '@/pages/dashboard/Anime3rbScraperPage';
+import ImageScraperPage from '@/pages/dashboard/ImageScraperPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -393,6 +399,30 @@ export const routes = [
                             {
                                 path: 'fetch-links',
                                 element: <FetchLinksPage />,
+                            },
+                            {
+                                path: 'egydead-scraper',
+                                element: <EgyDeadScraperPage />,
+                            },
+                            {
+                                path: 'anime4up-scraper',
+                                element: <Anime4UpScraperPage />,
+                            },
+                            {
+                                path: 'ristoanime-scraper',
+                                element: <RistoAnimeScraperPage />,
+                            },
+                            {
+                                path: 'image-scraper',
+                                element: <ImageScraperPage />,
+                            },
+                            {
+                                path: 'egydead-images',
+                                element: <EgyDeadScraperPage />,
+                            },
+                            {
+                                path: 'anime3rb-images',
+                                element: <Anime3rbScraperPage />,
                             },
                         ],
                     },

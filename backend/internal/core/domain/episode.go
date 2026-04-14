@@ -39,6 +39,7 @@ type Episode struct {
 	AngrysCount   int             `json:"angrys_count" gorm:"default:0"`
 	SuperSadsCount int            `json:"super_sads_count" gorm:"default:0"`
 	DislikesCount int             `json:"dislikes_count" gorm:"default:0"`
+	SourceURL     string          `json:"source_url"` // الرابط الخاص بالحلقة من نفس الموقع
 	Servers       []EpisodeServer `json:"servers" gorm:"foreignKey:EpisodeID"`
 }
 

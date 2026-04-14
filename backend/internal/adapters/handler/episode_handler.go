@@ -61,68 +61,37 @@ func (h *EpisodeHandler) Create(c *gin.Context) {
 }
 
 func (h *EpisodeHandler) GetAll(c *gin.Context) {
-	// Support filtering by anime_id and episode_number via query params
-	animeIDStr := c.Query("anime_id")
-	episodeNumStr := c.Query("episode_number")
-
-	// If anime_id is provided, filter by it
-	if animeIDStr != "" {
-		animeID, err := strconv.Atoi(animeIDStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid anime_id"})
-			return
-		}
-
-		episodes, err := h.service.GetByAnimeID(uint(animeID))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		// If episode_number is also provided, filter further
-		if episodeNumStr != "" {
-			episodeNum, err := strconv.Atoi(episodeNumStr)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid episode_number"})
-				return
-			}
-
-			// Find the specific episode
-			for _, ep := range episodes {
-				if ep.EpisodeNumber == episodeNum {
-					h.sanitizeEpisode(&ep)
-					c.JSON(http.StatusOK, []domain.Episode{ep})
-					return
-				}
-			}
-			c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
-			return
-		}
-
-		for i := range episodes {
-			h.sanitizeEpisode(&episodes[i])
-		}
-		c.JSON(http.StatusOK, episodes)
-		return
-	}
-
-	// NEW: Support filtering by category, letter, type and order when not filtering by specific anime
+	// Filter parameters
+	animeID, _ := strconv.Atoi(c.Query("anime_id"))
 	categoryID, _ := strconv.Atoi(c.Query("category_id"))
+	episodeNum, _ := strconv.Atoi(c.Query("episode_number"))
 	letter := c.Query("letter")
 	search := c.Query("search")
 	animeType := c.Query("type")
 	order := c.Query("order")
 
 	// Pagination
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "25"))
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	offset := 0
 	if limit > 0 {
 		offset = (page - 1) * limit
 	}
 
-	// No specific anime filter, use general GetAll with filters
-	episodes, err := h.service.GetAll(uint(categoryID), letter, search, animeType, order, limit, offset)
+	// If a specific episode number is requested for a specific anime
+	if animeID > 0 && episodeNum > 0 {
+		ep, err := h.service.GetByAnimeAndNumber(uint(animeID), episodeNum)
+		if err == nil && ep != nil {
+			h.sanitizeEpisode(ep)
+			c.JSON(http.StatusOK, []domain.Episode{*ep})
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Episode not found"})
+		return
+	}
+
+	// Fetch episodes for general pagination
+	episodes, err := h.service.GetAll(uint(animeID), uint(categoryID), letter, search, animeType, order, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -134,7 +103,7 @@ func (h *EpisodeHandler) GetAll(c *gin.Context) {
 
 	// If pagination is requested explicitly, return metadata
 	if c.Query("paginate") == "true" {
-		total, _ := h.service.Count(uint(categoryID), letter, search, animeType)
+		total, _ := h.service.Count(uint(animeID), uint(categoryID), letter, search, animeType)
 		c.JSON(http.StatusOK, gin.H{
 			"data":      episodes,
 			"total":     total,

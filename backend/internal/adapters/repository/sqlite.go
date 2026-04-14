@@ -99,6 +99,7 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		{"episodes", "angrys_count", "ALTER TABLE episodes ADD COLUMN angrys_count INTEGER DEFAULT 0"},
 		{"episodes", "super_sads_count", "ALTER TABLE episodes ADD COLUMN super_sads_count INTEGER DEFAULT 0"},
 		{"episode_likes", "type", "ALTER TABLE episode_likes ADD COLUMN type TEXT DEFAULT 'like'"},
+		{"animes", "server_priority", "ALTER TABLE animes ADD COLUMN server_priority TEXT"},
 	}
 
 	for _, m := range manualMigrations {
@@ -778,6 +779,33 @@ func (r *SQLiteRepository) SearchAnimes(query string) ([]domain.Anime, error) {
 		Find(&animes).Error
 
 	return animes, err
+}
+
+func (r *SQLiteRepository) GetUniqueServerNamesByAnimeID(animeID uint) ([]string, error) {
+	var names []string
+	err := r.db.Table("episode_servers").
+		Select("DISTINCT episode_servers.name").
+		Joins("JOIN episodes ON episodes.id = episode_servers.episode_id").
+		Where("episodes.anime_id = ?", animeID).
+		Pluck("name", &names).Error
+	return names, err
+}
+
+func (r *SQLiteRepository) DeleteServersByAnimeIDAndNames(animeID uint, names []string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var episodeIDs []uint
+		if err := tx.Model(&domain.Episode{}).Where("anime_id = ?", animeID).Pluck("id", &episodeIDs).Error; err != nil {
+			return err
+		}
+		if len(episodeIDs) == 0 {
+			return nil
+		}
+		return tx.Where("episode_id IN ? AND name IN ?", episodeIDs, names).Delete(&domain.EpisodeServer{}).Error
+	})
+}
+
+func (r *SQLiteRepository) UpdateServerPriority(animeID uint, priority string) error {
+	return r.db.Model(&domain.Anime{}).Where("id = ?", animeID).Update("server_priority", priority).Error
 }
 
 func (r *SQLiteRepository) GetGlobalStats(ctx context.Context) (map[string]int64, error) {

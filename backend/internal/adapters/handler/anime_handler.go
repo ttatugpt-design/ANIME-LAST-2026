@@ -270,3 +270,47 @@ func (h *AnimeHandler) Search(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, animes)
 }
+
+func (h *AnimeHandler) GetUniqueServers(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	names, err := h.service.GetUniqueServers(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, names)
+}
+
+func (h *AnimeHandler) DeleteServersBulk(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Names []string `json:"names"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.DeleteServersBulk(uint(id), req.Names); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Servers deleted successfully"})
+}
+
+func (h *AnimeHandler) UpdateServerPriority(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Priority string `json:"priority"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.UpdateServerPriority(uint(id), req.Priority); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Server priority updated successfully"})
+}

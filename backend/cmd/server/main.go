@@ -147,7 +147,7 @@ func main() {
 	doodstreamHandler := handler.NewDoodstreamHandler(episodeService, serverService, embedAccountService)
 	mirroredHandler := handler.NewMirroredHandler(episodeService, serverService, embedAccountService, repo.DB())
 	resumableHandler := handler.NewResumableUploadHandler()
-	scraperHandler := handler.NewScraperHandler()
+	scraperHandler := handler.NewScraperHandler(repo.DB())
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 32 << 20 // 32MB instead of 1GB. Files larger than this will be cached into OS temporary disk space instead of RAM!
@@ -299,6 +299,8 @@ func main() {
 				animes.GET("/search", animeHandler.Search)
 				animes.GET("/slug/:slug", animeHandler.GetBySlug)
 				animes.GET("/:id", animeHandler.GetByID)
+				animes.GET("/:id/servers", animeHandler.GetUniqueServers)
+				animes.PATCH("/:id/server-priority", animeHandler.UpdateServerPriority)
 			}
 
 			// Episode Public (Read-Only)
@@ -347,6 +349,9 @@ func main() {
 			public.GET("/quick-news", quickNewsHandler.GetAll)
 			public.GET("/countries", countryHandler.GetAll)
 			public.GET("/servers", serverHandler.GetAll)
+			
+			// Public Scraper endpoints for viewing links
+			public.POST("/scraper/anime3rb-refresh", scraperHandler.RefreshAnime3rbVideo)
 
 			// NEW: Public Users and Comments for Sidebar
 			public.GET("/users", userHandler.GetAll)
@@ -453,6 +458,7 @@ func main() {
 			// Write Operations for Anime
 			animes := protected.Group("/animes")
 			animes.POST("", animeHandler.Create).PUT("/:id", animeHandler.Update).DELETE("/:id", animeHandler.Delete)
+			animes.DELETE("/:id/servers", animeHandler.DeleteServersBulk)
 
 			// Write Operations for Episodes
 			episodes := protected.Group("/episodes")
@@ -533,6 +539,18 @@ func main() {
 
 			// Scraper Routes
 			protected.POST("/scraper/test-fetch", scraperHandler.TestFetchLink)
+			protected.POST("/scraper/egydead", scraperHandler.FetchEgyDead)
+			protected.POST("/scraper/egydead-batch", scraperHandler.FetchEgyDeadBatch)
+			protected.POST("/scraper/anime4up", scraperHandler.FetchAnime4Up)
+			protected.POST("/scraper/anime4up-batch", scraperHandler.FetchAnime4UpBatch)
+			protected.POST("/scraper/ristoanime", scraperHandler.FetchRistoAnime)
+			protected.POST("/scraper/ristoanime-batch", scraperHandler.FetchRistoAnimeBatch)
+			protected.POST("/scraper/witanime-batch", scraperHandler.FetchWitAnimeBatch)
+			protected.POST("/scraper/anime3rb-batch", scraperHandler.FetchAnime3rbBatch)
+			protected.POST("/scraper/images", scraperHandler.FetchPageImages)
+			protected.POST("/scraper/images-download", scraperHandler.DownloadImagesZip)
+			protected.POST("/scraper/import", scraperHandler.ImportScrapedAnime)
+			protected.POST("/scraper/deep-import", scraperHandler.DeepImportAnime)
 
 			// Quick News Admin Operations
 			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)

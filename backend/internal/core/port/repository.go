@@ -81,6 +81,9 @@ type AnimeRepository interface {
 	DeleteAnime(id uint) error
 	SearchAnimes(query string) ([]domain.Anime, error)
 	CountAnimes(categoryID uint, letter string, search string, animeType string) (int64, error)
+	GetUniqueServerNamesByAnimeID(animeID uint) ([]string, error)
+	DeleteServersByAnimeIDAndNames(animeID uint, names []string) error
+	UpdateServerPriority(animeID uint, priority string) error
 }
 
 type TypeRepository interface {
@@ -135,11 +138,13 @@ type WatchLaterRepository interface {
 type EpisodeRepository interface {
 	CreateEpisode(episode *domain.Episode) error
 	GetEpisodeByID(id uint) (*domain.Episode, error)
-	GetAllEpisodes(categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Episode, error)
-	CountEpisodes(categoryID uint, letter string, search string, animeType string) (int64, error)
+	GetEpisodeByAnimeAndNumber(animeID uint, episodeNumber int) (*domain.Episode, error)
+	GetAllEpisodes(animeID uint, categoryID uint, letter string, search string, animeType string, order string, limit int, offset int) ([]domain.Episode, error)
+	CountEpisodes(animeID uint, categoryID uint, letter string, search string, animeType string) (int64, error)
 	UpdateEpisode(episode *domain.Episode) error
 	DeleteEpisode(id uint) error
-	GetEpisodesByAnimeID(animeID uint) ([]domain.Episode, error)
+	GetEpisodesByAnimeID(animeID uint, limit, offset int) ([]domain.Episode, error)
+	CountEpisodesByAnimeID(animeID uint) (int64, error)
 	GetLatestEpisodes(limit, offset int) ([]domain.Episode, error)
 	SearchEpisodes(query string) ([]domain.Episode, error)
 	IncrementEpisodeViews(episodeID uint) error

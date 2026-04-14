@@ -57,6 +57,7 @@ func SeedAll(db *gorm.DB) {
 	SeedAoTS4(db)
 	SeedSentencedToBeAHero(db)
 	SeedNewsAnimes(db)
+	SeedBulkSEEDRAnimes(db)
 
 	log.Println("Seeding completed successfully.")
 }
