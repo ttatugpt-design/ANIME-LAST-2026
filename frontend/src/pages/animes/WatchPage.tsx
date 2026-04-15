@@ -474,9 +474,10 @@ export default function WatchPage() {
                     if (res.data?.url) {
                         setDynamicVideoUrl(res.data.url);
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.error("Anime3rb fetch failed", e);
-                    toast.error(lang === 'ar' ? 'فشل جلب رابط السيرفر من المصدر' : 'Failed to fetch server link');
+                    const errMsg = e.response?.data?.error || (lang === 'ar' ? 'فشل جلب رابط السيرفر من المصدر' : 'Failed to fetch server link');
+                    toast.error(errMsg);
                 } finally {
                     setIsRefreshingVideo(false);
                 }

@@ -49,6 +49,24 @@ func NewScraperHandler(db *gorm.DB, baseDir string) *ScraperHandler {
 	return &ScraperHandler{db: db, BaseDir: baseDir}
 }
 
+// getScriptPath returns the absolute path to a scraper script, searching in multiple project subdirectories.
+func (h *ScraperHandler) getScriptPath(name string) string {
+	// 1. Try flattened structure (e.g., Docker /app/scraper/ or local backend/ when BaseDir is backend)
+	p1 := filepath.Join(h.BaseDir, "scraper", name)
+	if _, err := os.Stat(p1); err == nil {
+		return p1
+	}
+
+	// 2. Try nested structure (e.g., Local root /backend/scraper/ when BaseDir is project root)
+	p2 := filepath.Join(h.BaseDir, "backend", "scraper", name)
+	if _, err := os.Stat(p2); err == nil {
+		return p2
+	}
+
+	// Default fallback to the expected flattened path
+	return p1
+}
+
 func (h *ScraperHandler) RefreshAnime3rbVideo(c *gin.Context) {
 	var body struct {
 		SourceURL string `json:"source_url"`
@@ -59,61 +77,73 @@ func (h *ScraperHandler) RefreshAnime3rbVideo(c *gin.Context) {
 		return
 	}
 	if body.SourceURL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب توفير رابط صالح"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب توفير رابط صالح للحلقة"})
 		return
 	}
 
-	// The system will now always fetch, as requested by the user, regardless of last update time.
+	// Use the dedicated single-episode refresh scraper (faster & more reliable than batch)
+	scriptPath := h.getScriptPath("anime3rb_refresh.js")
+	
+	// Double check if path exists to provide a clear error message
+	if _, err := os.Stat(scriptPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "ملف السكريبت غير موجود",
+			"details": fmt.Sprintf("Path attempted: %s", scriptPath),
+		})
+		return
+	}
 
-	// Standard path resolution using BaseDir
-	scriptPath := filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
+	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, "node", scriptPath, body.SourceURL)
-	output, err := cmd.Output()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل السحب: " + err.Error()})
-		return
-	}
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-	// Parse output
-	var result struct {
-		Success  bool `json:"success"`
-		Episodes []struct {
-			Links []struct {
-				Title    string `json:"title"`
-				EmbedURL string `json:"embedUrl"`
-			} `json:"links"`
-		} `json:"episodes"`
-	}
-	if err := json.Unmarshal(output, &result); err != nil || !result.Success || len(result.Episodes) == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تحليل المحتوى"})
-		return
-	}
-
-	// Find first valid embedUrl
-	var newURL string
-	for _, l := range result.Episodes[0].Links {
-		if l.EmbedURL != "" {
-			newURL = l.EmbedURL
-			break
+	if err := cmd.Run(); err != nil {
+		log.Printf("[Anime3rb Refresh] Script error: %v | stderr: %s", err, stderr.String())
+		// Try to parse error JSON from stdout
+		var errData map[string]string
+		if jsonErr := json.Unmarshal(stdout.Bytes(), &errData); jsonErr == nil && errData["error"] != "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": errData["error"]})
+			return
 		}
-	}
-
-	if newURL == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "لم يتم العثور على رابط مشغل"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "فشل تشغيل سكريبت التحديث",
+			"details": stderr.String(),
+		})
 		return
 	}
 
-	// Update in database for this specific episode server if id is provided
+	// Parse the simple { success, url } response
+	var result struct {
+		Success bool   `json:"success"`
+		URL     string `json:"url"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تحليل نتيجة السكريبت", "output": stdout.String()})
+		return
+	}
+
+	if !result.Success || result.URL == "" {
+		errMsg := result.Error
+		if errMsg == "" {
+			errMsg = "لم يتم العثور على رابط مشغل. تأكد من أن source_url هو رابط حلقة anime3rb صحيح."
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsg})
+		return
+	}
+
+	// Update the stored URL in the database for this episode server
 	if body.EpisodeID > 0 {
 		h.db.Model(&domain.EpisodeServer{}).
 			Where("episode_id = ? AND (name LIKE ? OR name LIKE ?)", body.EpisodeID, "%Anime3rb%", "%انمي العرب%").
-			Update("url", newURL)
+			Update("url", result.URL)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"url": newURL})
+	c.JSON(http.StatusOK, gin.H{"url": result.URL})
 }
 
 func (h *ScraperHandler) TestFetchLink(c *gin.Context) {
@@ -204,13 +234,12 @@ func (h *ScraperHandler) FetchEgyDead(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "egydead_scraper.js")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*60*time.Second)
+	// Standard path resolution using helper
+	scriptPath := h.getScriptPath("egydead_scraper.js")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "node", scraperPath, body.URL)
+	cmd := exec.CommandContext(ctx, "node", scriptPath, body.URL)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -224,7 +253,7 @@ func (h *ScraperHandler) FetchEgyDead(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "فشل تشغيل السكريبت",
 			"details": stderr.String(),
-			"path":    scraperPath,
+			"path":    scriptPath,
 		})
 		return
 	}
@@ -425,10 +454,9 @@ func (h *ScraperHandler) FetchRistoAnimeBatch(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "ristoanime_batch_scraper.js")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("ristoanime_batch_scraper.js")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "node", scraperPath, body.URL)
@@ -561,10 +589,9 @@ func (h *ScraperHandler) FetchPageImages(c *gin.Context) {
 		body.MaxImages = 50
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "image_scraper.js")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*60*time.Second) 
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("image_scraper.js")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "node", scraperPath, body.URL, fmt.Sprintf("%d", body.MaxImages))
@@ -817,22 +844,22 @@ func (h *ScraperHandler) DeepImportAnime(c *gin.Context) {
 	}
 
 	// 3. Determine scraper script
-	// Standard path resolution using BaseDir
-	scriptPath := ""
+	script_name := ""
 	if strings.Contains(body.DetailURL, "anime3rb.com") {
-		scriptPath = filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
+		script_name = "anime3rb_batch_scraper.js"
 	} else if strings.Contains(body.DetailURL, "ristoanime.co") {
-		scriptPath = filepath.Join(h.BaseDir, "scraper", "ristoanime_batch_scraper.js")
+		script_name = "ristoanime_batch_scraper.js"
 	} else if strings.Contains(body.DetailURL, "witanime.life") || strings.Contains(body.DetailURL, "witanime.com") {
-		scriptPath = filepath.Join(h.BaseDir, "scraper", "witanime_batch_scraper.js")
+		script_name = "witanime_batch_scraper.js"
 	} else if strings.Contains(body.DetailURL, "egydead") {
-		scriptPath = filepath.Join(h.BaseDir, "scraper", "egydead_batch_scraper.js")
+		script_name = "egydead_batch_scraper.js"
 	}
 
-	if scriptPath == "" {
+	if script_name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "لا يتوفر ساحب عميق لهذا الموقع حالياً"})
 		return
 	}
+	scriptPath := h.getScriptPath(script_name)
 
 	// 4. Run Scraper Synchronously
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Minute)
