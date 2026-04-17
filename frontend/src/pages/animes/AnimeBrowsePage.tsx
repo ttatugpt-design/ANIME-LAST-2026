@@ -611,7 +611,6 @@ const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter,
     const displayTitle = title || 'عنوان غير متوفر';
     const subText = isEpisode ? (lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (lang === 'ar' ? 'ترجمة | دبلجة' : 'Sub | Dub');
 
-    const animeId = animeObj?.id || item.anime_id || item.id;
 
     // SEO Slug Logic
     const animeTitleForSlug = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);

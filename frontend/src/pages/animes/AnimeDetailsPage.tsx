@@ -388,7 +388,6 @@ export default function AnimeDetailsPage() {
                                                             imageClassName="object-cover object-top"
                                                             spinnerClassName="w-16 h-16 border-4"
                                                             loading="eager"
-                                                            priority={true}
                                                         />
                                                     )}
                                                     {/* Gradient Overlay */}

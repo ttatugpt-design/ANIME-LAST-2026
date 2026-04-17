@@ -3,7 +3,7 @@ import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useTranslation } from "react-i18next";
 import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { queryClient as globalQueryClient } from './lib/react-query';
+import { queryClient as globalQueryClient } from '@/lib/react-query';
 import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown, List, Share2, Play, ChevronDown, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { WatchLaterButton } from "@/components/common/WatchLaterButton";
@@ -582,7 +582,6 @@ const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter,
     const displayTitle = title || 'عنوان غير متوفر';
     const subText = isEpisode ? (lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (type === 'manga' ? (lang === 'ar' ? 'مانجا' : 'Manga') : (item?.status || item?.type || ''));
 
-    const animeId = animeObj?.id || item.anime_id || item.id;
 
     // SEO Slug Logic
     const animeTitleForSlug = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);
