@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
-import { Reorder, motion } from "framer-motion";
+import { Reorder, motion, AnimatePresence } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -1721,16 +1721,38 @@ export default function WatchPage() {
                                                     </div>
                                                 );
                                             })}
-                                            {hasNextPage && (
-                                                <div ref={observerRef} className="py-3 flex justify-center border-t border-gray-50 dark:border-white/5">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-700 border-t-black dark:border-t-white rounded-full animate-spin"></div>
-                                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                                                            {lang === 'ar' ? 'جاري تحميل المزيد...' : 'Loading more...'}
+                                            <AnimatePresence>
+                                                {(isFetchingNextPage || hasNextPage) && (
+                                                    <motion.div 
+                                                        ref={observerRef} 
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="py-4 flex flex-col items-center justify-center gap-2 border-t border-gray-50 dark:border-white/5 bg-gray-50/30 dark:bg-white/5 backdrop-blur-sm overflow-hidden"
+                                                    >
+                                                        <div className="flex gap-1.5">
+                                                            {[0, 1, 2].map((i) => (
+                                                                <motion.div
+                                                                    key={i}
+                                                                    animate={{
+                                                                        scale: [1, 1.4, 1],
+                                                                        opacity: [0.3, 1, 0.3],
+                                                                    }}
+                                                                    transition={{
+                                                                        duration: 0.8,
+                                                                        repeat: Infinity,
+                                                                        delay: i * 0.15,
+                                                                    }}
+                                                                    className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] animate-pulse">
+                                                            {lang === 'ar' ? 'جاري جلب الحلقات' : 'Fetching Episodes'}
                                                         </span>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                             </>
                                         ) : (
                                             <p className="text-center text-gray-500 py-6 text-sm">
