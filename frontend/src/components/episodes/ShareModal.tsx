@@ -14,9 +14,9 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
     const { i18n } = useTranslation();
     const lang = i18n.language;
 
-    const title = (lang === 'ar' ? episode.title : episode.title_en) || `Episode ${episode.episode_number}`;
-    const animeTitle = anime.title;
-    const thumbnail = episode.thumbnail || episode.banner || anime.cover || anime.banner;
+    const title = (lang === 'ar' ? (episode?.title || episode?.title_en) : (episode?.title_en || episode?.title)) || `Episode ${episode?.episode_number || ''}`;
+    const animeTitle = lang === 'ar' ? (anime?.title) : (anime?.title_en || anime?.title) || '';
+    const thumbnail = episode?.thumbnail || episode?.banner || anime?.cover || anime?.banner;
 
 
     const shareUrl = window.location.href;

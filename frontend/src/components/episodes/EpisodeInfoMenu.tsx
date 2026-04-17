@@ -20,10 +20,10 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
     const { i18n } = useTranslation();
     const lang = i18n.language;
 
-    const title = (lang === 'ar' ? episode.title : episode.title_en) || `Episode ${episode.episode_number}`;
-    const animeTitle = anime.title;
+    const title = (lang === 'ar' ? (episode?.title || episode?.title_en) : (episode?.title_en || episode?.title)) || `Episode ${episode?.episode_number || ''}`;
+    const animeTitle = lang === 'ar' ? (anime?.title) : (anime?.title_en || anime?.title) || '';
     // Ensure we check all possible image sources
-    const thumbnail = episode.thumbnail || episode.banner || anime.cover || anime.banner;
+    const thumbnail = episode?.thumbnail || episode?.banner || anime?.cover || anime?.banner;
 
 
     return (
@@ -79,8 +79,8 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
                             {/* Watch Later Button */}
                             <div>
                                 <WatchLaterButton
-                                    animeId={parseInt(anime.id)}
-                                    episodeId={episode.id}
+                                    animeId={anime?.id ? parseInt(anime.id) : 0}
+                                    episodeId={episode?.id}
                                     className="w-full justify-between items-center rounded-none px-8 py-5 h-auto text-lg font-medium hover:bg-gray-100 dark:hover:bg-[#252830] bg-transparent border-none shadow-none text-gray-700 dark:text-gray-200 group flex-row-reverse transition-colors"
                                     showLabel={true}
                                 />
