@@ -36,7 +36,7 @@ export default function PublicCategoriesPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black flex flex-col font-sans" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="min-h-screen bg-white dark:bg-black flex flex-col font-sans" dir={isRtl ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isRtl ? 'تصفح التصنيفات - AnimeLast' : 'Browse Categories - AnimeLast'}</title>
             </Helmet>
@@ -60,7 +60,7 @@ export default function PublicCategoriesPage() {
                                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                                         {isRtl ? 'جميع التصنيفات' : 'All Categories'}
                                     </h2>
-                                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1a1a1a] px-2 py-1 rounded-sm font-mono">
+                                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-[#1a1a1a] px-2 py-1 rounded-sm font-mono border border-gray-100 dark:border-white/5 shadow-sm">
                                         {filteredCategories?.length || 0}
                                     </span>
                                 </div>
@@ -75,7 +75,7 @@ export default function PublicCategoriesPage() {
                                             >
                                                 {/* Category Image */}
                                                 {category.image && (
-                                                    <div className="w-full h-32 overflow-hidden bg-gray-100 dark:bg-[#252525]">
+                                                    <div className="w-full h-32 overflow-hidden bg-white dark:bg-[#252525]">
                                                         <img
                                                             src={category.image}
                                                             alt={isRtl ? category.name : (category.name_en || category.name)}
@@ -95,7 +95,7 @@ export default function PublicCategoriesPage() {
                                                                 {category.description || (isRtl ? 'استكشف أنميات هذا التصنيف' : 'Explore anime in this category')}
                                                             </p>
                                                         </div>
-                                                        <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#252525] flex items-center justify-center group-hover:bg-black dark:group-hover:bg-white transition-colors">
+                                                        <div className="w-8 h-8 rounded-full bg-white dark:bg-[#252525] flex items-center justify-center group-hover:bg-black dark:group-hover:bg-white transition-colors border border-gray-100 dark:border-white/5 shadow-sm">
                                                             <ArrowRight className={`w-4 h-4 text-gray-400 group-hover:text-white dark:group-hover:text-black transition-colors ${isRtl ? 'rotate-180' : ''}`} />
                                                         </div>
                                                     </div>

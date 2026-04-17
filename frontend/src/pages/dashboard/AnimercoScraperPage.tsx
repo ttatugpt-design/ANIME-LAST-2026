@@ -34,28 +34,27 @@ interface BatchScrapeResult {
     error?: string;
 }
 
-// Custom Colors for WitAnime Theme (Blue/Yellow Focus)
+// Custom Colors for Animerco Theme (Cyan/Blue Focus)
 const HOST_COLORS: Record<string, string> = {
-    videa: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    yonaplay: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    streamwish: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    okru: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    dood: 'bg-orange-600/20 text-orange-500 border-orange-600/30',
+    videa: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    megamax: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    vk: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+    yourupload: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    michidraw: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+    mega: 'bg-red-500/20 text-red-400 border-red-500/30',
     download: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    embed: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    embed: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
     unknown: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
-const WitAnimeScraperPage: React.FC = () => {
+const AnimercoScraperPage: React.FC = () => {
     const queryClient = useQueryClient();
     const [url, setUrl] = useState('');
     const [batchResult, setBatchResult] = useState<BatchScrapeResult | null>(null);
-    const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
     const [expandedEpisode, setExpandedEpisode] = useState<number | null>(null);
     
     // Selection state
     const [selectedAnimeId, setSelectedAnimeId] = useState<number | "">("");
-    const [selectedServerId, setSelectedServerId] = useState<number | "">("");
     const [animeSearch, setAnimeSearch] = useState("");
     const [isPublishingAll, setIsPublishingAll] = useState(false);
     const [publishedEps, setPublishedEps] = useState<Set<number>>(new Set());
@@ -64,7 +63,7 @@ const WitAnimeScraperPage: React.FC = () => {
 
     // Fetch animes for selector
     const { data: animesRes, isLoading: isAnimesLoading } = useQuery({
-        queryKey: ["animes-scraper-search-wit", animeSearch],
+        queryKey: ["animes-scraper-search-animerco", animeSearch],
         queryFn: async () => (await api.get(`/animes`, { params: { search: animeSearch, limit: 20, paginate: "true" } })).data,
     });
     const animes = useMemo(() => {
@@ -74,22 +73,15 @@ const WitAnimeScraperPage: React.FC = () => {
 
     // Fetch episodes for selected anime
     const { data: episodesRes } = useQuery({
-        queryKey: ["episodes-scraper-wit", selectedAnimeId],
+        queryKey: ["episodes-scraper-animerco", selectedAnimeId],
         queryFn: async () => (await api.get(`/episodes`, { params: { anime_id: selectedAnimeId } })).data,
         enabled: !!selectedAnimeId,
     });
     const dbEpisodes: any[] = Array.isArray(episodesRes) ? episodesRes : (episodesRes?.data || []);
 
-    // Fetch servers
-    const { data: serversRes } = useQuery({
-        queryKey: ["servers-scraper-wit"],
-        queryFn: async () => (await api.get(`/servers`)).data,
-    });
-    const servers: any[] = Array.isArray(serversRes) ? serversRes : (serversRes?.data || []);
-
     const scrapeMutation = useMutation({
         mutationFn: async (targetUrl: string) => {
-            const res = await api.post('/scraper/witanime-batch', { url: targetUrl });
+            const res = await api.post('/scraper/animerco-batch', { url: targetUrl });
             return res.data;
         },
         onSuccess: (data) => {
@@ -99,7 +91,7 @@ const WitAnimeScraperPage: React.FC = () => {
             }
             
             if (data.success) {
-                toast.success(`تم جلب ${data.totalEpisodes} حلقة من WitAnime بنجاح!`);
+                toast.success(`تم جلب ${data.totalEpisodes} حلقة من Animerco بنجاح!`);
             } else {
                 toast.error('حدث خطأ أثناء الجلب أو لم يتم العثور على روابط');
             }
@@ -113,7 +105,7 @@ const WitAnimeScraperPage: React.FC = () => {
 
     const handleScrape = () => {
         if (!url.trim()) {
-            toast.error('يرجى إدخال رابط الأنمي من WitAnime أولاً');
+            toast.error('يرجى إدخال رابط الأنمي من Animerco أولاً');
             inputRef.current?.focus();
             return;
         }
@@ -133,7 +125,6 @@ const WitAnimeScraperPage: React.FC = () => {
             const match = dbEpisodes.find(de => de.episode_number === ep.episodeNum);
             if (!match) continue;
 
-            // Simple auto-publisher logic: Find the best watch server
             const bestLink = ep.links.find(l => !!l.embedUrl);
             if (bestLink?.embedUrl) {
                 try {
@@ -142,7 +133,7 @@ const WitAnimeScraperPage: React.FC = () => {
                         servers: [...(match.servers || []), {
                             episode_id: match.id,
                             language: "ar",
-                            name: bestLink.title || "WitAnime",
+                            name: bestLink.title || "Animerco",
                             url: bestLink.embedUrl,
                             type: "embed"
                         }],
@@ -170,42 +161,40 @@ const WitAnimeScraperPage: React.FC = () => {
         }
 
         toast.success(`تم نشر جيع الحلقات بنجاح! (تم معالجة ${successCount} حلقة)`);
-        queryClient.invalidateQueries({ queryKey: ["episodes-scraper-wit", selectedAnimeId] });
-        queryClient.invalidateQueries({ queryKey: ["animes-scraper-search-wit"] });
+        queryClient.invalidateQueries({ queryKey: ["episodes-scraper-animerco", selectedAnimeId] });
+        queryClient.invalidateQueries({ queryKey: ["animes-scraper-search-animerco"] });
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white p-4 md:p-8 transition-colors duration-300" dir="rtl">
-            {/* Header */}
+        <div className="min-h-screen bg-[#0f0f0f] text-white p-4 md:p-8" dir="rtl">
             <div className="max-w-5xl mx-auto mb-10 space-y-4">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-[1.2rem] flex items-center justify-center shadow-lg shadow-blue-500/20 border border-white/10">
+                        <div className="w-14 h-14 bg-gradient-to-br from-cyan-600 via-cyan-500 to-blue-600 rounded-[1.2rem] flex items-center justify-center shadow-2xl shadow-cyan-900/40 border border-white/10">
                             <Zap className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-4xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 bg-clip-text text-transparent tracking-tight">
-                                ساحب WitAnime الخارق
+                            <h1 className="text-4xl font-black bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent tracking-tight">
+                                ساحب Animerco الخارق
                             </h1>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">نظام اكتشاف الحلقات وتفجير السيرفرات الذكي</p>
+                            <p className="text-xs text-gray-400 font-medium mt-1">نظام استخراج السيرفرات المتطور لموقع Animerco</p>
                         </div>
                     </div>
 
                     <div className="relative group">
-                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-blue-500 transition-colors">
+                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-cyan-500 transition-colors">
                             <Search className="w-4 h-4" />
                         </div>
                         <input 
                             type="text"
-                            placeholder="ابحث واربط بالأنمي..."
+                            placeholder="اربط النتائج بالأنمي..."
                             value={animeSearch}
                             onChange={(e) => setAnimeSearch(e.target.value)}
-                            className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl py-2.5 pr-10 pl-4 text-sm w-64 outline-none focus:border-blue-500/50 transition-all text-gray-700 dark:text-gray-300 shadow-sm"
+                            className="bg-[#1a1a1a] border border-white/10 rounded-xl py-2.5 pr-10 pl-4 text-sm w-64 outline-none focus:border-cyan-500/50 transition-all text-gray-300 shadow-lg"
                         />
                     </div>
                 </div>
 
-                {/* Anime Ribbon */}
                 <div className="relative">
                     <div className="flex items-center gap-4 overflow-x-auto pb-4 px-2 no-scrollbar scroll-smooth">
                         {isAnimesLoading ? (
@@ -222,8 +211,8 @@ const WitAnimeScraperPage: React.FC = () => {
                                     className={cn(
                                         "group flex-shrink-0 w-36 h-52 rounded-2xl border transition-all duration-300 relative overflow-hidden",
                                         selectedAnimeId === a.id 
-                                            ? "border-blue-500 bg-blue-500/10 shadow-lg scale-105" 
-                                            : "border-gray-100 dark:border-white/5 bg-white dark:bg-[#1a1a1a] hover:border-blue-200 dark:hover:border-white/20 shadow-sm"
+                                            ? "border-cyan-500 bg-cyan-500/10 shadow-2xl scale-105" 
+                                            : "border-white/5 bg-[#1a1a1a] hover:border-white/20"
                                     )}
                                 >
                                     <img src={a.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" />
@@ -232,7 +221,7 @@ const WitAnimeScraperPage: React.FC = () => {
                                         <p className="text-[11px] font-bold line-clamp-2">{a.title}</p>
                                     </div>
                                     {selectedAnimeId === a.id && (
-                                        <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+                                        <div className="absolute top-2 right-2 bg-cyan-500 text-white rounded-full p-1">
                                             <CheckCircle2 className="w-3 h-3" />
                                         </div>
                                     )}
@@ -243,59 +232,57 @@ const WitAnimeScraperPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Main Input */}
             <div className="max-w-5xl mx-auto space-y-6">
-                <div className="bg-white dark:bg-[#1a1a1a] rounded-[2rem] border border-gray-100 dark:border-white/5 p-10 shadow-sm relative overflow-hidden">
+                <div className="bg-[#1a1a1a] rounded-[2rem] border border-white/5 p-10 shadow-2xl relative overflow-hidden">
                     <div className="space-y-4">
                         <label className="block text-sm font-medium text-gray-400 px-1">
-                            رابط المسلسل أو الحلقة من موقع WitAnime
+                            رابط الأنمي أو الحلقة من موقع zeta.animerco.org
                         </label>
                         <div className="flex flex-col md:flex-row gap-4">
                             <div className="flex-1 relative">
-                                <Globe className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <Globe className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
                                 <input
                                     ref={inputRef}
                                     type="url"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
-                                    placeholder="https://witanime.life/anime/..."
-                                    className="w-full bg-white dark:bg-[#252525] border border-gray-200 dark:border-white/10 rounded-2xl text-gray-900 dark:text-white py-4 pr-12 pl-6 outline-none focus:border-blue-500 transition-all shadow-inner"
+                                    placeholder="https://zeta.animerco.org/animes/..."
+                                    className="w-full bg-[#252525] border border-white/10 rounded-2xl text-white py-4 pr-12 pl-6 outline-none focus:border-cyan-500 transition-all shadow-inner"
                                     dir="ltr"
                                 />
                             </div>
                             <button
                                 onClick={handleScrape}
                                 disabled={scrapeMutation.isPending}
-                                className="flex items-center justify-center gap-3 px-10 py-4 rounded-2xl font-bold text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/30 transition-all disabled:opacity-50"
+                                className="flex items-center justify-center gap-3 px-10 py-4 rounded-2xl font-bold text-lg bg-cyan-600 hover:bg-cyan-700 text-white shadow-xl shadow-cyan-900/30 transition-all disabled:opacity-50"
                             >
                                 {scrapeMutation.isPending ? <Loader2 className="animate-spin w-6 h-6" /> : <Search className="w-6 h-6" />}
-                                ابدأ السحب العميق
+                                ابدأ السحب الآن
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Results Section */}
                 {scrapeMutation.isPending && (
-                    <div className="bg-white dark:bg-[#1a1a1a] rounded-3xl p-20 text-center border border-gray-100 dark:border-white/5 shadow-sm">
+                    <div className="bg-[#1a1a1a] rounded-3xl p-20 text-center border border-white/5 shadow-2xl">
                         <div className="relative w-24 h-24 mx-auto mb-8">
-                            <div className="absolute inset-0 rounded-full border-4 border-blue-500/10 animate-ping" />
-                            <Loader2 className="w-24 h-24 text-blue-500 animate-spin" />
+                            <div className="absolute inset-0 rounded-full border-4 border-cyan-500/10 animate-ping" />
+                            <Loader2 className="w-24 h-24 text-cyan-500 animate-spin" />
                         </div>
-                        <h3 className="text-2xl font-bold mb-2">جاري استخراج السيرفرات...</h3>
-                        <p className="text-gray-500">يقوم النظام الآن بفك تشفير روابط WitAnime وتجهيزها لك</p>
+                        <h3 className="text-2xl font-bold mb-2">جاري فحص الحلقات...</h3>
+                        <p className="text-gray-500">يقوم النظام الآن بفك تشفير مشغل Animerco وجلب روابط السيرفرات</p>
                     </div>
                 )}
 
                 {batchResult && !scrapeMutation.isPending && (
                     <div className="space-y-6">
-                        <div className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] p-6 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
+                        <div className="flex items-center justify-between bg-[#1a1a1a] p-6 rounded-2xl border border-white/5 shadow-lg">
                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-blue-600/10 rounded-xl">
-                                    <List className="w-6 h-6 text-blue-600" />
+                                <div className="p-3 bg-cyan-600/20 rounded-xl">
+                                    <List className="w-6 h-6 text-cyan-500" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">تم اكتشاف {batchResult.totalEpisodes} حلقة</h2>
+                                    <h2 className="text-xl font-bold">وجدنا {batchResult.totalEpisodes} حلقة</h2>
                                     <p className="text-xs text-gray-500" dir="ltr">{batchResult.title}</p>
                                 </div>
                             </div>
@@ -303,7 +290,7 @@ const WitAnimeScraperPage: React.FC = () => {
                                 <button
                                     onClick={handlePublishAll}
                                     disabled={isPublishingAll}
-                                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/40 transition-all active:scale-95 flex items-center gap-2"
+                                    className="px-8 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold shadow-lg shadow-cyan-900/40 transition-all active:scale-95 flex items-center gap-2"
                                 >
                                     {isPublishingAll ? <Loader2 className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
                                     نشر السيرفرات لجميع الحلقات
@@ -316,45 +303,45 @@ const WitAnimeScraperPage: React.FC = () => {
                                 <div 
                                     key={ep.episodeNum}
                                     className={cn(
-                                        "bg-white dark:bg-[#1a1a1a] rounded-2xl border transition-all overflow-hidden",
-                                        expandedEpisode === ep.episodeNum ? "border-blue-500/50 shadow-md" : "border-gray-100 dark:border-white/5 shadow-sm"
+                                        "bg-[#1a1a1a] rounded-2xl border transition-all overflow-hidden",
+                                        expandedEpisode === ep.episodeNum ? "border-cyan-500/50 shadow-2xl" : "border-white/5"
                                     )}
                                 >
                                     <div 
-                                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-white/3 transition-colors"
+                                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/3 transition-colors"
                                         onClick={() => setExpandedEpisode(expandedEpisode === ep.episodeNum ? null : ep.episodeNum)}
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white">
+                                            <div className="w-10 h-10 bg-cyan-600 rounded-xl flex items-center justify-center font-bold">
                                                 {ep.episodeNum}
                                             </div>
-                                            <h4 className="font-bold text-gray-900 dark:text-white">{ep.label}</h4>
+                                            <h4 className="font-bold">{ep.label}</h4>
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="text-xs text-gray-500 font-mono">{ep.links.length} سيرفرات</span>
-                                            <ChevronRight className={cn("w-5 h-5 transition-transform text-gray-400", expandedEpisode === ep.episodeNum && "rotate-90")} />
+                                            <ChevronRight className={cn("w-5 h-5 transition-transform", expandedEpisode === ep.episodeNum && "rotate-90")} />
                                         </div>
                                     </div>
 
                                     {expandedEpisode === ep.episodeNum && (
-                                        <div className="p-6 pt-0 border-t border-gray-100 dark:border-white/5">
+                                        <div className="p-6 pt-0 border-t border-white/5">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                                                 {ep.links.map((link, idx) => (
-                                                    <div key={idx} className="bg-gray-50 dark:bg-black/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 space-y-3 shadow-sm">
+                                                    <div key={idx} className="bg-black/40 p-4 rounded-xl border border-white/5 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <span className={cn("text-[10px] font-bold px-2 py-1 rounded-md border uppercase", HOST_COLORS[link.host] || HOST_COLORS.unknown)}>
                                                                 {link.title}
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-center gap-2 bg-blue-500/5 border border-blue-500/10 p-2 rounded-lg">
-                                                            <Link2 className="w-3 h-3 text-blue-500 shrink-0" />
+                                                        <div className="flex items-center gap-2 bg-cyan-500/5 border border-cyan-500/10 p-2 rounded-lg">
+                                                            <Link2 className="w-3 h-3 text-cyan-500 shrink-0" />
                                                             <span className="text-[10px] text-gray-500 truncate flex-1" dir="ltr">{link.embedUrl}</span>
                                                             <button 
                                                                 onClick={() => {
                                                                     navigator.clipboard.writeText(link.embedUrl!);
                                                                     toast.success('تم نسخ الرابط');
                                                                 }}
-                                                                className="hover:text-blue-500 text-gray-400"
+                                                                className="hover:text-cyan-500"
                                                             >
                                                                 <Copy className="w-3 h-3" />
                                                             </button>
@@ -374,4 +361,4 @@ const WitAnimeScraperPage: React.FC = () => {
     );
 };
 
-export default WitAnimeScraperPage;
+export default AnimercoScraperPage;

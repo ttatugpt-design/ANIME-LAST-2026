@@ -87,7 +87,7 @@ const LazyChapterImage = ({ src, alt, index, total, shouldLoad, onClick, onLoad 
                 </div>
             </div>
 
-            <div className="bg-gray-50 dark:bg-[#1a1a1a] p-2 text-center text-[10px] font-bold text-gray-400 border-t dark:border-[#222] mt-auto">
+            <div className="bg-white dark:bg-[#1a1a1a] p-2 text-center text-[10px] font-bold text-gray-400 border-t dark:border-[#222] mt-auto shadow-sm">
                 {index + 1} / {total}
             </div>
         </div>
@@ -248,7 +248,7 @@ export default function ChapterPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white" dir={isAr ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{pageTitle}</title>
             </Helmet>
@@ -291,7 +291,7 @@ export default function ChapterPage() {
                         
                         {/* Sidebar Tab Header + Navigation Actions */}
                         <div className="flex flex-col gap-4 mb-6 border-b dark:border-white/10 pb-4">
-                            <div className="flex items-center justify-between gap-1 bg-gray-50 dark:bg-white/5 p-1 rounded-2xl">
+                            <div className="flex items-center justify-between gap-1 bg-white dark:bg-white/5 p-1 rounded-2xl border border-gray-100 dark:border-white/10 shadow-sm">
                                 <button 
                                     onClick={() => setSidebarTab('comments')}
                                     className={cn(
@@ -321,7 +321,7 @@ export default function ChapterPage() {
                                         <button className={cn(
                                             "p-2 rounded-lg transition-all flex items-center gap-2 border flex-1 md:flex-none",
                                             theme === 'light' 
-                                                ? "bg-white border-black/5 hover:bg-gray-50 text-gray-900" 
+                                                ? "bg-white border-black/5 hover:bg-white text-gray-900 shadow-sm" 
                                                 : "bg-white border-white/10 hover:bg-white/90 text-black font-black"
                                         )}>
                                             <Hash className="w-5 h-5" />
@@ -428,7 +428,7 @@ export default function ChapterPage() {
                                         return (
                                             <div key={ch.id} className={cn(
                                                 "group flex items-center gap-0 px-2 py-2 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all",
-                                                isActive ? "bg-blue-600/10 border-l-2 border-l-blue-600 shadow-inner" : "hover:bg-gray-50 dark:hover:bg-white/5"
+                                                isActive ? "bg-blue-600/10 border-l-2 border-l-blue-600 shadow-inner" : "hover:bg-white dark:hover:bg-white/5 hover:shadow-sm"
                                             )}>
                                                 <Link to={`/${lang}/read/${id}/${ch.chapter_number}/${slugify(animeTitle)}`} className="flex-1 flex items-center min-w-0">
                                                     <div className={cn(
@@ -571,8 +571,8 @@ export default function ChapterPage() {
                                                     className={cn(
                                                         "flex items-center gap-4 p-4 rounded-3xl transition-all border",
                                                         ch.chapter_number === chapterNum 
-                                                            ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20" 
-                                                            : "bg-gray-50 dark:bg-[#111] border-gray-100 dark:border-white/5 hover:bg-gray-100 dark:hover:bg-white/5"
+                                                            ? "bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-600/20" 
+                                                            : "bg-white dark:bg-[#111] border-gray-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/5 shadow-sm hover:shadow-md"
                                                     )}
                                                 >
                                                     <span className="text-sm font-black opacity-30 tabular-nums">#{String(ch.chapter_number).padStart(2, '0')}</span>

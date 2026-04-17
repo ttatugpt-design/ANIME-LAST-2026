@@ -180,6 +180,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/witanime-scraper`),
         },
         {
+            label: i18n.language === 'ar' ? 'ساحب Animerco' : 'Animerco Scraper',
+            icon: Zap,
+            href: `/${lang}/dashboard/animerco-scraper`,
+            active: pathname.startsWith(`/${lang}/dashboard/animerco-scraper`),
+        },
+        {
             label: i18n.language === 'ar' ? 'ساحب الصور' : 'Image Scraper',
             icon: ImageIconLucide,
             href: `/${lang}/dashboard/image-scraper`,

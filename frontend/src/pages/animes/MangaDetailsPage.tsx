@@ -249,7 +249,7 @@ export default function MangaDetailsPage() {
     } : null;
 
     return (
-        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white font-sans transition-colors duration-300">
+        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white font-sans transition-colors duration-300">
             <Helmet htmlAttributes={{ lang: lang }}>
                 {(!manga && !isLoading) || error ? (
                     <meta name="robots" content="noindex, nofollow" />
@@ -423,8 +423,8 @@ export default function MangaDetailsPage() {
 
                                                         <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-gray-600 dark:text-gray-400 mb-8">
                                                             <span className="px-3 py-1 bg-gray-200 dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100 rounded-none">All Ages</span>
-                                                            {manga?.status && <span className="uppercase text-black dark:text-gray-300 bg-gray-50 dark:bg-white/5 px-2 py-0.5 rounded-none border border-gray-200 dark:border-white/10">{manga.status}</span>}
-                                                            <div className="flex items-center gap-1 text-yellow-500 bg-yellow-50 dark:bg-yellow-500/10 px-2 py-0.5 rounded-none border border-yellow-200 dark:border-yellow-500/20">
+                                                            {manga?.status && <span className="uppercase text-black dark:text-gray-300 bg-white dark:bg-white/5 px-2 py-0.5 rounded-none border border-gray-200 dark:border-white/10 shadow-sm">{manga.status}</span>}
+                                                            <div className="flex items-center gap-1 text-yellow-500 bg-white dark:bg-yellow-500/10 px-2 py-0.5 rounded-none border border-yellow-200 dark:border-yellow-500/20 shadow-sm">
                                                                 <Star className="w-4 h-4 fill-current" />
                                                                 <span className="text-black dark:text-yellow-500">{manga?.rating || 'N/A'}</span>
                                                             </div>
@@ -455,10 +455,9 @@ export default function MangaDetailsPage() {
                                                                 onClick={handleWatchLaterToggle}
                                                                 disabled={isWatchLaterLoading}
                                                                 className={cn(
-                                                                    "flex items-center justify-center p-4 rounded-none transition-all duration-300 shadow-sm border group",
                                                                     isSaved(Number(manga?.id), null)
                                                                         ? "bg-black border-black text-white dark:bg-black dark:border-black dark:text-white"
-                                                                        : "bg-white border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-gray-50 dark:hover:bg-gray-50"
+                                                                        : "bg-white border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 hover:shadow-sm"
                                                                 )}
                                                                 title={lang === 'ar' ? 'أضف لقائمة المتابعة' : 'Add to Watchlist'}
                                                             >
@@ -470,10 +469,10 @@ export default function MangaDetailsPage() {
                                                                     <Bookmark className="w-7 h-7 group-hover:scale-110 transition-transform" />
                                                                 )}
                                                             </button>
-
+ 
                                                             <button
                                                                 onClick={() => setIsShareModalOpen(true)}
-                                                                className="flex items-center justify-center p-4 rounded-none bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-gray-50 dark:hover:bg-gray-50 transition-all shadow-sm group"
+                                                                className="flex items-center justify-center p-4 rounded-none bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
                                                             >
                                                                 <Share2 className="w-7 h-7 group-hover:scale-110 transition-transform" />
                                                             </button>
@@ -481,7 +480,7 @@ export default function MangaDetailsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="bg-gray-50 dark:bg-[#1a1a1a] p-4 md:p-6 rounded-none border border-gray-100 dark:border-[#2a2a2a] shadow-sm">
+                                                <div className="bg-white dark:bg-[#1a1a1a] p-4 md:p-6 rounded-none border border-gray-100 dark:border-[#2a2a2a] shadow-sm">
                                                     <p className="text-gray-800 dark:text-gray-300 text-base lg:text-lg leading-relaxed font-medium">
                                                         {renderEmojiContent(mangaDescription || 'No description available.')}
                                                     </p>
@@ -570,7 +569,7 @@ export default function MangaDetailsPage() {
                                             const chUrl = `/${lang}/read/${manga?.id || ch.anime_id}/${ch.chapter_number}/${slugify(mangaTitle)}`;
 
                                             return (
-                                                <div key={ch.id} className="group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all hover:bg-gray-50 dark:hover:bg-[#222]">
+                                                <div key={ch.id} className="group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm">
                                                     <Link to={chUrl} className="flex-1 flex items-center min-w-0">
                                                         <div className="w-8 flex-shrink-0 text-[11px] font-bold text-gray-400 text-center">
                                                             #{ch.chapter_number}
@@ -583,7 +582,7 @@ export default function MangaDetailsPage() {
                                                     </Link>
                                                     <div className="flex-shrink-0 flex items-center justify-end">
                                                         <div className="hidden group-hover:flex items-center gap-0.5">
-                                                            <button onClick={() => setIsShareModalOpen(true)} className="p-1 h-7 w-7 rounded-sm hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-colors">
+                                                            <button onClick={() => setIsShareModalOpen(true)} className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent hover:shadow-sm">
                                                                 <Share2 className="w-3.5 h-3.5" />
                                                             </button>
                                                         </div>
@@ -617,7 +616,7 @@ function ChapterListItem({ chapter, lang, mangaTitle }: { chapter: any; lang: st
     return (
         <Link
             to={`/${lang}/read/${chapter.anime_id}/${chapter.chapter_number}/${slugify(mangaTitle)}`}
-            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-100 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10 p-0 md:p-2"
+            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-white dark:hover:bg-neutral-900/40 transition-all duration-200 relative z-10 p-0 md:p-2 border border-transparent hover:border-gray-100 dark:hover:border-transparent hover:shadow-md rounded-lg"
         >
             <div className="w-[140px] md:w-[260px] h-[80px] md:h-[145px] flex-shrink-0 relative overflow-hidden shadow-sm">
                 <SpinnerImage

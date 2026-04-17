@@ -212,7 +212,7 @@ export default function SearchPage() {
 
                             {/* No Results State */}
                             {!episodesLoading && !animesLoading && episodes.length === 0 && animes.length === 0 && (
-                                <div className="text-center py-20 bg-gray-50 dark:bg-[#111] rounded-xl border border-dashed border-gray-200 dark:border-[#333]">
+                                <div className="text-center py-20 bg-white dark:bg-[#111] rounded-xl border border-dashed border-gray-200 dark:border-[#333]">
                                     <Search className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-700" />
                                     <p className="text-lg text-gray-500">
                                         {isRtl ? 'لم يتم العثور على نتائج' : 'No results found'}
@@ -265,7 +265,7 @@ function AnimeListItem({ anime, lang, isRtl }: { anime: any; lang: string; isRtl
     return (
         <Link
             to={`/${lang}/animes/${anime.id}/${slugify(title)}`}
-            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10"
+            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50/50 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10"
         >
             {/* Image Section */}
             <div className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden rounded-none">

@@ -114,7 +114,7 @@ export function CategoriesMenuContent({ onClose, isVisible }: CategoriesMenuCont
                                     "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border",
                                     isActive
                                         ? "bg-black dark:bg-white text-white dark:text-black border-black dark:border-white"
-                                        : "bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10"
+                                        : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10"
                                 )}
                             >
                                 <Icon className="w-3.5 h-3.5" />
@@ -269,7 +269,7 @@ export function CategoriesMenuContent({ onClose, isVisible }: CategoriesMenuCont
                 </div>
 
                 {/* Sidebar (Right) */}
-                <div className="w-[280px] bg-gray-50/50 dark:bg-neutral-900/30 border-l border-gray-100 dark:border-neutral-800 flex flex-col rtl:order-1 rtl:border-l-0 rtl:border-r">
+                <div className="w-[280px] bg-white dark:bg-neutral-900/30 border-l border-gray-100 dark:border-neutral-800 flex flex-col rtl:order-1 rtl:border-l-0 rtl:border-r">
                     <div className="p-6 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
                         <h4 className="text-sm font-bold font-sans text-gray-400 uppercase tracking-widest">{isRtl ? 'تصفح حسب الفئة' : 'Browse by category'}</h4>
                         <LayoutGrid className="w-4 h-4 text-gray-400" />

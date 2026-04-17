@@ -23,6 +23,7 @@ import (
 const (
 	RistoAnimeBatchScript = "backend/scraper/ristoanime_batch_scraper.js"
 	WitAnimeBatchScript   = "backend/scraper/witanime_batch_scraper.js"
+	AnimercoBatchScript   = "backend/scraper/animerco_batch_scraper.js"
 )
 
 type ScraperHandler struct {
@@ -853,6 +854,8 @@ func (h *ScraperHandler) DeepImportAnime(c *gin.Context) {
 		script_name = "witanime_batch_scraper.js"
 	} else if strings.Contains(body.DetailURL, "egydead") {
 		script_name = "egydead_batch_scraper.js"
+	} else if strings.Contains(body.DetailURL, "animerco.org") {
+		script_name = "animerco_batch_scraper.js"
 	}
 
 	if script_name == "" {
@@ -983,6 +986,8 @@ func (h *ScraperHandler) autoScrapeServers(anime domain.Anime, detailURL string)
 		scriptPath = filepath.Join(h.BaseDir, "scraper", "witanime_batch_scraper.js")
 	} else if strings.Contains(detailURL, "egydead") {
 		scriptPath = filepath.Join(h.BaseDir, "scraper", "egydead_batch_scraper.js")
+	} else if strings.Contains(detailURL, "animerco.org") {
+		scriptPath = filepath.Join(h.BaseDir, "scraper", "animerco_batch_scraper.js")
 	}
 
 	if scriptPath == "" {
@@ -1113,4 +1118,48 @@ func (h *ScraperHandler) slugify(s string) string {
 	// Simple cleanup: remove unsafe chars
 	reg := strings.NewReplacer("!", "", "?", "", "(", "", ")", "", ":", "", ",", "")
 	return reg.Replace(s)
+}
+
+func (h *ScraperHandler) FetchAnimercoBatch(c *gin.Context) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON غير صالح"})
+		return
+	}
+	if body.URL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب توفير رابط صالح لموقع Animerco"})
+		return
+	}
+
+	scriptPath := h.getScriptPath("animerco_batch_scraper.js")
+	if _, err := os.Stat(scriptPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ملف السكريبت غير موجود"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "node", scriptPath, body.URL)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "فشل تنفيذ عملية السحب",
+			"details": stderr.String(),
+		})
+		return
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل معالجة نتائج السحب"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }

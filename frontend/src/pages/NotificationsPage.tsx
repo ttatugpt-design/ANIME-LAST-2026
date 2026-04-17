@@ -148,7 +148,7 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
                     onClick();
                 }
             }}
-            className={`group flex items-start gap-4 p-5 transition-all cursor-pointer relative ${notification.is_read ? 'bg-white dark:bg-[#0a0a0a]' : 'bg-gray-50 dark:bg-white/[0.03] border-s-4 border-black dark:border-white'} border-b border-gray-100 dark:border-[#111] hover:bg-gray-50 dark:hover:bg-[#111] ${isSelected ? 'ring-2 ring-black dark:ring-white bg-gray-50 dark:bg-white/[0.05]' : ''}`}
+            className={`group flex items-start gap-4 p-5 transition-all cursor-pointer relative ${notification.is_read ? 'bg-white dark:bg-[#0a0a0a]' : 'bg-blue-50/10 dark:bg-white/[0.03] border-s-4 border-black dark:border-white'} border-b border-gray-100 dark:border-[#111] hover:bg-gray-50/50 dark:hover:bg-[#111] ${isSelected ? 'ring-2 ring-black dark:ring-white bg-gray-50/50 dark:bg-white/[0.05]' : ''}`}
         >
             {selectionMode && (
                 <div className="flex-shrink-0 pt-3">
@@ -192,7 +192,7 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
                         <div className="mt-2 space-y-3">
                             {notification.type === 'reply' ? (
                                 <div className="grid grid-cols-1 gap-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
-                                    <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-none relative">
+                                    <div className="bg-white dark:bg-white/5 p-3 rounded-none relative border border-gray-100 dark:border-white/5 shadow-sm">
                                         <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-gray-400 uppercase">
                                             {isRtl ? 'تعليقك' : 'YOUR COMMENT'}
                                         </div>
@@ -212,7 +212,7 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
                                 </div>
                             ) : notification.type === 'comment' ? (
                                 <div className="grid grid-cols-1 gap-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
-                                    <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-none relative">
+                                    <div className="bg-white dark:bg-white/5 p-3 rounded-none relative border border-gray-100 dark:border-white/5 shadow-sm">
                                         <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-gray-400 uppercase">
                                             {isRtl ? 'منشورك' : 'YOUR POST'}
                                         </div>
@@ -480,7 +480,7 @@ export default function NotificationsPage() {
                     </div>
                 ) : notifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-[#0a0a0a] rounded-none border border-dashed border-gray-200 dark:border-[#222]">
-                        <div className="w-24 h-24 bg-gray-50 dark:bg-[#111] rounded-none flex items-center justify-center mb-6">
+                        <div className="w-24 h-24 bg-white dark:bg-[#111] rounded-none flex items-center justify-center mb-6 border border-gray-100 dark:border-[#222]">
                             <Inbox className="w-12 h-12 text-black dark:text-white opacity-20" />
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">

@@ -104,7 +104,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
                 )}
 
                 {/* Left: Latest Animes (w-[63%]) */}
-                <div className="w-[63%] p-3 bg-gray-50/30 dark:bg-[#0d0d0d]/50">
+                <div className="w-[63%] p-3 bg-white dark:bg-[#0d0d0d]/50">
                     <div className="flex items-center justify-between mb-3">
                         <Link to={`/${i18n.language}/animes`} onClick={onClose} className="text-[10px] font-bold text-gray-500 hover:text-black dark:hover:text-white transition-colors uppercase tracking-widest">
                             {isRtl ? 'عرض أحدث الإضافات' : 'View Latest'}
@@ -164,7 +164,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
                 </div>
 
                 {/* Right: Latest Episodes (w-[37%]) */}
-                <div className="w-[37%] p-3 bg-gray-50/10 dark:bg-[#0a0a0a]/50">
+                <div className="w-[37%] p-3 bg-white dark:bg-[#0a0a0a]/50">
                     <div className="flex items-center justify-between mb-3">
                         <Link to={`/${i18n.language}/episodes-list`} onClick={onClose} className="text-[10px] font-bold text-gray-500 hover:text-black dark:hover:text-white transition-colors uppercase tracking-widest">
                             {isRtl ? 'مشاهدة الكل' : 'View All'}

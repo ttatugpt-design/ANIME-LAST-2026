@@ -382,6 +382,7 @@ export default function WatchPage() {
         { key: 'super_sad', label: lang === 'ar' ? 'أحززنني جداً' : 'So Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحززنني جدا.png') },
     ];
 
+
     // Server Ordering Logic
     const [serverPriority, setServerPriority] = useState<string[]>([]);
     
@@ -1120,7 +1121,7 @@ export default function WatchPage() {
     const shouldIndex = !((!anime && !isQueryLoading) || !!episodeError || (!currentEpisode && !episodeData));
 
     return (
-        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white transition-colors duration-300">
+        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300">
             <Helmet htmlAttributes={{ lang: lang }} defer={false}>
                 {/* 5. Robots: Single tag with dynamic content */}
                 <meta name="robots" content={shouldIndex ? "index, follow" : "noindex, nofollow"} />
@@ -1180,7 +1181,7 @@ export default function WatchPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible min-h-screen">
 
                         {/* Left Sidebar - ALWAYS VISIBLE */}
-                        <div className="hidden lg:block lg:col-span-2 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30">
+                        <div className="hidden lg:block lg:col-span-2 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30">
                             <SocialNavSidebar />
                         </div>
 
@@ -1501,8 +1502,8 @@ export default function WatchPage() {
                                                                     userReaction
                                                                         ? (userReaction === 'like' ? "text-blue-500" : 
                                                                            userReaction === 'love' ? "text-red-500" : 
-                                                                           "text-yellow-500") + " hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
+                                                                           "text-yellow-500") + " hover:bg-white dark:hover:bg-[#2a2a2a] shadow-sm border border-gray-100 dark:border-transparent"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-[#2a2a2a] hover:shadow-sm border border-transparent hover:border-gray-100 dark:hover:border-transparent"
                                                                 )}
                                                             >
                                                                 {activeReaction ? (
@@ -1558,6 +1559,8 @@ export default function WatchPage() {
                                                                             src={r.gif}
                                                                             alt={r.label}
                                                                             draggable={false}
+                                                                            loading="eager"
+                                                                            fetchpriority="high"
                                                                             className={cn(
                                                                                 "select-none transition-all duration-200 rounded-full object-cover",
                                                                                 hoveredReaction === r.key
@@ -1573,7 +1576,7 @@ export default function WatchPage() {
                                                 </div>
 
                                                 <button
-                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[14px] md:text-[15px] text-black dark:text-white hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
+                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[14px] md:text-[15px] text-black dark:text-white hover:bg-white dark:hover:bg-[#2a2a2a] border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
                                                     onClick={() => {
                                                         if (isMobile) {
                                                             commentsSectionRef.current?.openAddCommentModal();
@@ -1588,7 +1591,7 @@ export default function WatchPage() {
                                                 </button>
 
                                                 <button
-                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
+                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-[#2a2a2a] border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
                                                     onClick={() => openModal(setIsShareModalOpen)}
                                                 >
                                                     <Share2 className="w-5 h-5" />
@@ -1603,13 +1606,13 @@ export default function WatchPage() {
                                                         episodeNumber={currentEpisode?.episode_number}
                                                         episodeImage={getImageUrl(currentEpisode?.thumbnail)}
                                                         variant="default"
-                                                        className="w-full flex items-center justify-center gap-2 py-2 h-auto rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-500 dark:text-gray-400 px-0 [&_svg]:w-5 [&_svg]:h-5 bg-transparent border-0 font-bold"
+                                                        className="w-full flex items-center justify-center gap-2 py-2 h-auto rounded-lg hover:bg-white dark:hover:bg-[#2a2a2a] text-gray-500 dark:text-gray-400 px-0 [&_svg]:w-5 [&_svg]:h-5 bg-transparent border-0 font-bold hover:shadow-sm hover:border hover:border-gray-100 dark:hover:border-transparent"
                                                         showLabel={true}
                                                     />
                                                 </div>
                                             </div>
 
-                                            <div className="border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-gray-50/30 dark:bg-black/20 pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
+                                            <div className="border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-white dark:bg-black/20 pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
                                                
                                                 <div className="min-h-[100px]">
                                                     <CommentsSection 
@@ -1654,7 +1657,7 @@ export default function WatchPage() {
                                                             key={ep.id}
                                                             className={cn(
                                                                 "group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all",
-                                                                isActive ? "bg-gray-100 dark:bg-neutral-800" : "hover:bg-gray-50 dark:hover:bg-[#222]"
+                                                                isActive ? "bg-gray-100 dark:bg-neutral-800" : "hover:bg-white dark:hover:bg-[#222] hover:shadow-sm border border-transparent hover:border-gray-100 dark:hover:border-transparent"
                                                             )}
                                                         >
                                                             <Link

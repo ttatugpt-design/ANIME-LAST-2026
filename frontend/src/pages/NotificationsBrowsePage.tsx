@@ -127,7 +127,7 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
     return (
         <div
             onClick={() => selectionMode ? onSelect(notification.id) : onClick()}
-            className={`group flex items-start gap-4 p-5 transition-all cursor-pointer relative ${notification.is_read ? 'bg-white dark:bg-[#0a0a0a]' : 'bg-gray-50/40 dark:bg-white/5 border-s-4 border-black dark:border-white'} border-b border-gray-100 dark:border-[#111] hover:bg-gray-50 dark:hover:bg-[#111] ${isSelected ? 'ring-2 ring-black dark:ring-white bg-gray-50/20 dark:bg-white/10' : ''}`}
+            className={`group flex items-start gap-4 p-5 transition-all cursor-pointer relative ${notification.is_read ? 'bg-white dark:bg-[#0a0a0a]' : 'bg-blue-50/10 dark:bg-white/5 border-s-4 border-black dark:border-white'} border-b border-gray-100 dark:border-[#111] hover:bg-gray-50/50 dark:hover:bg-[#111] ${isSelected ? 'ring-2 ring-black dark:ring-white bg-gray-50/20 dark:bg-white/10' : ''}`}
         >
             {selectionMode && (
                 <div className="flex-shrink-0 pt-3">
@@ -164,7 +164,7 @@ function NotificationItem({ notification, isRtl, onClick, isSelected, onSelect, 
                         <div className="mt-2 space-y-3">
                             {notification.type === 'reply' ? (
                                 <div className="grid grid-cols-1 gap-2 border-s-2 border-gray-200 dark:border-white/10 pl-3">
-                                    <div className="bg-gray-50 dark:bg-white/5 p-3 rounded-none relative">
+                                    <div className="bg-white dark:bg-white/5 p-3 rounded-none relative border border-gray-100 dark:border-white/5 shadow-sm">
                                         <div className="flex items-center gap-2 mb-1 text-[10px] font-black text-gray-400 uppercase">
                                             {isRtl ? 'تعليقك' : 'YOUR COMMENT'}
                                         </div>
@@ -379,13 +379,13 @@ export default function NotificationsBrowsePage() {
                                 <div className="flex flex-wrap items-center gap-2">
                                     <button
                                         onClick={markAllAsRead}
-                                        className="px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
+                                        className="px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50/50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
                                     >
                                         {isRtl ? 'تعليم الكل كمقروء' : 'Mark all as read'}
                                     </button>
                                     <button
                                         onClick={deleteAll}
-                                        className="px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-black dark:text-white border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
+                                        className="px-6 py-2.5 bg-white dark:bg-[#111] hover:bg-gray-50/50 dark:hover:bg-[#1a1a1a] text-sm font-bold text-black dark:text-white border border-gray-200 dark:border-[#333] rounded-none transition-all shadow-sm active:scale-95"
                                     >
                                         {isRtl ? 'حذف الكل' : 'Clear All'}
                                     </button>

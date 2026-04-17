@@ -1015,6 +1015,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                                     src={r.gif}
                                                     alt={r.label}
                                                     draggable={false}
+                                                    loading="eager"
+                                                    fetchpriority="high"
                                                     className={cn(
                                                         "select-none transition-all duration-200 rounded-full object-cover",
                                                         hoveredReaction === r.key

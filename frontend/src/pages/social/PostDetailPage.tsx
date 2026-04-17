@@ -38,7 +38,7 @@ export default function PostDetailPage() {
     }, [postId, isAr]);
 
     return (
-        <div className="min-h-screen bg-[#f0f2f5] dark:bg-black" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="min-h-screen bg-white dark:bg-black" dir={isAr ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isAr ? 'عرض المنشور - AnimeLast' : 'View Post - AnimeLast'}</title>
             </Helmet>
@@ -48,7 +48,7 @@ export default function PostDetailPage() {
             <div className="w-full">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible">
                     {/* Left Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
+                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black">
                         <SocialNavSidebar />
                     </div>
 
@@ -73,7 +73,7 @@ export default function PostDetailPage() {
                     </div>
 
                     {/* Right Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
+                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black">
                         <FriendsSidebar />
                     </div>
                 </div>

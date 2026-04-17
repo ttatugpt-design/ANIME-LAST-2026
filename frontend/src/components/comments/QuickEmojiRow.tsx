@@ -169,7 +169,9 @@ export const QuickEmojiRow: React.FC<QuickEmojiRowProps> = ({ onEmojiClick }) =>
                             src={url}
                             alt=""
                             className="w-full h-full object-contain pointer-events-none"
-                            loading="lazy"
+                            loading="eager"
+                            //@ts-ignore
+                            fetchpriority="high"
                             draggable="false"
                         />
                     </button>

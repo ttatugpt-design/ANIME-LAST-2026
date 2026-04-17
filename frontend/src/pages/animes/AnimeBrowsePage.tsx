@@ -70,7 +70,7 @@ export default function AnimeBrowsePage() {
     const seoTitle = i18n.language === 'ar' ? 'الرئيسية - AnimeLast' : 'Home - AnimeLast';
 
     return (
-        <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white transition-colors duration-300 font-sans">
+        <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300 font-sans">
             <Helmet htmlAttributes={{ lang: i18n.language }} defer={false}>
                 <title>{seoTitle}</title>
             </Helmet>
@@ -91,7 +91,7 @@ export default function AnimeBrowsePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-visible min-h-screen">
 
                     {/* Left Sidebar - SocialNavSidebar */}
-                    <div className="hidden lg:block sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30 border-r border-gray-100 dark:border-[#333]/50">
+                    <div className="hidden lg:block sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30 border-r border-gray-100 dark:border-[#333]/50">
                         <SocialNavSidebar />
                     </div>
 
@@ -239,7 +239,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                     <div className="flex gap-2">
                         <button
                             onClick={onSearchClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all shadow-sm rounded-lg"
                         >
                             <Search className="w-4 h-4" />
                             <span className="hidden sm:inline text-sm font-medium">
@@ -248,7 +248,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                         </button>
                         <button
                             onClick={onFilterClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all shadow-sm rounded-lg"
                         >
                             <Filter className="w-4 h-4" />
                             <span className="hidden sm:inline text-sm font-medium">
@@ -314,7 +314,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                             <button
                                 onClick={handleLoadMore}
                                 disabled={isLoadingMore}
-                                className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
+                                className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-100 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
                             >
                                 {isLoadingMore ? (
                                     <div className="flex items-center gap-2">
@@ -426,7 +426,7 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
                         <span>{isRtl ? 'أبجدي' : 'Alphabetical'}</span>
                     </button>
                     {isEpisodes && (
-                        <div className="flex items-center bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-lg">
+                    <div className="flex items-center bg-white dark:bg-[#1a1a1a] p-1 rounded-lg border border-gray-100 dark:border-white/5 shadow-sm">
                             <button
                                 onClick={() => setLayout('grid')}
                                 className={cn(
@@ -552,7 +552,7 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
                     <button
                         onClick={() => fetchNextPage()}
                         disabled={isFetchingNextPage}
-                        className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
+                        className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-100 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
                     >
                         {isFetchingNextPage ? (
                             <>
@@ -603,7 +603,7 @@ const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLea
         >
             <Link to={targetLink} className="flex flex-col w-full h-full">
                 {/* Cover Container */}
-                <div className={`relative flex-shrink-0 w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] transition-transform duration-300`}>
+                <div className={`relative flex-shrink-0 w-full aspect-[3/4] overflow-hidden bg-white dark:bg-[#1c1c1c] transition-transform duration-300 border border-transparent group-hover:border-gray-100 dark:group-hover:border-white/5`}>
                     <SpinnerImage
                         src={getImageUrl(image)}
                         alt={displayTitle}
@@ -666,10 +666,10 @@ const ListItem = ({ item, lang }: any) => {
     };
 
     return (
-        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-gray-50 dark:hover:bg-[#222]">
+        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm">
             <Link to={targetLink} className="flex-1 flex items-center min-w-0">
                 {/* Thumbnail */}
-                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-gray-100 dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative">
+                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-white dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative border border-gray-100 dark:border-white/5 shadow-sm">
                     <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                         <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md fill-white" />
@@ -703,12 +703,12 @@ const ListItem = ({ item, lang }: any) => {
                         episodeNumber={item.episode_number}
                         episodeImage={getImageUrl(image)}
                         variant="default"
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0"
+                        className="p-1.5 h-8 w-8 rounded-md hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all shadow-sm"
                         showLabel={false}
                     />
                     <button
                         onClick={handleShare}
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-colors"
+                        className="p-1.5 h-8 w-8 rounded-md hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
                         title={lang === 'ar' ? 'نسخ الرابط' : 'Copy Link'}
                     >
                         <Share2 className="w-4 h-4" />

@@ -40,6 +40,7 @@ document.head.appendChild(flagIconsLink);
 import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CookieConsent } from "@/components/common/CookieConsent"
+import { EmojiPreloader } from "@/components/common/EmojiPreloader"
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -49,6 +50,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <RouterProvider router={router} />
           <Toaster />
           <CookieConsent />
+          <EmojiPreloader />
         </ThemeProvider>
       </HelmetProvider>
     </QueryClientProvider>

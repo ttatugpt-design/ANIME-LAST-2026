@@ -61,8 +61,8 @@ export const getImageUrl = (path?: string | null) => {
     if (path.startsWith('http')) return path;
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-    // If it's a local upload, prepend the API URL if available
-    if (cleanPath.startsWith('/uploads/')) {
+    // If it's a local upload or custom emoji, prepend the API URL if available
+    if (cleanPath.startsWith('/uploads/') || cleanPath.startsWith('/custom-emojis/')) {
         let apiUrl = import.meta.env.VITE_API_URL || '';
         if (apiUrl) {
             // Ensure no double slash and remove trailing /api since uploads are served at root

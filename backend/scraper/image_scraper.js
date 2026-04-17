@@ -172,9 +172,9 @@ const scrapeGeneric = async (browser, url, maxImages) => {
 
     const isDetailPage = await page.evaluate(() => {
         const href = window.location.href;
-        const hasDetailInfo = !!(document.querySelector('.anime-story') || document.querySelector('.anime-details-title'));
-        const hasBigPoster = !!(document.querySelector('.anime-thumbnail img') || document.querySelector('.anime-post-thumbnail img'));
-        return href.includes('/anime/') || href.includes('/serie/') || href.includes('/series/') || (hasDetailInfo && hasBigPoster);
+        const hasDetailInfo = !!(document.querySelector('.anime-story') || document.querySelector('.anime-details-title') || document.querySelector('.entry-content'));
+        const hasBigPoster = !!(document.querySelector('.anime-thumbnail img') || document.querySelector('.anime-post-thumbnail img') || document.querySelector('.poster img'));
+        return href.includes('/anime/') || href.includes('/animes/') || href.includes('/serie/') || href.includes('/series/') || href.includes('/seasons/') || (hasDetailInfo && hasBigPoster);
     });
 
     if (isDetailPage) {
@@ -192,17 +192,22 @@ const scrapeGeneric = async (browser, url, maxImages) => {
                     '.anime-card-poster a', '.anime-card-container a', 'a.overlay',
                     '.anime-card-details h3 a', '.view.col-xs-12 h3 a',
                     '.series-box a', '.movie-item a', '.item-poster a', '.box-item a', '.poster a',
-                    'a[href*="/anime/"]', 'a[href*="/series/"]', 'a[href*="/season/"]',
+                    '.anime-post-container a', '.anime-post-thumbnail a',
+                    'a[href*="/anime/"]', 'a[href*="/animes/"]', 'a[href*="/series/"]', 'a[href*="/season/"]', 'a[href*="/seasons/"]',
                     'a[href*="/serie/"]', 'a[href*="/movie/"]'
                 ];
                 selectors.forEach(sel => {
                     document.querySelectorAll(sel).forEach(el => {
                         const href = el.href;
                         if (!href || !href.startsWith('http')) return;
-                        const isWork = href.includes('/anime/') || href.includes('/series/') ||
-                                       href.includes('/season/') || href.includes('/serie/') || href.includes('/movie/');
-                        const isEpisode = href.includes('/episode/') || href.includes('/watch/') || href.includes('/ep/');
-                        if (isWork && !isEpisode) links.push(href);
+                        
+                        // WitAnime specific: ignore search params in links
+                        const plainUrl = href.split('?')[0].split('#')[0];
+                        
+                        const isWork = plainUrl.includes('/anime/') || plainUrl.includes('/animes/') || plainUrl.includes('/series/') ||
+                                       plainUrl.includes('/season/') || plainUrl.includes('/seasons/') || plainUrl.includes('/serie/') || plainUrl.includes('/movie/');
+                        const isEpisode = plainUrl.includes('/episode/') || plainUrl.includes('/watch/') || plainUrl.includes('/ep/');
+                        if (isWork && !isEpisode) links.push(plainUrl);
                     });
                 });
                 return Array.from(new Set(links));

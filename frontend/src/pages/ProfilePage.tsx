@@ -188,7 +188,7 @@ export default function ProfilePage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5] dark:bg-[#18191a]">
+            <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#18191a]">
                 <div className="relative w-10 h-10">
                     <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
                     <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
@@ -199,7 +199,7 @@ export default function ProfilePage() {
 
     if (!profileUser) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5] dark:bg-[#18191a]">
+            <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#18191a]">
                 <p className="text-xl text-gray-500">للمستخدم غير موجود</p>
             </div>
         );
@@ -207,7 +207,7 @@ export default function ProfilePage() {
 
     if (friendStatus === 'blocked_me' && !isOwnProfile) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-[#18191a] gap-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-[#18191a] gap-4">
                 <p className="text-xl text-gray-700 dark:text-gray-300 font-bold">عذراً، لا يمكنك دخول هذه الصفحة</p>
                 <Link to={`/${i18n.language}`} className="bg-black dark:bg-white text-white dark:text-black px-6 py-2 rounded-md font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">
                     العودة للرئيسية
@@ -218,7 +218,7 @@ export default function ProfilePage() {
 
     if (friendStatus === 'blocked_by_me' && !isOwnProfile) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-[#18191a] gap-4 text-center px-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-[#18191a] gap-4 text-center px-4">
                 <p className="text-xl text-gray-500 font-semibold mb-2">لقد قمت بحظر هذا المستخدم</p>
                 <div className="flex gap-4">
                     <button onClick={() => handleAction('unblock')} className="bg-[#1877f2] text-white px-6 py-2 rounded-md font-semibold hover:bg-[#166fe5] transition-colors flex items-center gap-2">
@@ -266,7 +266,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#18191a] text-gray-900 dark:text-white font-sans" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="min-h-screen bg-white dark:bg-[#18191a] text-gray-900 dark:text-white font-sans" dir={isRtl ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{profileUser.name} | AnimeLast</title>
             </Helmet>
@@ -567,7 +567,7 @@ export default function ProfilePage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {friends.length > 0 ? (
                                     friends.map(friend => (
-                                        <div key={friend.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-[#3a3b3c] transition-colors group">
+                                        <div key={friend.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center gap-4 hover:bg-white dark:hover:bg-[#3a3b3c] transition-all group hover:shadow-sm">
                                             <Link to={`/u/${friend.id}/profile`} className="w-20 h-20 rounded-lg overflow-hidden shrink-0">
                                                 <img src={getImageUrl(friend.avatar)} alt={friend.name} className="w-full h-full object-cover" />
                                             </Link>
@@ -575,7 +575,7 @@ export default function ProfilePage() {
                                                 <Link to={`/u/${friend.id}/profile`} className="font-bold text-lg hover:underline truncate block">{friend.name}</Link>
                                                 <p className="text-sm text-gray-500">{friend.mutual_friends_count || 0} صديق مشترك</p>
                                             </div>
-                                            <button className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-[#4e4f50] rounded-full transition-all">
+                                            <button className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:bg-white dark:hover:bg-[#4e4f50] rounded-full transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm">
                                                 <MoreHorizontal className="w-5 h-5" />
                                             </button>
                                         </div>

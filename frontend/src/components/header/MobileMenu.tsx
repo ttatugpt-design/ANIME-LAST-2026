@@ -197,7 +197,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
 
 
                                 {/* Anime Content (Always Visible) */}
-                                <div className="flex flex-col bg-gray-50 dark:bg-[#151515] pb-4">
+                                <div className="flex flex-col bg-white dark:bg-[#151515] pb-4">
                                     {/* Sub Links */}
                                     <div className="flex flex-col border-b border-gray-100 dark:border-[#2a2a2a] mb-4">
                                         <button

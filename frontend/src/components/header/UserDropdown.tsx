@@ -123,7 +123,7 @@ function GuestMenuContent({ onClose }: GuestMenuContentProps) {
                     </button>
 
                     {showLanguageMenu && (
-                        <div className="bg-gray-50 dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-[#333]">
+                        <div className="bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-[#333]">
                             <button
                                 onClick={() => handleLanguageSwitch('ar')}
                                 className="flex items-center justify-between w-full px-8 py-2 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors cursor-pointer"

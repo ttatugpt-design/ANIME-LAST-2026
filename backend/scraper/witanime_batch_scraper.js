@@ -214,9 +214,22 @@ const scrapeEpisode = async (browser, baseUrl) => {
 
         console.error(`Found ${episodeUrls.length} episodes for discovery.`);
 
-        const animeTitle = await discoveryPage.evaluate(() => {
+        const { animeTitle, animePoster } = await discoveryPage.evaluate(() => {
             const titleEl = document.querySelector('.anime-details-title h1') || document.querySelector('h1');
-            return titleEl ? titleEl.textContent.trim() : 'WitAnime Series';
+            const title = titleEl ? titleEl.textContent.trim() : 'WitAnime Series';
+
+            const img = document.querySelector('.anime-thumbnail img') || 
+                        document.querySelector('.poster img') || 
+                        document.querySelector('meta[property="og:image"]');
+            
+            let poster = '';
+            if (img) {
+                if (img.tagName === 'META') poster = img.getAttribute('content');
+                else poster = img.getAttribute('data-src') || img.src;
+            }
+            if (poster && poster.startsWith('//')) poster = 'https:' + poster;
+
+            return { animeTitle: title, animePoster: poster };
         });
 
         await discoveryPage.close();
@@ -227,6 +240,7 @@ const scrapeEpisode = async (browser, baseUrl) => {
             process.stdout.write(JSON.stringify({
                 success: true,
                 title: animeTitle,
+                poster: animePoster,
                 totalEpisodes: 1,
                 episodes: [{ 
                     episodeNum: 1, 
@@ -255,6 +269,7 @@ const scrapeEpisode = async (browser, baseUrl) => {
             process.stdout.write(JSON.stringify({ 
                 success: true, 
                 title: animeTitle,
+                poster: animePoster,
                 totalEpisodes: episodes.length, 
                 episodes 
             }));

@@ -1,19 +1,6 @@
-/**
- * anime3rb_refresh.js
- * -------------------
- * Dedicated lightweight scraper to refresh a SINGLE anime3rb episode link.
- * Strategy:
- *  1. Intercept ALL network requests — capture any vid3rb.com URL (player, mp4, m3u8)
- *  2. Navigate to the episode page and wait for networkidle2 (full SPA render)
- *  3. Scan all frames for vid3rb src
- *  4. If still not found — click all server buttons and wait again
- *  5. Return the best URL found
- *
- * Usage: node anime3rb_refresh.js <episode_url>
- * Output: JSON { success: bool, url: string?, error: string? }
- */
-
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -25,7 +12,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         process.exit(1);
     }
 
-    console.error(`[Scraper] Starting for: ${episodeUrl}`);
+    console.error(`[Scraper] Starting stealth scraper for: ${episodeUrl}`);
     let browser;
     try {
         browser = await puppeteer.launch({
@@ -36,9 +23,12 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
+                '--disable-software-rasterizer',
                 '--no-first-run',
                 '--no-zygote',
                 '--single-process',
+                '--disable-extensions',
+                '--hide-scrollbars',
                 '--disable-blink-features=AutomationControlled'
             ]
         });
@@ -49,7 +39,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         );
         await page.setViewport({ width: 1280, height: 900 });
 
-        // ─── Step 1: Intercept all requests to capture vid3rb URLs ──────────────
+        // Step 1: Network interception
         let capturedUrl = null;
         await page.setRequestInterception(true);
 
@@ -65,30 +55,30 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
                 }
             }
             
-            // BLOCKING: Allow 'stylesheet' as some SPAs need it for layout-based JS logic
-            if (['image', 'font', 'media'].includes(type)) {
+            if (['image', 'font', 'media'].includes(type) || url.includes('google-analytics') || url.includes('ads')) {
                 req.abort();
             } else {
                 req.continue();
             }
         });
 
-        // ─── Step 2: Navigate and wait for full render ───────────────────────────
+        // Step 2: Navigate
         console.error(`[Scraper] Navigating to page...`);
         try {
+            // Using 'domcontentloaded' is faster and more reliable on Railway than 'networkidle'
             await page.goto(episodeUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-            await sleep(5000); // Give it time to load the player via JS
+            await sleep(5000); 
         } catch (e) {
             console.error(`[Scraper] Navigation warning: ${e.message}`);
         }
 
-        // ─── Step 3: Check all frame URLs ────────────────────────────────────────
+        // Step 3: Check frames
         if (!capturedUrl) {
             console.error(`[Scraper] Checking frames...`);
             for (const frame of page.frames()) {
                 try {
                     const src = frame.url();
-                    if (src && src.includes('vid3rb.com') && src.startsWith('http')) {
+                    if (src && src.includes('vid3rb.com')) {
                         capturedUrl = src;
                         console.error(`[Scraper] Found URL in frame: ${src}`);
                         break;
@@ -97,119 +87,53 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
             }
         }
 
-        // ─── Step 4: Check iframe elements in the DOM ────────────────────────────
+        // Step 4: Click Trigger
         if (!capturedUrl) {
-            console.error(`[Scraper] Checking DOM iframes...`);
-            const iframes = await page.evaluate(() => {
-                return Array.from(document.querySelectorAll('iframe'))
-                    .map(f => f.src || f.getAttribute('data-src') || '')
-                    .filter(src => src && src.includes('vid3rb'));
-            }).catch(() => []);
-
-            if (iframes.length > 0) {
-                capturedUrl = iframes[0];
-                console.error(`[Scraper] Found URL in DOM: ${capturedUrl}`);
-            }
-        }
-
-        // ─── Step 5: Click server buttons and wait (for dynamic loading) ─────────
-        if (!capturedUrl) {
-            console.error(`[Scraper] URL still not found. Attempting to click server buttons...`);
+            console.error(`[Scraper] Checking server buttons...`);
             const clicked = await page.evaluate(() => {
-                const selectors = [
-                    '[class*="server"] button',
-                    '[class*="server"] a',
-                    'button[class*="server"]',
-                    '.servers button',
-                    '.server-list li',
-                    '[class*="play-btn"]',
-                    '.vjs-big-play-button',
-                    'button[class*="play"]',
-                ];
-                for (const sel of selectors) {
-                    const el = document.querySelector(sel);
-                    if (el && el.textContent.toLowerCase().includes('anime3rb')) {
-                        el.click();
-                        return true;
-                    }
-                }
-                // If specific not found, try any button/list item in servers container
-                const anyServer = document.querySelector('.servers-list li, .servers a, .servers button');
-                if (anyServer) {
-                    anyServer.click();
+                const btn = document.querySelector('.servers-list li, .servers button, [class*="server"]');
+                if (btn) {
+                    btn.click();
                     return true;
                 }
                 return false;
             }).catch(() => false);
 
             if (clicked) {
-                console.error(`[Scraper] Clicked server button, waiting...`);
                 await sleep(5000);
-                
-                // Re-check frames after click
-                for (const frame of page.frames()) {
-                    try {
-                        const src = frame.url();
-                        if (src && src.includes('vid3rb.com') && src.startsWith('http')) {
-                            capturedUrl = src;
-                            console.error(`[Scraper] Found URL in frame after click: ${src}`);
-                            break;
-                        }
-                    } catch (e) {}
-                }
-                
-                if (!capturedUrl) {
-                    const iframes2 = await page.evaluate(() => {
-                        return Array.from(document.querySelectorAll('iframe'))
-                            .map(f => f.src || f.getAttribute('data-src') || '')
-                            .filter(src => src && src.includes('vid3rb'));
-                    }).catch(() => []);
-                    if (iframes2.length > 0) {
-                        capturedUrl = iframes2[0];
-                        console.error(`[Scraper] Found URL in DOM after click: ${capturedUrl}`);
-                    }
-                }
+                // Final scan
+                const player = await page.evaluate(() => {
+                    const iframe = document.querySelector('iframe[src*="vid3rb"]');
+                    return iframe ? iframe.src : null;
+                }).catch(() => null);
+                if (player) capturedUrl = player;
             }
         }
 
-        // ─── Step 6: Fallback — any embed/player link in the page ────────────────
+        // Final Fallback: Search all iframes
         if (!capturedUrl) {
-            console.error(`[Scraper] Using final fallback (scanning all links)...`);
-            const anyLink = await page.evaluate(() => {
-                const hosts = ['vid3rb', 'dood', 'streamtape', 'mixdrop', 'filemoon', 'streamruby', 'uqload'];
-                const allLinks = [
-                    ...Array.from(document.querySelectorAll('iframe')).map(f => f.src),
-                    ...Array.from(document.querySelectorAll('a[href]')).map(a => a.href),
-                ];
-                return allLinks.find(url => url && hosts.some(h => url.includes(h))) || null;
-            }).catch(() => null);
-
-            if (anyLink) {
-                capturedUrl = anyLink;
-                console.error(`[Scraper] Fallback matched: ${capturedUrl}`);
-            }
+            const allIframes = await page.evaluate(() => {
+                return Array.from(document.querySelectorAll('iframe'))
+                    .map(f => f.src || f.dataset.src || '')
+                    .filter(src => src && (src.includes('vid3rb') || src.includes('dood') || src.includes('streamtape')));
+            }).catch(() => []);
+            if (allIframes.length > 0) capturedUrl = allIframes[0];
         }
 
         await browser.close();
 
         if (!capturedUrl) {
-            console.error(`[Scraper] FAILED: No player link found for ${episodeUrl}`);
-            process.stdout.write(JSON.stringify({
-                success: false,
-                error: 'لم يتم العثور على رابط المشغل. قد يكون الموقع محجوباً أو تغير تصميمه.'
-            }));
+            console.error(`[Scraper] FAILED: URL not found`);
+            process.stdout.write(JSON.stringify({ success: false, error: 'لم يتم العثور على رابط السيرفر. تأكد من أن الموقع يعمل.' }));
             process.exit(1);
         }
 
-        console.error(`[Scraper] SUCCESS: Found ${capturedUrl}`);
-        process.stdout.write(JSON.stringify({
-            success: true,
-            url: capturedUrl
-        }));
+        console.error(`[Scraper] SUCCESS: Captured URL`);
+        process.stdout.write(JSON.stringify({ success: true, url: capturedUrl }));
 
     } catch (err) {
-        console.error(`[Scraper] FATAL ERROR: ${err.message}`);
         if (browser) await browser.close().catch(() => {});
+        console.error(`[Scraper] FATAL: ${err.message}`);
         process.stdout.write(JSON.stringify({ success: false, error: err.message }));
         process.exit(1);
     }

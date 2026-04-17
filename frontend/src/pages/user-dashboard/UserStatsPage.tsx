@@ -39,7 +39,7 @@ export default function UserStatsPage() {
     }, [isRtl]);
 
     const StatCard = ({ title, value, icon: Icon, color }: any) => (
-        <Card className="border-gray-100 dark:border-white/10 bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-white/5 transition-colors rounded-none shadow-sm">
+        <Card className="border-gray-100 dark:border-white/10 bg-white dark:bg-black hover:bg-white dark:hover:bg-white/5 transition-all rounded-none shadow-sm hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
                 <Icon className={`h-4 w-4 ${color}`} />

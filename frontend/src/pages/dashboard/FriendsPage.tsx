@@ -82,7 +82,7 @@ export default function FriendsPage() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#18191a]">
+        <div className="flex flex-col min-h-screen bg-white dark:bg-[#18191a]">
             <div className="flex-1 p-6">
                 <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">الأصدقاء</h1>
 

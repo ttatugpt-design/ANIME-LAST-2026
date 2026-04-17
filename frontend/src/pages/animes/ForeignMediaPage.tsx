@@ -149,8 +149,8 @@ const Section = ({ title, endpoint, type, limit, lang }: any) => {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-gray-50 dark:bg-neutral-900/30 rounded-2xl border-2 border-dashed border-gray-100 dark:border-neutral-800">
-                    <p className="text-gray-500">{lang === 'ar' ? 'لا يوجد محتوى متوفر حالياً' : 'No content available at the moment'}</p>
+                <div className="text-center py-20 bg-white dark:bg-neutral-900/30 rounded-2xl border-2 border-dashed border-gray-200 dark:border-neutral-800 shadow-sm">
+                    <p className="text-gray-500 font-medium">{lang === 'ar' ? 'لا يوجد محتوى متوفر حالياً' : 'No content available at the moment'}</p>
                 </div>
             )}
         </section>
@@ -172,7 +172,7 @@ const CardItem = ({ item, index, lang, isHovered, onMouseEnter, onMouseLeave, ke
             onMouseLeave={onMouseLeave}
         >
             <Link to={`/${lang}/animes/${item.id}/${slug}`} className="flex flex-col w-full h-full">
-                <div className="relative w-full aspect-[2/3] overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] mb-3 group-hover:shadow-xl dark:group-hover:shadow-white/5 transition-all duration-300">
+                <div className="relative w-full aspect-[2/3] overflow-hidden bg-white dark:bg-[#1c1c1c] mb-3 group-hover:shadow-xl dark:group-hover:shadow-white/5 transition-all duration-300 border border-gray-100 dark:border-white/5 rounded-none">
                     <SpinnerImage
                         src={getImageUrl(image)}
                         alt={displayTitle}

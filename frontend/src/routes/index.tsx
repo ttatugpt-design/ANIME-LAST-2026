@@ -75,6 +75,7 @@ import RistoAnimeScraperPage from '@/pages/dashboard/RistoAnimeScraperPage';
 import WitAnimeScraperPage from '@/pages/dashboard/WitAnimeScraperPage';
 import Anime3rbScraperPage from '@/pages/dashboard/Anime3rbScraperPage';
 import ImageScraperPage from '@/pages/dashboard/ImageScraperPage';
+import AnimercoScraperPage from '@/pages/dashboard/AnimercoScraperPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -415,6 +416,10 @@ export const routes = [
                             {
                                 path: 'image-scraper',
                                 element: <ImageScraperPage />,
+                            },
+                            {
+                                path: 'animerco-scraper',
+                                element: <AnimercoScraperPage />,
                             },
                             {
                                 path: 'egydead-images',

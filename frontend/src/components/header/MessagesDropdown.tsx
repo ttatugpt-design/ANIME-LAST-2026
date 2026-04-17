@@ -194,7 +194,7 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
                                 "relative p-2.5 transition-all duration-300 rounded-full group",
                                 isOpen
                                     ? "bg-gray-100 dark:bg-zinc-800 text-black dark:text-white"
-                                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
+                                    : "text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
                             )}
                         >
                             <MessageCircle className="w-6 h-6 stroke-[2.5px]" />
@@ -253,8 +253,8 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
                                         className={cn(
                                             "group relative flex gap-4 px-5 py-3 cursor-pointer transition-all duration-200",
                                             (conv.unread_count || 0) > 0
-                                                ? "bg-gray-50/80 dark:bg-[#1a1a1a]"
-                                                : "bg-transparent hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
+                                                ? "bg-blue-50/10 dark:bg-[#1a1a1a]"
+                                                : "bg-transparent hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
                                         )}
                                     >
                                         {(conv.unread_count || 0) > 0 && (
@@ -325,7 +325,7 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center p-20 text-center">
-                                <div className="w-20 h-20 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-6">
+                                <div className="w-20 h-20 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center mb-6 border border-gray-100 dark:border-white/5">
                                     <MessageCircle className="w-10 h-10 text-gray-300" />
                                 </div>
                                 <h4 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-2">
@@ -339,7 +339,7 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-[#1a1a1a] sticky bottom-0">
+                    <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#1a1a1a] sticky bottom-0">
                         <button
                             onClick={() => {
                                 navigate(`/${lang}/u/${currentUser?.id}/dashboard/messages`);

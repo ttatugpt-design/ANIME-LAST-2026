@@ -25,7 +25,7 @@ export default function CommunityPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f0f2f5] dark:bg-black" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="min-h-screen bg-white dark:bg-black" dir={isAr ? 'rtl' : 'ltr'}>
             <Helmet>
                 <title>{isAr ? 'المجتمع - AnimeLast' : 'Community - AnimeLast'}</title>
             </Helmet>
@@ -38,7 +38,7 @@ export default function CommunityPage() {
             <div className="w-full min-h-screen">
                 <div className="max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible min-h-screen">
                     {/* Left Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30">
+                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30">
                         <SocialNavSidebar />
                     </div>
 
@@ -82,7 +82,7 @@ export default function CommunityPage() {
                         </div>
 
                         {/* Right Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30">
+                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30">
                         <FriendsSidebar />
                     </div>
                 </div>

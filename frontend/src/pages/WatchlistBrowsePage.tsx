@@ -33,7 +33,7 @@ function WatchlistItem({ item, isRtl, lang, onRemove }: { item: any; isRtl: bool
     const image = isEpisode ? (item.episode?.thumbnail || item.episode?.banner) : item.anime?.cover;
 
     return (
-        <div className="group relative flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40 transition-colors duration-200">
+        <div className="group relative flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50/50 dark:hover:bg-neutral-900/40 transition-colors duration-200 border border-transparent hover:border-gray-100 dark:hover:border-transparent rounded-lg p-2 md:p-3 hover:shadow-sm">
             <Link to={link} className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden bg-gray-900">
                 {image ? (
                     <img

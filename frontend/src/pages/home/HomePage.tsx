@@ -46,7 +46,7 @@ export default function HomePage() {
     const seoTitle = i18n.language === 'ar' ? 'الرئيسية - AnimeLast' : 'Home - AnimeLast';
 
     return (
-        <div dir={isRtl ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white transition-colors duration-300 relative">
+        <div dir={isRtl ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300 relative">
             <Helmet>
                 <title>{seoTitle}</title>
             </Helmet>
@@ -60,7 +60,7 @@ export default function HomePage() {
             {/* Header Content & Main Content */}
             <>
                 {/* Hero Section */}
-                <div className="mt-0 bg-[#f0f2f5] dark:bg-black">
+                <div className="mt-0 bg-white dark:bg-black">
                     <div className="flex flex-col items-center justify-center pt-8 pb-12 mb-8 animate-fade-in px-4">
                         {/* Large Logo with Skeleton */}
                         <div className="mb-8 flex items-center justify-center">
@@ -237,7 +237,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                     <div className="flex gap-2">
                         <button
                             onClick={onSearchClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors rounded-lg"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-[#2a2a2a] transition-colors rounded-lg shadow-sm"
                         >
                             <Search className="w-4 h-4" />
                             <span className="hidden sm:inline text-sm font-medium">
@@ -246,7 +246,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                         </button>
                         <button
                             onClick={onFilterClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2a2a2a] transition-colors rounded-lg"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-[#2a2a2a] transition-colors rounded-lg shadow-sm"
                         >
                             <Filter className="w-4 h-4" />
                             <span className="hidden sm:inline text-sm font-medium">
@@ -296,7 +296,7 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
                             <button
                                 onClick={handleLoadMore}
                                 disabled={isLoadingMore}
-                                className="px-8 py-3 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
+                                className="px-8 py-3 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
                             >
                                 {isLoadingMore ? (
                                     <div className="flex items-center gap-2">
@@ -630,7 +630,7 @@ const ListItem = ({ item, lang }: any) => {
     };
 
     return (
-        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-gray-50 dark:hover:bg-[#222]">
+        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm">
             <Link to={targetLink} className="flex-1 flex items-center min-w-0">
                 <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-none overflow-hidden bg-gray-100 dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative transition-transform">
                     <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -662,7 +662,7 @@ const ListItem = ({ item, lang }: any) => {
                         episodeNumber={item.episode_number}
                         episodeImage={getImageUrl(image)}
                         variant="default"
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0"
+                        className="p-1.5 h-8 w-8 rounded-md hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all"
                         showLabel={false}
                     />
                     <button

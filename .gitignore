@@ -73,3 +73,4 @@ backend/stderr.txt
 backend/stdout.txt
 backend/test_node.js
 frontend/tsconfig.app.tsbuildinfo
+scratch/

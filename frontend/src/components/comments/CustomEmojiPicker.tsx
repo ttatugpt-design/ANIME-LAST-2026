@@ -129,11 +129,11 @@ export const CustomEmojiPicker: React.FC<CustomEmojiPickerProps> = ({ onEmojiCli
                                     src={item.imgUrl}
                                     alt={item.id}
                                     className="w-full h-full object-contain"
-                                    loading="lazy"
-                                    onLoad={() => handleImageLoad(item.imgUrl)}
+                                    loading="eager"
+                                    //@ts-ignore
+                                    fetchpriority="high"
                                     style={{
-                                        opacity: loadedImages.has(item.imgUrl) ? 1 : 0,
-                                        transition: 'opacity 0.2s'
+                                        opacity: 1,
                                     }}
                                 />
                             </button>

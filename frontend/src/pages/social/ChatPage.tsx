@@ -387,7 +387,7 @@ const ChatPage: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col h-full bg-[#f0f2f5] dark:bg-[#0b141a] overflow-hidden">
+        <div className="flex flex-col h-full bg-white dark:bg-[#0b141a] overflow-hidden">
             <div className="flex-1 flex overflow-hidden">
                 <div className="flex w-full max-w-[1600px] mx-auto h-full bg-white dark:bg-[#111b21] overflow-hidden md:shadow-2xl">
                     {/* Sidebar */}
@@ -397,7 +397,7 @@ const ChatPage: React.FC = () => {
                         selectedUser ? "hidden md:flex" : "flex"
                     )}>
                         {/* Sidebar Header */}
-                        <div className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] flex items-center justify-between px-4 shrink-0">
+                        <div className="h-[60px] bg-white dark:bg-[#202c33] flex items-center justify-between px-4 shrink-0 border-b border-gray-100 dark:border-gray-800">
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => navigate(-1)}
@@ -410,7 +410,7 @@ const ChatPage: React.FC = () => {
                                     <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
                                         <img src={getImageUrl(currentUser?.avatar)} alt="Me" className="w-full h-full object-cover" />
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#f0f2f5] dark:border-[#202c33] rounded-full" />
+                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#202c33] rounded-full" />
                                 </div>
                             </div>
                             <div className="flex gap-4 text-gray-500 dark:text-gray-400">
@@ -421,7 +421,7 @@ const ChatPage: React.FC = () => {
 
                         {/* Search */}
                         <div className="p-2 shrink-0">
-                            <div className="relative bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg px-3 py-1.5 flex items-center gap-4">
+                            <div className="relative bg-gray-100 dark:bg-[#202c33] rounded-lg px-3 py-1.5 flex items-center gap-4">
                                 <Search className="w-5 h-5 text-gray-500" />
                                 <input
                                     type="text"
@@ -444,7 +444,7 @@ const ChatPage: React.FC = () => {
                                             onClick={() => setSelectedUser(conv.other_user)}
                                             className={cn(
                                                 "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] transition-colors relative",
-                                                selectedUser?.id === conv.other_user?.id ? "bg-[#f0f2f5] dark:bg-[#2a3942]" : ""
+                                                selectedUser?.id === conv.other_user?.id ? "bg-gray-100 dark:bg-[#2a3942]" : ""
                                             )}
                                         >
                                             <div className="relative shrink-0">
@@ -513,7 +513,7 @@ const ChatPage: React.FC = () => {
                                             onClick={() => setSelectedUser(friend)}
                                             className={cn(
                                                 "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] transition-colors relative",
-                                                selectedUser?.id === friend.id ? "bg-[#f0f2f5] dark:bg-[#2a3942]" : ""
+                                                selectedUser?.id === friend.id ? "bg-gray-100 dark:bg-[#2a3942]" : ""
                                             )}
                                         >
                                             <div className="relative shrink-0">
@@ -559,7 +559,7 @@ const ChatPage: React.FC = () => {
                         {selectedUser ? (
                             <>
                                 {/* Chat Header - Fixed Height & Shrink-0 */}
-                                <div className="h-[60px] min-h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] flex items-center justify-between px-4 z-30 shrink-0 border-b border-gray-200 dark:border-gray-800">
+                                <div className="h-[60px] min-h-[60px] bg-white dark:bg-[#202c33] flex items-center justify-between px-4 z-30 shrink-0 border-b border-gray-200 dark:border-gray-800">
                                     <div className="flex items-center gap-3">
                                         <button
                                             onClick={() => setSelectedUser(null)}
@@ -655,7 +655,7 @@ const ChatPage: React.FC = () => {
                                 )}
 
                                 {/* Input Area - Fixed at Bottom with Safe Area */}
-                                <div className="bg-[#f0f2f5] dark:bg-[#202c33] px-4 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] flex items-center gap-4 relative z-50 shrink-0 border-t border-gray-200 dark:border-gray-800">
+                                <div className="bg-white dark:bg-[#202c33] px-4 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] flex items-center gap-4 relative z-50 shrink-0 border-t border-gray-200 dark:border-gray-800">
                                     <div className="relative">
                                         <button
                                             ref={customEmojiButtonRef}

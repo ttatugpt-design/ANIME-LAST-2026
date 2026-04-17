@@ -58,7 +58,7 @@ export default function DashboardReportsPage() {
                 <CardContent>
                     <div className="rounded-md border border-border/40 overflow-hidden">
                         <Table>
-                            <TableHeader className="bg-muted/50">
+                            <TableHeader className="bg-white dark:bg-black border-b border-gray-100 dark:border-white/10">
                                 <TableRow>
                                     <TableHead className="w-[100px]">ID</TableHead>
                                     <TableHead>Type</TableHead>
@@ -78,7 +78,7 @@ export default function DashboardReportsPage() {
                                     </TableRow>
                                 ) : (
                                     reports.map((report) => (
-                                        <TableRow key={report.id} className="hover:bg-muted/50">
+                                        <TableRow key={report.id} className="hover:bg-white dark:hover:bg-white/5 transition-all hover:shadow-sm">
                                             <TableCell className="font-mono text-xs">#{report.id}</TableCell>
                                             <TableCell>
                                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${report.problem_type.includes('Audio') ? 'bg-orange-500/10 text-orange-500' :

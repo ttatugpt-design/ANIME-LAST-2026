@@ -568,7 +568,7 @@ export const MessagingModal: React.FC = () => {
                     selectedUser ? "hidden md:flex" : "flex"
                 )}>
                     {/* Sidebar Header */}
-                    <div className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] shrink-0 flex items-center justify-between px-4 border-b border-gray-100 dark:border-[#2a2a2a]">
+                    <div className="h-[60px] bg-white dark:bg-[#202c33] shrink-0 flex items-center justify-between px-4 border-b border-gray-100 dark:border-[#2a2a2a]">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 border border-gray-100 dark:border-[#333]">
                                 <img src={getImageUrl(currentUser?.avatar)} alt="Me" className="w-full h-full object-cover" />
@@ -587,7 +587,7 @@ export const MessagingModal: React.FC = () => {
 
                     {/* Search Field */}
                     <div className="p-2 shrink-0 border-b border-gray-50 dark:border-gray-800">
-                        <div className="relative bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg px-3 py-1.5 flex items-center gap-4">
+                        <div className="relative bg-gray-100 dark:bg-[#202c33] rounded-lg px-3 py-1.5 flex items-center gap-4">
                             <Search className="w-5 h-5 text-gray-500" />
                             <input
                                 type="text"
@@ -616,7 +616,7 @@ export const MessagingModal: React.FC = () => {
                                         onClick={() => openMessagingModal(conv.other_user)}
                                         className={cn(
                                             "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] transition-colors relative",
-                                            selectedUser?.id === conv.other_user?.id ? "bg-[#f0f2f5] dark:bg-[#2a3942]" : ""
+                                            selectedUser?.id === conv.other_user?.id ? "bg-gray-100 dark:bg-[#2a3942]" : ""
                                         )}
                                     >
                                         <div className="relative shrink-0">
@@ -677,7 +677,7 @@ export const MessagingModal: React.FC = () => {
                     {selectedUser ? (
                         <>
                             {/* Chat Header */}
-                            <div className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] shrink-0 flex items-center justify-between px-4 sticky top-0 border-b border-gray-200 dark:border-gray-800 z-20 w-full">
+                            <div className="h-[60px] bg-white dark:bg-[#202c33] shrink-0 flex items-center justify-between px-4 sticky top-0 border-b border-gray-200 dark:border-gray-800 z-20 w-full">
                                 <div className="flex items-center gap-3">
                                     <button 
                                         onClick={() => openMessagingModal(null)}
@@ -828,7 +828,7 @@ export const MessagingModal: React.FC = () => {
                                                                                 className="w-9 h-9 hover:scale-125 transition-transform duration-200 p-1 flex items-center justify-center"
                                                                                 title={r.label}
                                                                             >
-                                                                                <img src={r.gif} alt={r.label} className="w-7 h-7 object-contain" />
+                                                                                <img src={r.gif} alt={r.label} loading="eager" fetchpriority="high" className="w-7 h-7 object-contain" />
                                                                             </button>
                                                                         ))}
                                                                     </div>
@@ -932,7 +932,7 @@ export const MessagingModal: React.FC = () => {
 
                              {/* Reply/Edit Indicator */}
                              {(replyingTo || editingMessage) && (
-                                 <div className="chat-input-area bg-[#f0f2f5] dark:bg-[#202c33] px-4 py-2 border-l-4 border-blue-500 animate-in slide-in-from-bottom-4 flex items-center justify-between border-t border-black/5 z-20">
+                                 <div className="chat-input-area bg-white dark:bg-[#202c33] px-4 py-2 border-l-4 border-blue-500 animate-in slide-in-from-bottom-4 flex items-center justify-between border-t border-black/5 z-20">
                                      <div className="flex items-center gap-3">
                                          <div className="p-2 bg-blue-500/10 rounded-lg">
                                              {editingMessage ? <Edit2 className="w-4 h-4 text-blue-500" /> : <Reply className="w-4 h-4 text-blue-500" />}
@@ -956,7 +956,7 @@ export const MessagingModal: React.FC = () => {
                              )}
 
                             {/* Chat Input */}
-                            <div className="chat-input-area bg-[#f0f2f5] dark:bg-[#202c33] px-3 md:px-4 py-2 flex items-center gap-2 md:gap-4 shrink-0 border-t border-gray-100 dark:border-gray-800 relative z-20">
+                            <div className="chat-input-area bg-white dark:bg-[#202c33] px-3 md:px-4 py-2 flex items-center gap-2 md:gap-4 shrink-0 border-t border-gray-100 dark:border-gray-800 relative z-20">
                                 <div className="relative">
                                     <button 
                                         ref={customEmojiButtonRef}

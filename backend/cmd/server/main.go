@@ -226,6 +226,9 @@ func main() {
 
 	backupHandler := handler.NewBackupHandler(repo, cfg)
 
+	// Enable global long-term caching for static assets (emojis, uploads, etc.)
+	r.Use(middleware.StaticCacheMiddleware(0))
+
 	r.Static("/uploads", absPath("backend", "uploads"))
 	r.Static("/flag-icons", absPath("backend", "uploads", "flag-icons"))
 	r.Static("/assets", absPath("frontend", "dist", "client", "assets"))
@@ -550,6 +553,7 @@ func main() {
 			protected.POST("/scraper/anime4up-batch", scraperHandler.FetchAnime4UpBatch)
 			protected.POST("/scraper/ristoanime", scraperHandler.FetchRistoAnime)
 			protected.POST("/scraper/ristoanime-batch", scraperHandler.FetchRistoAnimeBatch)
+			protected.POST("/scraper/animerco-batch", scraperHandler.FetchAnimercoBatch)
 			protected.POST("/scraper/witanime-batch", scraperHandler.FetchWitAnimeBatch)
 			protected.POST("/scraper/anime3rb-batch", scraperHandler.FetchAnime3rbBatch)
 			protected.POST("/scraper/images", scraperHandler.FetchPageImages)

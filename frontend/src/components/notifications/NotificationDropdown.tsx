@@ -214,7 +214,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                 "relative p-2.5 transition-all duration-300 rounded-full group",
                                 isOpen
                                     ? "bg-gray-100 dark:bg-zinc-800 text-black dark:text-white"
-                                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
+                                    : "text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-zinc-800 hover:text-black dark:hover:text-white"
                             )}
                         >
                             <Bell className="w-6 h-6 stroke-[2.5px]" />
@@ -285,8 +285,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                         className={cn(
                                             "group relative flex gap-4 px-5 py-2.5 cursor-pointer transition-all duration-200",
                                             !notif.is_read
-                                                ? "bg-gray-50/80 dark:bg-[#1a1a1a]"
-                                                : "bg-transparent hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
+                                                ? "bg-blue-50/10 dark:bg-[#1a1a1a]"
+                                                : "bg-transparent hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
                                         )}
                                     >
                                         {!notif.is_read && (
@@ -368,7 +368,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="w-12 h-12 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
+                                                <div className="w-12 h-12 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center border border-gray-100 dark:border-white/5">
                                                     <Bell className="w-6 h-6 text-gray-400" />
                                                 </div>
                                             )}
@@ -450,7 +450,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                                                 <div className="space-y-3">
                                                     {/* The Side-by-side comparison */}
                                                     <div className="grid grid-cols-1 gap-2 border-r-2 border-gray-100 dark:border-[#333] pr-3 mr-1">
-                                                        <div className="bg-gray-50 dark:bg-[#222] p-3 rounded-xl relative">
+                                                        <div className="bg-white dark:bg-[#222] p-3 rounded-xl relative border border-gray-100 dark:border-white/5 shadow-sm">
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <span className="text-xs font-black text-gray-500 dark:text-gray-400 capitalize">
                                                                     {notif.type === 'comment' 
@@ -524,7 +524,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
 
                     {/* Footer */}
                     {notifications.length > 0 && (
-                        <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-[#1a1a1a] sticky bottom-0">
+                        <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#1a1a1a] sticky bottom-0">
                             <button
                                 onClick={() => {
                                     navigate(`/${lang}/u/${user?.id}/dashboard/notifications`);
