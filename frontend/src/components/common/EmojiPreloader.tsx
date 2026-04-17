@@ -58,7 +58,7 @@ export const EmojiPreloader = () => {
             link.as = 'image';
             link.href = url;
             //@ts-ignore
-            link.fetchpriority = 'high';
+            link.fetchPriority = 'high';
             document.head.appendChild(link);
             if (i === 0) console.log(`[Sample URL] ${url}`);
         });
@@ -115,7 +115,7 @@ export const EmojiPreloader = () => {
                     alt="" 
                     loading="eager" 
                     //@ts-ignore
-                    fetchpriority={idx < 40 ? "high" : "low"}
+                    fetchPriority={idx < 40 ? "high" : "low"}
                 />
             ))}
         </div>

@@ -47,6 +47,12 @@ const HOST_COLORS: Record<string, string> = {
     unknown: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
+interface AnimeItem {
+    id: number;
+    title: string;
+    image?: string;
+}
+
 const AnimercoScraperPage: React.FC = () => {
     const queryClient = useQueryClient();
     const [url, setUrl] = useState('');
@@ -204,7 +210,7 @@ const AnimercoScraperPage: React.FC = () => {
                                 ))}
                             </div>
                         ) : (
-                            animes.map((a: any) => (
+                            animes.map((a: AnimeItem) => (
                                 <button
                                     key={a.id}
                                     onClick={() => setSelectedAnimeId(a.id)}

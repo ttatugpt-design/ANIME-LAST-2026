@@ -828,7 +828,7 @@ export const MessagingModal: React.FC = () => {
                                                                                 className="w-9 h-9 hover:scale-125 transition-transform duration-200 p-1 flex items-center justify-center"
                                                                                 title={r.label}
                                                                             >
-                                                                                <img src={r.gif} alt={r.label} loading="eager" fetchpriority="high" className="w-7 h-7 object-contain" />
+                                                                                <img src={r.gif} alt={r.label} loading="eager" fetchPriority="high" className="w-7 h-7 object-contain" />
                                                                             </button>
                                                                         ))}
                                                                     </div>

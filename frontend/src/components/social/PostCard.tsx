@@ -619,7 +619,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
                                             alt={r.label}
                                             draggable={false}
                                             loading="eager"
-                                            fetchpriority="high"
+                                            fetchPriority="high"
                                             className={cn(
                                                 "select-none transition-all duration-200 rounded-full object-cover",
                                                 hoveredReaction === r.key

@@ -130,8 +130,8 @@ export const CustomEmojiPicker: React.FC<CustomEmojiPickerProps> = ({ onEmojiCli
                                     alt={item.id}
                                     className="w-full h-full object-contain"
                                     loading="eager"
-                                    //@ts-ignore
-                                    fetchpriority="high"
+                                    ///@ts-ignore
+                                    fetchPriority="high"
                                     style={{
                                         opacity: 1,
                                     }}

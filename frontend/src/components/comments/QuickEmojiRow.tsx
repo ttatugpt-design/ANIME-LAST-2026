@@ -171,7 +171,7 @@ export const QuickEmojiRow: React.FC<QuickEmojiRowProps> = ({ onEmojiClick }) =>
                             className="w-full h-full object-contain pointer-events-none"
                             loading="eager"
                             //@ts-ignore
-                            fetchpriority="high"
+                            fetchPriority="high"
                             draggable="false"
                         />
                     </button>
