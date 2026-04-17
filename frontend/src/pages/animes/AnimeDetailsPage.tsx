@@ -71,6 +71,8 @@ export default function AnimeDetailsPage() {
             return response.data;
         },
         enabled: !!id,
+        staleTime: 20 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
     });
 
     // Fetch Episodes separately as fallback (if not included in anime details)
@@ -102,6 +104,7 @@ export default function AnimeDetailsPage() {
             return undefined;
         },
         enabled: !!anime?.id,
+        staleTime: 5 * 60 * 1000,
         initialPageParam: 1,
     });
 
@@ -384,7 +387,8 @@ export default function AnimeDetailsPage() {
                                                             className="w-full h-full"
                                                             imageClassName="object-cover object-top"
                                                             spinnerClassName="w-16 h-16 border-4"
-                                                            loading="lazy"
+                                                            loading="eager"
+                                                            priority={true}
                                                         />
                                                     )}
                                                     {/* Gradient Overlay */}

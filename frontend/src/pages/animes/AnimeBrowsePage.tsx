@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useTranslation } from "react-i18next";
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown, List, Share2, Play, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -572,12 +572,38 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
 
 // ─── Grid Item Design ──────────────────────────────────────────────────────────
 
-const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLeave, keepCardOpen }: any) => {
+const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter, onMouseLeave, keepCardOpen }: any) => {
+    const queryClient = useQueryClient();
     const isEpisode = type === 'episode';
-
     const animeObj = item.anime || item.series;
+    const animeId = animeObj?.id || item.anime_id || item.id;
 
-    // Logic matching Vue
+    // Prefetch anime details and episodes on hover
+    const handlePrefetch = () => {
+        if (!animeId) return;
+        
+        queryClient.prefetchQuery({
+            queryKey: ["anime", String(animeId)],
+            queryFn: async () => {
+                const response = await api.get(`/animes/${animeId}`);
+                return response.data;
+            },
+            staleTime: 20 * 60 * 1000,
+        });
+
+        queryClient.prefetchInfiniteQuery({
+            queryKey: ["episodes-infinite", Number(animeId), "", null],
+            queryFn: async () => {
+                const response = await api.get(`/episodes`, { 
+                    params: { anime_id: animeId, paginate: true, limit: 25, page: 1 } 
+                });
+                return response.data;
+            },
+            initialPageParam: 1,
+            staleTime: 5 * 60 * 1000,
+        });
+    };
+
     const image = animeObj?.cover || item.cover || item.image || item.banner;
     const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
 
@@ -598,7 +624,10 @@ const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLea
     return (
         <div
             className="group cursor-pointer relative z-0 flex flex-col"
-            onMouseEnter={onMouseEnter}
+            onMouseEnter={() => {
+                onMouseEnter();
+                handlePrefetch();
+            }}
             onMouseLeave={onMouseLeave}
         >
             <Link to={targetLink} className="flex flex-col w-full h-full">
@@ -636,11 +665,11 @@ const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLea
             )}
         </div>
     );
-};
+});
 
 // ─── List Item Design ──────────────────────────────────────────────────────────
 
-const ListItem = ({ item, lang }: any) => {
+const ListItem = React.memo(({ item, lang }: any) => {
     const animeObj = item.anime || item.series;
     const image = animeObj?.cover || item.cover || item.image || item.banner || item.thumbnail;
     const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
@@ -717,4 +746,4 @@ const ListItem = ({ item, lang }: any) => {
             </div>
         </div>
     );
-};
+});
