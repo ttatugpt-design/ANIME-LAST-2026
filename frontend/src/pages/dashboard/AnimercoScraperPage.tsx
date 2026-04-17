@@ -155,7 +155,7 @@ const AnimercoScraperPage: React.FC = () => {
         
         // Also update anime poster if we have a better one and it's missing or requested
         if (batchResult.poster && selectedAnimeId) {
-            const anime = animes.find(a => a.id === selectedAnimeId);
+            const anime = animes.find((a: AnimeItem) => a.id === selectedAnimeId);
             if (anime && (!anime.image || anime.image.includes('placeholder'))) {
                  try {
                      await api.put(`/animes/${anime.id}`, { ...anime, image: batchResult.poster, cover: batchResult.poster });
