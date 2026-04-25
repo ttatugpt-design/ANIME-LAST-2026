@@ -1,19 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
-import { 
-    Database, Download, Trash2, RotateCcw, Plus, Upload, 
-    ShieldCheck, AlertCircle, HardDrive, Clock, FileJson, 
-    Activity, ArrowUpRight, CheckCircle2, Server
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Database, Download, RotateCcw, Trash2, UploadCloud, FileType, CheckCircle2, AlertCircle, Loader2, FileText, HardDrive, Server, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 
 interface BackupInfo {
     filename: string;
@@ -21,261 +17,359 @@ interface BackupInfo {
     date: string;
 }
 
-interface BackupStats {
-    animes: number;
-    episodes: number;
-    users: number;
-    embed_accounts: number;
-    comments: number;
-}
-
-const BackupSystem: React.FC = () => {
+const BackupPage: React.FC = () => {
     const { i18n } = useTranslation();
-    const isAr = i18n.language === 'ar';
     const queryClient = useQueryClient();
+    const isAr = i18n.language === 'ar';
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const token = useAuthStore.getState().accessToken;
-    const backendBase = 'http://localhost:8080/api';
 
-    // Queries
+    // States for Drag & Drop and Upload
+    const [isDragging, setIsDragging] = useState(false);
+    const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'restoring' | 'success' | 'error'>('idle');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadErrorMsg, setUploadErrorMsg] = useState('');
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
     const { data: backups, isLoading } = useQuery<BackupInfo[]>({
-        queryKey: ['backups-v7-final'],
-        queryFn: () => api.get('/dashboard/backups').then(res => res.data),
-        refetchInterval: 5000
+        queryKey: ['backups'],
+        queryFn: async () => (await api.get('/dashboard/backups')).data,
     });
 
-    const { data: stats } = useQuery<BackupStats>({
+    const { data: stats } = useQuery({
         queryKey: ['backup-stats'],
-        queryFn: () => api.get('/dashboard/backup-stats').then(res => res.data)
+        queryFn: async () => (await api.get('/dashboard/backup-stats')).data,
     });
 
-    const handleUploadClick = () => fileInputRef.current?.click();
+    // --- UPLOAD LOGIC (CHUNKED) ---
+    const handleFileProcess = async (file: File) => {
+        if (!file.name.endsWith('.db') && !file.name.endsWith('.sqlite')) {
+            toast.error(isAr ? 'يجب أن يكون الملف بصيغة .db أو .sqlite' : 'File must be .db or .sqlite');
+            return;
+        }
 
-    const handleRestore = async (filename: string) => {
-        if (!window.confirm(isAr ? 'استعادة هذه النسخة؟ سيعاد تشغيل السيرفر.' : 'Restore this backup? Server will restart.')) return;
         try {
-            await api.post(`/dashboard/backups/restore/${filename}`);
-            alert(isAr ? 'تمت الجدولة، السيرفر سيعيد التشغيل' : 'Scheduled, server is restarting');
+            setUploadState('uploading');
+            setUploadProgress(0);
+            
+            const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            const uploadId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
+            
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+                
+                const formData = new FormData();
+                formData.append('chunk', chunk);
+                formData.append('uploadId', uploadId);
+                formData.append('chunkIndex', i.toString());
+                
+                await api.post('/dashboard/backups/upload/chunk', formData);
+                
+                const percentCompleted = Math.round(((i + 1) / totalChunks) * 100);
+                setUploadProgress(percentCompleted);
+            }
+            
+            setUploadState('restoring');
+            await api.post('/dashboard/backups/upload/finalize', {
+                uploadId: uploadId,
+                filename: file.name
+            });
+            
+            setUploadState('success');
+            toast.success(isAr ? 'تم الاسترداد بنجاح! سيتم إعادة تشغيل السيرفر.' : 'Restored successfully! Server is restarting.');
             setTimeout(() => window.location.reload(), 3000);
         } catch (err: any) {
-            alert('Error: ' + (err.response?.data?.error || err.message));
+            console.error('Upload error:', err);
+            setUploadState('error');
+            setUploadErrorMsg(err.message || 'Unknown error occurred');
+            toast.error(isAr ? 'فشل الرفع' : 'Upload failed');
+            setTimeout(() => setUploadState('idle'), 5000);
         }
     };
 
+    const onDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    }, []);
+
+    const onDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    }, []);
+
+    const onDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleFileProcess(file);
+    }, []);
+
+    // --- OTHER ACTIONS ---
+    const handleCreateBackup = async () => {
+        try {
+            setActionLoading('create');
+            await api.post('/dashboard/backups');
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            toast.success(isAr ? 'تم إنشاء النسخة بنجاح' : 'Backup created successfully');
+        } catch (err: any) {
+            toast.error(isAr ? 'فشل إنشاء النسخة' : 'Failed to create backup');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleRestore = async (filename: string) => {
+        if (!window.confirm(isAr ? 'سيتم استبدال البيانات الحالية، هل أنت متأكد؟' : 'Current data will be replaced, are you sure?')) return;
+        try {
+            setActionLoading('restore');
+            await api.post(`/dashboard/backups/restore/${filename}`);
+            toast.success(isAr ? 'تمت الجدولة، سيتم إعادة التشغيل' : 'Restore scheduled, server is restarting');
+            setTimeout(() => window.location.reload(), 3000);
+        } catch (err: any) {
+            toast.error(isAr ? 'فشلت الاستعادة' : 'Restore failed');
+            setActionLoading(null);
+        }
+    };
+
+    const handleDelete = async (filename: string) => {
+        if (!window.confirm(isAr ? 'هل أنت متأكد من حذف هذه النسخة؟' : 'Are you sure you want to delete this backup?')) return;
+        try {
+            setActionLoading('delete');
+            await api.post(`/dashboard/backups/delete/${filename}`);
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            toast.success(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
+        } catch (err: any) {
+            toast.error(isAr ? 'فشل حذف النسخة' : 'Delete failed');
+            setActionLoading(null);
+        }
+    };
+
+    const handleDownload = (filename: string) => {
+        const token = useAuthStore.getState().accessToken;
+        let downloadUrl = `${api.defaults.baseURL}/dashboard/backups/download/${filename}?token=${token}`;
+        if (downloadUrl.startsWith('/')) downloadUrl = window.location.origin + downloadUrl;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    };
+
+    const formatSize = (bytes: number) => {
+        const mb = bytes / (1024 * 1024);
+        return `${mb.toFixed(2)} MB`;
+    };
+
     return (
-        <div className="min-h-screen bg-[#0f172a] text-slate-200 p-4 md:p-8 space-y-8 font-sans selection:bg-primary/30" dir={isAr ? 'rtl' : 'ltr'}>
-            
-            {/* Header Section */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-8 shadow-2xl border border-white/10">
-                <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" />
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 text-white">
-                    <div className="text-center md:text-right">
-                        <div className="flex items-center gap-3 mb-2 justify-center md:justify-start">
-                            <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl">
-                                <Database className="w-8 h-8 text-white" />
-                            </div>
-                            <Badge variant="outline" className="bg-white/10 text-white border-white/20 backdrop-blur-sm px-4 py-1 font-bold">V7 ULTIMATE</Badge>
-                        </div>
-                        <h1 className="text-4xl md:text-5xl font-black tracking-tight drop-shadow-lg">{isAr ? 'نظام الحماية والنسخ الاحتياطي' : 'DATABASE SHIELD ENGINE'}</h1>
-                        <p className="mt-2 text-white/80 font-medium text-lg max-w-2xl">{isAr ? 'إدارة احترافية وآمنة تماماً لقواعد البيانات مع تقنية الروابط المباشرة لضمان الاستجابة 100%' : 'Professional, ultra-secure DB management with Direct-Link technology for 100% responsiveness'}</p>
-                    </div>
-                    
-                    <div className="flex flex-col gap-3 w-full md:w-auto">
-                        <a 
-                            href={`${backendBase}/dashboard/backups/create-new?token=${token}&redirect=${encodeURIComponent(window.location.href)}`}
-                            className="group flex items-center justify-center gap-3 bg-white text-indigo-600 hover:bg-slate-100 px-8 py-5 rounded-2xl font-black text-xl transition-all shadow-2xl hover:scale-[1.02] active:scale-95 no-underline"
-                        >
-                            <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform" />
-                            {isAr ? 'إنشاء نسخة فورية' : 'GENERATE BACKUP'}
-                        </a>
-                        <div className="flex gap-2">
-                             <Button onClick={handleUploadClick} className="flex-1 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md rounded-xl py-6 font-bold transition-all">
-                                <Upload className="w-5 h-5 mr-2" /> {isAr ? 'رفع ملف .db' : 'Upload DB'}
-                            </Button>
-                            <input ref={fileInputRef} type="file" className="hidden" accept=".db" onChange={(e) => e.target.files?.[0] && alert('Upload logic active in backend')} />
-                        </div>
-                    </div>
+        <div className="space-y-8 relative pb-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
+                        <Database className="h-8 w-8 text-primary" />
+                        {isAr ? 'إدارة قواعد البيانات V5' : 'Database Management V5'}
+                    </h2>
+                    <p className="text-muted-foreground mt-1">
+                        {isAr ? 'نظام استرداد فائق السرعة يدعم الرفع المجزأ لتخطي قيود الحماية' : 'Ultra-fast restoration system with chunked upload support to bypass limits'}
+                    </p>
                 </div>
+                <Button size="lg" className="gap-2 font-bold shadow-lg shadow-primary/20" onClick={handleCreateBackup} disabled={!!actionLoading}>
+                    {actionLoading === 'create' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="h-5 w-5" />}
+                    {isAr ? 'أخذ نسخة احتياطية الآن' : 'Backup Now'}
+                </Button>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {[
-                    { label: isAr ? 'الأنميات' : 'Animes', value: stats?.animes || 0, icon: Activity, color: 'text-blue-400', bg: 'from-blue-500/20' },
-                    { label: isAr ? 'الحلقات' : 'Episodes', value: stats?.episodes || 0, icon: Server, color: 'text-purple-400', bg: 'from-purple-500/20' },
-                    { label: isAr ? 'المستخدمين' : 'Users', value: stats?.users || 0, icon: ShieldCheck, color: 'text-green-400', bg: 'from-green-500/20' },
-                    { label: isAr ? 'الحسابات' : 'Accounts', value: stats?.embed_accounts || 0, icon: HardDrive, color: 'text-orange-400', bg: 'from-orange-500/20' },
-                    { label: isAr ? 'التعليقات' : 'Comments', value: stats?.comments || 0, icon: Clock, color: 'text-pink-400', bg: 'from-pink-500/20' },
-                ].map((s, idx) => (
-                    <Card key={idx} className="bg-slate-900/40 border-slate-800 backdrop-blur-xl hover:border-slate-600 transition-all group overflow-hidden relative border-t-2 border-t-transparent hover:border-t-primary">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${s.bg} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
-                        <CardHeader className="p-5 flex flex-row items-center justify-between space-y-0">
-                            <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-widest">{s.label}</CardTitle>
-                            <div className={`p-2 rounded-lg bg-slate-950/50 ${s.color}`}>
-                                <s.icon className="w-4 h-4" />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-5 pt-0">
-                            <div className="text-3xl font-black text-white tabular-nums">{s.value.toLocaleString()}</div>
-                            <div className="flex items-center gap-2 mt-3">
-                                <Progress value={Math.min(100, (s.value / 1000) * 100)} className="h-1.5 flex-1 bg-slate-800" />
-                                <span className="text-[10px] font-bold text-slate-500">LIVE</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+            {/* Massive Upload Zone */}
+            <Card className={`border-2 border-dashed overflow-hidden transition-all duration-300 ${isDragging ? 'border-primary bg-primary/5 scale-[1.01]' : 'border-border bg-card'}`}>
+                <CardContent className="p-0">
+                    <div 
+                        className="relative p-12 flex flex-col items-center justify-center text-center min-h-[300px]"
+                        onDragOver={onDragOver}
+                        onDragLeave={onDragLeave}
+                        onDrop={onDrop}
+                    >
+                        <input 
+                            ref={fileInputRef}
+                            type="file" 
+                            className="hidden" 
+                            accept=".db,.sqlite"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileProcess(file);
+                                e.target.value = '';
+                            }}
+                        />
 
-            {/* Main Content Area */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Table Section */}
-                <div className="lg:col-span-3 space-y-4">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                            <FileJson className="text-indigo-400" />
-                            {isAr ? 'أرشيف النسخ الاحتياطية' : 'BACKUP ARCHIVE'}
-                        </h2>
-                        <Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-500/30 px-4 py-1">
-                            {backups?.length || 0} {isAr ? 'نسخة متوفرة' : 'Backups'}
-                        </Badge>
-                    </div>
-
-                    {isLoading ? (
-                        <div className="p-20 text-center bg-slate-900/40 rounded-3xl border border-white/5">
-                            <div className="animate-spin h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4" />
-                            <p className="text-slate-400 font-bold">{isAr ? 'جاري التحميل...' : 'Loading Backups...'}</p>
-                        </div>
-                    ) : backups?.length === 0 ? (
-                        <div className="p-20 text-center bg-slate-900/40 rounded-3xl border border-dashed border-slate-700">
-                            <AlertCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                            <h3 className="text-xl font-bold text-slate-400 mb-2">{isAr ? 'لا توجد نسخ احتياطية' : 'No Backups Found'}</h3>
-                            <p className="text-slate-500 mb-6">{isAr ? 'ابدأ بإنشاء أول نسخة احتياطية الآن' : 'Start by creating your first backup now'}</p>
-                            <a 
-                                href={`${backendBase}/dashboard/backups/create-new?token=${token}&redirect=${encodeURIComponent(window.location.href)}`}
-                                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold no-underline hover:bg-indigo-700 transition-all"
-                            >
-                                <Plus className="w-5 h-5" /> {isAr ? 'إنشاء نسخة الآن' : 'Create One Now'}
-                            </a>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 gap-4">
-                            {backups?.map((b) => (
-                                <div key={b.filename} className="bg-slate-900/60 border border-white/5 rounded-3xl p-6 hover:border-indigo-500/30 transition-all group shadow-xl">
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-4 bg-indigo-500/10 rounded-2xl">
-                                                <Database className="w-8 h-8 text-indigo-400" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-white font-mono break-all">{b.filename}</h3>
-                                                <div className="flex flex-wrap gap-3 mt-2">
-                                                    <span className="flex items-center gap-1 text-xs text-slate-500 font-bold">
-                                                        <Clock className="w-3 h-3" /> {format(new Date(b.date), 'PPPP p')}
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-xs text-indigo-400 font-bold">
-                                                        <HardDrive className="w-3 h-3" /> {(b.size / 1024 / 1024).toFixed(2)} MB
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                                            <a 
-                                                href={`${backendBase}/dashboard/backups/download/${encodeURIComponent(b.filename)}?token=${token}`}
-                                                target="_blank"
-                                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl font-bold transition-all no-underline shadow-lg shadow-blue-900/20"
-                                            >
-                                                <Download className="w-5 h-5" /> {isAr ? 'تنزيل' : 'Download'}
-                                            </a>
-                                            
-                                            <button 
-                                                onClick={() => handleRestore(b.filename)}
-                                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20"
-                                            >
-                                                <RotateCcw className="w-5 h-5" /> {isAr ? 'استعادة' : 'Restore'}
-                                            </button>
-
-                                            <a 
-                                                href={`${backendBase}/dashboard/backups/delete-now/${encodeURIComponent(b.filename)}?token=${token}&redirect=${encodeURIComponent(window.location.href)}`}
-                                                onClick={(e) => { if(!window.confirm(isAr ? 'حذف النسخة نهائياً؟' : 'Delete permanently?')) e.preventDefault(); }}
-                                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white hover:bg-red-700 rounded-xl font-bold transition-all no-underline shadow-lg shadow-red-900/20"
-                                            >
-                                                <Trash2 className="w-5 h-5" /> {isAr ? 'حذف' : 'Delete'}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Sidebar Info Section */}
-                <div className="space-y-6">
-                    <Card className="bg-slate-900/40 border-slate-800 backdrop-blur-xl rounded-3xl border border-white/5">
-                        <CardHeader className="border-b border-white/5">
-                            <CardTitle className="text-lg font-black flex items-center gap-3 text-white uppercase tracking-widest">
-                                <Activity className="text-emerald-400 w-5 h-5" />
-                                {isAr ? 'حالة السيرفر' : 'ENGINE STATUS'}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4 p-6">
-                            <div className="flex justify-between items-center p-4 bg-slate-950/40 rounded-2xl border border-white/5 transition-all hover:border-emerald-500/30">
-                                <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">{isAr ? 'وضعية الاتصال' : 'Connection'}</span>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping absolute" />
-                                        <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                    </div>
-                                    <span className="text-emerald-400 font-black text-xs">ENCRYPTED</span>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center p-4 bg-slate-950/40 rounded-2xl border border-white/5 transition-all hover:border-amber-500/30">
-                                <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">{isAr ? 'نمط الوصول' : 'Access Mode'}</span>
-                                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 font-black text-[9px] px-2 py-0.5 uppercase tracking-tighter">Direct-Tunnel</Badge>
-                            </div>
-                            <div className="p-4 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-                                    <span className="text-indigo-400 font-black text-xs uppercase tracking-widest">{isAr ? 'نظام الحماية V7' : 'SHIELD V7 ACTIVE'}</span>
-                                </div>
-                                <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
-                                    {isAr ? 'نظام النسخ الاحتياطي يعمل الآن بنمط "الوصول المباشر" لضمان تخطي أي قيود أمنية أو جدران نارية.' : 'The backup engine is now operating in "Direct Access" mode to bypass firewall restrictions and ensure 100% success.'}
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-indigo-900/40 via-slate-900/40 to-slate-950/40 border-slate-800 backdrop-blur-xl rounded-3xl border border-indigo-500/30">
-                        <CardContent className="p-6">
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-indigo-500/20 rounded-2xl">
-                                    <AlertCircle className="w-6 h-6 text-indigo-400" />
+                        {uploadState === 'idle' && (
+                            <div className="space-y-6 flex flex-col items-center">
+                                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <UploadCloud className="w-10 h-10 text-primary" />
                                 </div>
                                 <div>
-                                    <h4 className="text-white font-black text-sm mb-1 uppercase tracking-widest">{isAr ? 'تنبيه أمني' : 'SECURITY ALERT'}</h4>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                                        {isAr ? 'يتم تخزين النسخ الاحتياطية في المجلد المشفر /backups. ننصح دائماً بتحميل نسخة وحفظها خارج السيرفر لزيادة الأمان.' : 'Backups are stored in the encrypted /backups folder. We strongly advise downloading and storing copies off-server for maximum security.'}
+                                    <h3 className="text-2xl font-bold mb-2">{isAr ? 'اسحب وأفلت ملف قاعدة البيانات هنا' : 'Drag & Drop Database File Here'}</h3>
+                                    <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                                        {isAr ? 'يدعم الملفات الضخمة بصيغة (.db أو .sqlite) - تم تفعيل نظام الرفع المجزأ لتجاوز حدود Cloudflare بأمان' : 'Supports massive .db or .sqlite files - Chunked upload active to safely bypass Cloudflare limits'}
                                     </p>
                                 </div>
+                                <Button size="lg" variant="secondary" className="font-bold" onClick={() => fileInputRef.current?.click()}>
+                                    {isAr ? 'أو تصفح الملفات' : 'Or Browse Files'}
+                                </Button>
                             </div>
-                        </CardContent>
-                    </Card>
+                        )}
 
-                    <a 
-                        href={`http://localhost:8080/uploads/backup_tool.html?token=${token}`}
-                        target="_blank"
-                        className="block p-5 bg-slate-950 hover:bg-white/[0.02] border border-white/5 rounded-3xl text-center group no-underline transition-all hover:scale-[1.02]"
-                    >
-                        <div className="flex items-center justify-center gap-3 text-slate-500 group-hover:text-indigo-400 transition-colors">
-                            <ArrowUpRight className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                            <span className="text-xs font-black uppercase tracking-widest">{isAr ? 'وحدة التحكم في الطوارئ' : 'EMERGENCY CONSOLE'}</span>
+                        {uploadState === 'uploading' && (
+                            <div className="w-full max-w-lg space-y-6 flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                                <FileType className="w-16 h-16 text-primary animate-pulse" />
+                                <div className="w-full text-center space-y-2">
+                                    <h3 className="text-2xl font-bold text-primary">{isAr ? 'جاري الرفع الآمن...' : 'Secure Uploading...'}</h3>
+                                    <p className="text-muted-foreground">{uploadProgress}%</p>
+                                </div>
+                                <div className="w-full h-4 bg-secondary rounded-full overflow-hidden border border-white/5">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-primary to-green-400 transition-all duration-300 ease-out"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                                <p className="text-xs text-yellow-500 font-medium">
+                                    {isAr ? 'يرجى عدم إغلاق هذه الصفحة حتى تكتمل العملية' : 'Please do not close this page until completed'}
+                                </p>
+                            </div>
+                        )}
+
+                        {uploadState === 'restoring' && (
+                            <div className="space-y-6 flex flex-col items-center animate-in fade-in zoom-in">
+                                <div className="relative">
+                                    <Loader2 className="w-20 h-20 text-primary animate-spin" />
+                                    <Database className="w-8 h-8 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-2xl font-bold">{isAr ? 'جاري استبدال قاعدة البيانات' : 'Replacing Database'}</h3>
+                                    <p className="text-muted-foreground mt-2">{isAr ? 'اكتمل الرفع. النظام يقوم بالاستعادة الآن...' : 'Upload complete. System is restoring now...'}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {uploadState === 'success' && (
+                            <div className="space-y-4 flex flex-col items-center text-green-500 animate-in zoom-in">
+                                <CheckCircle2 className="w-24 h-24" />
+                                <h3 className="text-3xl font-bold">{isAr ? 'تمت العملية بنجاح!' : 'Process Successful!'}</h3>
+                                <p>{isAr ? 'سيتم إعادة تشغيل النظام لتطبيق التغييرات' : 'System will restart to apply changes'}</p>
+                            </div>
+                        )}
+
+                        {uploadState === 'error' && (
+                            <div className="space-y-4 flex flex-col items-center text-red-500 animate-in zoom-in">
+                                <AlertCircle className="w-20 h-20" />
+                                <h3 className="text-2xl font-bold">{isAr ? 'فشلت العملية' : 'Process Failed'}</h3>
+                                <p className="text-sm font-mono bg-red-500/10 p-2 rounded">{uploadErrorMsg}</p>
+                                <Button variant="outline" className="mt-4 border-red-500 text-red-500 hover:bg-red-500/10" onClick={() => setUploadState('idle')}>
+                                    {isAr ? 'حاول مجدداً' : 'Try Again'}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="bg-primary/5 border-primary/20">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{isAr ? 'إجمالي النسخ' : 'Total Backups'}</CardTitle>
+                        <FileText className="h-4 w-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{backups?.length || 0}</div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-blue-500/5 border-blue-500/20">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{isAr ? 'سيرفرات الرفع' : 'Upload Servers'}</CardTitle>
+                        <Server className="h-4 w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats?.embed_accounts || 0}</div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-green-500/5 border-green-500/20">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{isAr ? 'قاعدة البيانات' : 'Database Status'}</CardTitle>
+                        <ShieldCheck className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg font-bold">
+                            {stats ? (stats.animes + stats.episodes) : 0} {isAr ? 'عنصر' : 'items'}
                         </div>
-                    </a>
-                </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-amber-500/5 border-amber-500/20">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{isAr ? 'استهلاك القرص' : 'Disk Usage'}</CardTitle>
+                        <HardDrive className="h-4 w-4 text-amber-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {formatSize(backups?.reduce((acc, b) => acc + b.size, 0) || 0)}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
+
+            {/* Backup List */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>{isAr ? 'سجل النسخ الاحتياطية' : 'Backup History'}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                    ) : (
+                        <div className="rounded-md border border-white/5">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>{isAr ? 'اسم الملف' : 'Filename'}</TableHead>
+                                        <TableHead>{isAr ? 'الحجم' : 'Size'}</TableHead>
+                                        <TableHead>{isAr ? 'التاريخ' : 'Date'}</TableHead>
+                                        <TableHead className="text-right">{isAr ? 'الإجراءات' : 'Actions'}</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {backups && backups.length > 0 ? (
+                                        backups.map((backup) => (
+                                            <TableRow key={backup.filename}>
+                                                <TableCell className="font-mono text-xs">{backup.filename}</TableCell>
+                                                <TableCell>{formatSize(backup.size)}</TableCell>
+                                                <TableCell>
+                                                    {format(new Date(backup.date), 'yyyy/MM/dd HH:mm', { locale: isAr ? ar : undefined })}
+                                                </TableCell>
+                                                <TableCell className="text-right flex justify-end gap-2">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDownload(backup.filename)} title={isAr ? 'تنزيل' : 'Download'}>
+                                                        <Download className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleRestore(backup.filename)} title={isAr ? 'استعادة' : 'Restore'} disabled={!!actionLoading}>
+                                                        {actionLoading === 'restore' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(backup.filename)} title={isAr ? 'حذف' : 'Delete'} disabled={!!actionLoading}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">{isAr ? 'لا توجد نسخ' : 'No backups'}</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 };
 
-export default BackupSystem;
+export default BackupPage;

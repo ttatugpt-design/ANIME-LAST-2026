@@ -47,8 +47,6 @@ const BackupPage: React.FC = () => {
             return;
         }
 
-        if (!window.confirm(isAr ? 'تحذير: هذه العملية ستستبدل قاعدة البيانات الحالية بشكل كامل. هل أنت متأكد؟' : 'WARNING: This will completely replace the current database. Are you sure?')) return;
-        
         try {
             setUploadState('uploading');
             setUploadProgress(0);
