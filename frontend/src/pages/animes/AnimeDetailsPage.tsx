@@ -824,6 +824,11 @@ function EpisodeListItem({ episode, lang, animeTitle, animeId }: { episode: any;
                         className="w-full h-full"
                         imageClassName="object-cover transition-transform duration-500 group-hover:scale-110"
                         loading="lazy"
+                        customSpinner={
+                            <div className="scale-75 opacity-90">
+                                <CentralSpinner size="small" className="min-h-0 w-full" color="#22c55e" />
+                            </div>
+                        }
                     />
                     {/* Hover overlay with play button */}
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center rounded-xl">
@@ -845,6 +850,11 @@ function EpisodeListItem({ episode, lang, animeTitle, animeId }: { episode: any;
                                     className="w-full h-full"
                                     imageClassName="object-cover"
                                     loading="lazy"
+                                    customSpinner={
+                                        <div className="scale-75 opacity-90">
+                                            <CentralSpinner size="small" className="min-h-0 w-full" color="#22c55e" />
+                                        </div>
+                                    }
                                 />
                             </div>
                         </div>

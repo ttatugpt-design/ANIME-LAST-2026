@@ -8,6 +8,7 @@ interface SpinnerImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     imageClassName?: string; // Class for the img element itself
     containerClassName?: string; // Optional specific class for the container
     spinnerClassName?: string; // Class for the spinner element
+    customSpinner?: React.ReactNode; // Optional custom spinner component
 }
 
 const SpinnerImage = ({
@@ -17,6 +18,7 @@ const SpinnerImage = ({
     imageClassName,
     containerClassName,
     spinnerClassName,
+    customSpinner,
     ...props
 }: SpinnerImageProps) => {
     const [isLoaded, setIsLoaded] = useState(false);
@@ -50,7 +52,9 @@ const SpinnerImage = ({
             {/* Spinner */}
             {!isLoaded && !error && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
-                    <div className={cn("w-8 h-8 border-4 border-gray-100 dark:border-gray-800 border-t-black dark:border-t-white rounded-full animate-spin", spinnerClassName)}></div>
+                    {customSpinner ? customSpinner : (
+                        <div className={cn("w-8 h-8 border-4 border-gray-100 dark:border-gray-800 border-t-black dark:border-t-white rounded-full animate-spin", spinnerClassName)}></div>
+                    )}
                 </div>
             )}
 

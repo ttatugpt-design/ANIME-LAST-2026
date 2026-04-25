@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export default function CentralSpinner({ className, size = "large" }: { className?: string, size?: "small" | "medium" | "large" }) {
+export default function CentralSpinner({ className, size = "large", color = "#FF3D00" }: { className?: string, size?: "small" | "medium" | "large", color?: string }) {
     // Exact sizes based on AnimeDetailsPage loader
     const sizes = {
         small: {
@@ -36,9 +36,9 @@ export default function CentralSpinner({ className, size = "large" }: { classNam
                     currentSize.outer
                 )}>
                     <div className={cn(
-                        "absolute inset-0 m-auto border-solid border-transparent border-b-[#FF3D00] border-l-[#FF3D00] rounded-full animate-[ep-spinBack_0.6s_linear_infinite] box-border",
+                        "absolute inset-0 m-auto border-solid border-transparent rounded-full animate-[ep-spinBack_0.6s_linear_infinite] box-border",
                         currentSize.after
-                    )} />
+                    )} style={{ borderBottomColor: color, borderLeftColor: color }} />
                     <div className={cn(
                         "absolute inset-0 m-auto border-solid border-[#888] border-r-transparent border-b-transparent rounded-full animate-[ep-spin_1.2s_linear_infinite] box-border",
                         currentSize.before
