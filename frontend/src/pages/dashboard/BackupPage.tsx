@@ -94,9 +94,6 @@ const BackupPage: React.FC = () => {
             formData.append('backup', file);
             
             await api.post('/dashboard/backups/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
                 onUploadProgress: (progressEvent) => {
                     if (progressEvent.total) {
                         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
