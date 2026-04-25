@@ -150,7 +150,9 @@ func (h *BackupHandler) DeleteBackup(c *gin.Context) {
 	filename = filepath.Base(filename)
 	backupPath := filepath.Join(h.cfg.BackupDir, filename)
 
-	if err := os.Remove(backupPath); err != nil {
+	err := os.Remove(backupPath)
+	if err != nil && !os.IsNotExist(err) {
+		log.Printf("[BACKUP ERROR] Failed to delete backup: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete backup"})
 		return
 	}

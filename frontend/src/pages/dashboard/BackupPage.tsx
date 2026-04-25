@@ -67,9 +67,7 @@ const BackupPage: React.FC = () => {
                 formData.append('uploadId', uploadId);
                 formData.append('chunkIndex', i.toString());
                 
-                await api.post('/dashboard/backups/upload/chunk', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
+                await api.post('/dashboard/backups/upload/chunk', formData);
                 
                 const percentCompleted = Math.round(((i + 1) / totalChunks) * 100);
                 setUploadProgress(percentCompleted);
