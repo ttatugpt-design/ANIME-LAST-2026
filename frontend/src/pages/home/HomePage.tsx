@@ -68,8 +68,9 @@ export default function HomePage() {
                             {logoUrl ? (
                                 <img
                                     src={logoUrl}
-                                    alt="Logo"
+                                    alt="AnimeLast Logo"
                                     className="w-auto h-24 md:h-32 lg:h-40 xl:h-48 object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500"
+                                    fetchPriority="high"
                                 />
                             ) : (
                                 <div className="h-24 md:h-32 lg:h-40 w-48 md:w-64 lg:w-80 rounded-xl bg-gray-200 dark:bg-white/10 animate-pulse" />
@@ -608,6 +609,7 @@ const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter,
                         alt={displayTitle}
                         className="w-full h-full"
                         imageClassName="object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
                     />
                 </div>
 
@@ -664,7 +666,7 @@ const ListItem = React.memo(({ item, lang }: any) => {
         <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm">
             <Link to={targetLink} className="flex-1 flex items-center min-w-0">
                 <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-none overflow-hidden bg-gray-100 dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative transition-transform">
-                    <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                         <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md fill-white" />
                     </div>

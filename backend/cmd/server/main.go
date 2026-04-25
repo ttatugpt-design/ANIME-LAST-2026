@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
 
@@ -154,10 +155,13 @@ func main() {
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 
 	exportHandler := handler.NewExportHandler(exportService)
-	uploadHandler := handler.NewUploadHandler()
+	uploadHandler := handler.NewUploadHandler(baseDir)
+	pcloudHandler := handler.NewPCloudHandler()
+	streamhgHandler := handler.NewStreamHGHandler()
 	searchHandler := handler.NewSearchHandler(repo, repo, repo)
 	watchLaterHandler := handler.NewWatchLaterHandler(watchLaterService)
 	historyHandler := handler.NewHistoryHandler(historyService)
+	automationHandler := handler.NewAutomationHandler(episodeService)
 
 	// Community Posts Services & Handlers
 	// Note: We use repo for port.PostRepository and uploadHandler/nil for file service depending on how uploads are handled
@@ -186,9 +190,24 @@ func main() {
 	mirroredHandler := handler.NewMirroredHandler(episodeService, serverService, embedAccountService, repo.DB())
 	resumableHandler := handler.NewResumableUploadHandler()
 	scraperHandler := handler.NewScraperHandler(repo.DB(), baseDir)
+	streamtapeHandler := handler.NewStreamtapeHandler()
 
 	r := gin.Default()
-	r.MaxMultipartMemory = 32 << 20 // 32MB instead of 1GB. Files larger than this will be cached into OS temporary disk space instead of RAM!
+	
+	// Enable Gzip Compression (Optimizes payload size significantly)
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
+	
+	// Enable Security and Performance Headers
+	r.Use(middleware.SecurityHeadersMiddleware())
+
+	r.Use(func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, "/assets") && !strings.HasPrefix(c.Request.URL.Path, "/uploads") {
+			log.Printf("[REQ] %s %s | IP: %s | Len: %d", c.Request.Method, c.Request.URL.Path, c.ClientIP(), c.Request.ContentLength)
+		}
+		c.Next()
+	})
+
+	r.MaxMultipartMemory = 64 << 20 // 64MB
 
 	// SEO Sitemap
 	r.GET("/sitemap.xml", sitemapHandler.GetSitemap)
@@ -297,6 +316,21 @@ func main() {
 		{
 			// General Search
 			public.GET("/search", searchHandler.Search)
+
+			// pCloud Proxy
+			pcloud := public.Group("/pcloud")
+			{
+				pcloud.GET("/list", pcloudHandler.ProxyListFolder)
+				pcloud.GET("/public-drive", pcloudHandler.ProxyListPublicDrive)
+				pcloud.GET("/link", pcloudHandler.ProxyGetFileLink)
+				pcloud.GET("/login", pcloudHandler.ProxyLogin)
+			}
+
+			// Automation Proxy
+			automation := public.Group("/automation")
+			{
+				automation.POST("/sync", automationHandler.SyncEpisodes)
+			}
 
 			// Anime Public (Read-Only)
 			animes := public.Group("/animes")
@@ -435,8 +469,11 @@ func main() {
 				dashboard.GET("/backups", backupHandler.ListBackups)
 				dashboard.GET("/backup-stats", backupHandler.GetBackupStats)
 				dashboard.POST("/backups", backupHandler.CreateBackup)
+				dashboard.GET("/backups/create-new", backupHandler.CreateBackup) // GET Fallback
 				dashboard.GET("/backups/download/:filename", backupHandler.DownloadBackup)
 				dashboard.DELETE("/backups/:filename", backupHandler.DeleteBackup)
+				dashboard.POST("/backups/delete/:filename", backupHandler.DeleteBackup) 
+				dashboard.GET("/backups/delete-now/:filename", backupHandler.DeleteBackup) // GET Fallback for Delete
 				dashboard.POST("/backups/restore/:filename", backupHandler.RestoreBackup)
 				dashboard.POST("/backups/upload", backupHandler.UploadAndRestore)
 			}
@@ -547,6 +584,8 @@ func main() {
 
 			// Scraper Routes
 			protected.POST("/scraper/test-fetch", scraperHandler.TestFetchLink)
+			protected.POST("/scraper/doodstream-proxy", scraperHandler.ProxyDoodstream)
+			protected.POST("/scraper/streamhg-proxy", scraperHandler.ProxyStreamHG)
 			protected.POST("/scraper/egydead", scraperHandler.FetchEgyDead)
 			protected.POST("/scraper/egydead-batch", scraperHandler.FetchEgyDeadBatch)
 			protected.POST("/scraper/anime4up", scraperHandler.FetchAnime4Up)
@@ -560,6 +599,8 @@ func main() {
 			protected.POST("/scraper/images-download", scraperHandler.DownloadImagesZip)
 			protected.POST("/scraper/import", scraperHandler.ImportScrapedAnime)
 			protected.POST("/scraper/deep-import", scraperHandler.DeepImportAnime)
+			protected.POST("/scraper/crunchyroll/deep-import", scraperHandler.DeepImportCrunchyroll)
+			protected.POST("/scraper/crunchyroll/update-anime", scraperHandler.UpdateAnimeFromCrunchyroll)
 
 			// Quick News Admin Operations
 			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)
@@ -572,13 +613,27 @@ func main() {
 
 			// Server Admin Operations
 			protected.Group("/servers").POST("", serverHandler.Create).PUT("/:id", serverHandler.Update).DELETE("/:id", serverHandler.Delete)
+
+			// StreamHG Backend Operations
+			streamhg := protected.Group("/streamhg")
+			{
+				streamhg.POST("/remote-upload", streamhgHandler.RemoteUpload)
+				streamhg.GET("/account-info", streamhgHandler.GetAccountInfo)
+				streamhg.GET("/list", streamhgHandler.ListFiles)
+				streamhg.POST("/rename", streamhgHandler.RenameFile)
+				streamhg.DELETE("/delete", streamhgHandler.DeleteFiles)
+				streamhg.POST("/create-folder", streamhgHandler.CreateFolder)
+			}
+
+			// Streamtape Backend Operations
+			streamtape := protected.Group("/streamtape")
+			{
+				streamtape.GET("/account-info", streamtapeHandler.GetAccountInfo)
+				streamtape.POST("/remote-upload", streamtapeHandler.RemoteUpload)
+			}
 		}
 	}
 
-	r.Use(func(c *gin.Context) {
-		log.Printf("Incoming: %s %s | Len: %d", c.Request.Method, c.Request.URL.Path, c.Request.ContentLength)
-		c.Next()
-	})
 
 	srv := &http.Server{
 		Addr:        ":" + cfg.Port,
