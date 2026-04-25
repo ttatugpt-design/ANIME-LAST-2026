@@ -207,7 +207,7 @@ func main() {
 		c.Next()
 	})
 
-	r.MaxMultipartMemory = 64 << 20 // 64MB
+	r.MaxMultipartMemory = 256 << 20 // 256MB
 
 	// SEO Sitemap
 	r.GET("/sitemap.xml", sitemapHandler.GetSitemap)
