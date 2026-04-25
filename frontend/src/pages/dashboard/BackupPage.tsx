@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
-import { Database, Download, RotateCcw, Trash2, Upload, Plus, Loader2, FileText, HardDrive, Server, ShieldCheck, Save } from 'lucide-react';
+import { Database, Download, RotateCcw, Trash2, UploadCloud, FileType, CheckCircle2, AlertCircle, Loader2, FileText, HardDrive, Server, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -23,9 +23,12 @@ const BackupPage: React.FC = () => {
     const isAr = i18n.language === 'ar';
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Local Loading States
+    // States for Drag & Drop and Upload
+    const [isDragging, setIsDragging] = useState(false);
+    const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'restoring' | 'success' | 'error'>('idle');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadErrorMsg, setUploadErrorMsg] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
     const { data: backups, isLoading } = useQuery<BackupInfo[]>({
         queryKey: ['backups'],
@@ -37,65 +40,23 @@ const BackupPage: React.FC = () => {
         queryFn: async () => (await api.get('/dashboard/backup-stats')).data,
     });
 
-    // --- MANUAL ACTIONS ---
-
-    const handleCreateBackup = async () => {
-        try {
-            setActionLoading('create');
-            await api.post('/dashboard/backups');
-            queryClient.invalidateQueries({ queryKey: ['backups'] });
-            toast.success(isAr ? 'تم إنشاء النسخة بنجاح' : 'Backup created successfully');
-        } catch (err: any) {
-            console.error('Create error:', err);
-            toast.error(isAr ? 'فشل إنشاء النسخة' : 'Failed to create backup: ' + err.message);
-        } finally {
-            setActionLoading(null);
+    // --- UPLOAD LOGIC (CHUNKED) ---
+    const handleFileProcess = async (file: File) => {
+        if (!file.name.endsWith('.db') && !file.name.endsWith('.sqlite')) {
+            toast.error(isAr ? 'يجب أن يكون الملف بصيغة .db أو .sqlite' : 'File must be .db or .sqlite');
+            return;
         }
-    };
 
-    const handleRestore = async (filename: string) => {
-        if (!window.confirm(isAr ? 'سيتم استبدال البيانات الحالية، هل أنت متأكد؟' : 'Current data will be replaced, are you sure?')) return;
+        if (!window.confirm(isAr ? 'تحذير: هذه العملية ستستبدل قاعدة البيانات الحالية بشكل كامل. هل أنت متأكد؟' : 'WARNING: This will completely replace the current database. Are you sure?')) return;
         
         try {
-            setActionLoading('restore');
-            await api.post(`/dashboard/backups/restore/${filename}`);
-            toast.success(isAr ? 'تمت الجدولة، سيتم إعادة التشغيل' : 'Restore scheduled, server is restarting');
-            setTimeout(() => window.location.reload(), 3000);
-        } catch (err: any) {
-            console.error('Restore error:', err);
-            toast.error(isAr ? 'فشلت الاستعادة' : 'Restore failed: ' + err.message);
-            setActionLoading(null);
-        }
-    };
-
-    const handleDelete = async (filename: string) => {
-        if (!window.confirm(isAr ? 'هل أنت متأكد من حذف هذه النسخة؟' : 'Are you sure you want to delete this backup?')) return;
-        
-        try {
-            setActionLoading('delete');
-            await api.post(`/dashboard/backups/delete/${filename}`);
-            queryClient.invalidateQueries({ queryKey: ['backups'] });
-            toast.success(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
-        } catch (err: any) {
-            console.error('Delete error:', err);
-            toast.error(isAr ? 'فشل حذف النسخة' : 'Delete failed: ' + err.message);
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
-    const handleUpload = async (file: File) => {
-        if (!window.confirm(isAr ? 'سيتم استبدال البيانات الحالية! هل أنت متأكد؟' : 'Current data will be replaced! Are you sure?')) return;
-        
-        try {
-            setActionLoading('upload');
+            setUploadState('uploading');
             setUploadProgress(0);
             
             const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
             const uploadId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
             
-            // Upload chunks sequentially
             for (let i = 0; i < totalChunks; i++) {
                 const start = i * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, file.size);
@@ -110,25 +71,82 @@ const BackupPage: React.FC = () => {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 
-                // Calculate precise progress based on chunks
                 const percentCompleted = Math.round(((i + 1) / totalChunks) * 100);
                 setUploadProgress(percentCompleted);
             }
             
-            // Finalize the upload and trigger restoration
+            setUploadState('restoring');
             await api.post('/dashboard/backups/upload/finalize', {
                 uploadId: uploadId,
                 filename: file.name
             });
             
-            setUploadProgress(100);
-            toast.success(isAr ? 'تم الرفع، انتظر إعادة التشغيل' : 'Uploaded, waiting for restart');
+            setUploadState('success');
+            toast.success(isAr ? 'تم الاسترداد بنجاح! سيتم إعادة تشغيل السيرفر.' : 'Restored successfully! Server is restarting.');
             setTimeout(() => window.location.reload(), 3000);
         } catch (err: any) {
             console.error('Upload error:', err);
-            toast.error(isAr ? 'فشل الرفع' : 'Upload failed: ' + err.message);
+            setUploadState('error');
+            setUploadErrorMsg(err.message || 'Unknown error occurred');
+            toast.error(isAr ? 'فشل الرفع' : 'Upload failed');
+            setTimeout(() => setUploadState('idle'), 5000);
+        }
+    };
+
+    const onDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    }, []);
+
+    const onDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    }, []);
+
+    const onDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleFileProcess(file);
+    }, []);
+
+    // --- OTHER ACTIONS ---
+    const handleCreateBackup = async () => {
+        try {
+            setActionLoading('create');
+            await api.post('/dashboard/backups');
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            toast.success(isAr ? 'تم إنشاء النسخة بنجاح' : 'Backup created successfully');
+        } catch (err: any) {
+            toast.error(isAr ? 'فشل إنشاء النسخة' : 'Failed to create backup');
+        } finally {
             setActionLoading(null);
-            setUploadProgress(null);
+        }
+    };
+
+    const handleRestore = async (filename: string) => {
+        if (!window.confirm(isAr ? 'سيتم استبدال البيانات الحالية، هل أنت متأكد؟' : 'Current data will be replaced, are you sure?')) return;
+        try {
+            setActionLoading('restore');
+            await api.post(`/dashboard/backups/restore/${filename}`);
+            toast.success(isAr ? 'تمت الجدولة، سيتم إعادة التشغيل' : 'Restore scheduled, server is restarting');
+            setTimeout(() => window.location.reload(), 3000);
+        } catch (err: any) {
+            toast.error(isAr ? 'فشلت الاستعادة' : 'Restore failed');
+            setActionLoading(null);
+        }
+    };
+
+    const handleDelete = async (filename: string) => {
+        if (!window.confirm(isAr ? 'هل أنت متأكد من حذف هذه النسخة؟' : 'Are you sure you want to delete this backup?')) return;
+        try {
+            setActionLoading('delete');
+            await api.post(`/dashboard/backups/delete/${filename}`);
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            toast.success(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
+        } catch (err: any) {
+            toast.error(isAr ? 'فشل حذف النسخة' : 'Delete failed');
+            setActionLoading(null);
         }
     };
 
@@ -136,7 +154,6 @@ const BackupPage: React.FC = () => {
         const token = useAuthStore.getState().accessToken;
         let downloadUrl = `${api.defaults.baseURL}/dashboard/backups/download/${filename}?token=${token}`;
         if (downloadUrl.startsWith('/')) downloadUrl = window.location.origin + downloadUrl;
-        
         const link = document.createElement('a');
         link.href = downloadUrl;
         link.setAttribute('download', filename);
@@ -151,85 +168,117 @@ const BackupPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 relative">
-            {/* GLOBAL LOADING OVERLAY */}
-            {actionLoading && (
-                <div className="fixed inset-0 bg-background/90 backdrop-blur-md z-[999] flex items-center justify-center flex-col gap-6 p-4">
-                    <div className="relative">
-                        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                        {uploadProgress !== null && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-xs font-bold text-primary">{uploadProgress}%</span>
+        <div className="space-y-8 relative pb-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
+                        <Database className="h-8 w-8 text-primary" />
+                        {isAr ? 'إدارة قواعد البيانات V5' : 'Database Management V5'}
+                    </h2>
+                    <p className="text-muted-foreground mt-1">
+                        {isAr ? 'نظام استرداد فائق السرعة يدعم الرفع المجزأ لتخطي قيود الحماية' : 'Ultra-fast restoration system with chunked upload support to bypass limits'}
+                    </p>
+                </div>
+                <Button size="lg" className="gap-2 font-bold shadow-lg shadow-primary/20" onClick={handleCreateBackup} disabled={!!actionLoading}>
+                    {actionLoading === 'create' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="h-5 w-5" />}
+                    {isAr ? 'أخذ نسخة احتياطية الآن' : 'Backup Now'}
+                </Button>
+            </div>
+
+            {/* Massive Upload Zone */}
+            <Card className={`border-2 border-dashed overflow-hidden transition-all duration-300 ${isDragging ? 'border-primary bg-primary/5 scale-[1.01]' : 'border-border bg-card'}`}>
+                <CardContent className="p-0">
+                    <div 
+                        className="relative p-12 flex flex-col items-center justify-center text-center min-h-[300px]"
+                        onDragOver={onDragOver}
+                        onDragLeave={onDragLeave}
+                        onDrop={onDrop}
+                    >
+                        <input 
+                            ref={fileInputRef}
+                            type="file" 
+                            className="hidden" 
+                            accept=".db,.sqlite"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileProcess(file);
+                                e.target.value = '';
+                            }}
+                        />
+
+                        {uploadState === 'idle' && (
+                            <div className="space-y-6 flex flex-col items-center">
+                                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <UploadCloud className="w-10 h-10 text-primary" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold mb-2">{isAr ? 'اسحب وأفلت ملف قاعدة البيانات هنا' : 'Drag & Drop Database File Here'}</h3>
+                                    <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                                        {isAr ? 'يدعم الملفات الضخمة بصيغة (.db أو .sqlite) - تم تفعيل نظام الرفع المجزأ لتجاوز حدود Cloudflare بأمان' : 'Supports massive .db or .sqlite files - Chunked upload active to safely bypass Cloudflare limits'}
+                                    </p>
+                                </div>
+                                <Button size="lg" variant="secondary" className="font-bold" onClick={() => fileInputRef.current?.click()}>
+                                    {isAr ? 'أو تصفح الملفات' : 'Or Browse Files'}
+                                </Button>
+                            </div>
+                        )}
+
+                        {uploadState === 'uploading' && (
+                            <div className="w-full max-w-lg space-y-6 flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                                <FileType className="w-16 h-16 text-primary animate-pulse" />
+                                <div className="w-full text-center space-y-2">
+                                    <h3 className="text-2xl font-bold text-primary">{isAr ? 'جاري الرفع الآمن...' : 'Secure Uploading...'}</h3>
+                                    <p className="text-muted-foreground">{uploadProgress}%</p>
+                                </div>
+                                <div className="w-full h-4 bg-secondary rounded-full overflow-hidden border border-white/5">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-primary to-green-400 transition-all duration-300 ease-out"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                                <p className="text-xs text-yellow-500 font-medium">
+                                    {isAr ? 'يرجى عدم إغلاق هذه الصفحة حتى تكتمل العملية' : 'Please do not close this page until completed'}
+                                </p>
+                            </div>
+                        )}
+
+                        {uploadState === 'restoring' && (
+                            <div className="space-y-6 flex flex-col items-center animate-in fade-in zoom-in">
+                                <div className="relative">
+                                    <Loader2 className="w-20 h-20 text-primary animate-spin" />
+                                    <Database className="w-8 h-8 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-2xl font-bold">{isAr ? 'جاري استبدال قاعدة البيانات' : 'Replacing Database'}</h3>
+                                    <p className="text-muted-foreground mt-2">{isAr ? 'اكتمل الرفع. النظام يقوم بالاستعادة الآن...' : 'Upload complete. System is restoring now...'}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {uploadState === 'success' && (
+                            <div className="space-y-4 flex flex-col items-center text-green-500 animate-in zoom-in">
+                                <CheckCircle2 className="w-24 h-24" />
+                                <h3 className="text-3xl font-bold">{isAr ? 'تمت العملية بنجاح!' : 'Process Successful!'}</h3>
+                                <p>{isAr ? 'سيتم إعادة تشغيل النظام لتطبيق التغييرات' : 'System will restart to apply changes'}</p>
+                            </div>
+                        )}
+
+                        {uploadState === 'error' && (
+                            <div className="space-y-4 flex flex-col items-center text-red-500 animate-in zoom-in">
+                                <AlertCircle className="w-20 h-20" />
+                                <h3 className="text-2xl font-bold">{isAr ? 'فشلت العملية' : 'Process Failed'}</h3>
+                                <p className="text-sm font-mono bg-red-500/10 p-2 rounded">{uploadErrorMsg}</p>
+                                <Button variant="outline" className="mt-4 border-red-500 text-red-500 hover:bg-red-500/10" onClick={() => setUploadState('idle')}>
+                                    {isAr ? 'حاول مجدداً' : 'Try Again'}
+                                </Button>
                             </div>
                         )}
                     </div>
-                    <div className="text-center space-y-2">
-                        <h3 className="text-2xl font-bold">{isAr ? 'جاري التنفيذ...' : 'Processing...'}</h3>
-                        <p className="text-muted-foreground max-w-md mx-auto">
-                            {actionLoading === 'upload' 
-                                ? (isAr ? 'جاري رفع النسخة الاحتياطية واستعادتها. يرجى عدم إغلاق هذه الصفحة.' : 'Uploading and restoring backup. Please do not close this page.')
-                                : (isAr ? 'يرجى الانتظار، قد يقوم السيرفر بإعادة التشغيل.' : 'Please wait, the server may restart.')}
-                        </p>
-                    </div>
-                    
-                    {/* Progress Bar Container */}
-                    {uploadProgress !== null && (
-                        <div className="w-full max-w-md bg-secondary/50 rounded-full h-3 overflow-hidden border border-border">
-                            <div 
-                                className="bg-primary h-full transition-all duration-300 ease-out"
-                                style={{ width: `${uploadProgress}%` }}
-                            />
-                        </div>
-                    )}
-                </div>
-            )}
+                </CardContent>
+            </Card>
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                        <Database className="h-8 w-8 text-primary" />
-                        {isAr ? 'النسخة الاحتياطية V4 - قيد التجربة' : 'Backups V4 - DEBUG MODE'}
-                    </h2>
-                    <Button 
-                        onClick={() => alert('DEBUG: Button click works!')} 
-                        variant="destructive"
-                        className="mt-2"
-                    >
-                        Click here to test if JS is running
-                    </Button>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        size="lg" 
-                        className="gap-2"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <Upload className="h-4 w-4" />
-                        {isAr ? 'رفع نسخة' : 'Upload Backup'}
-                    </Button>
-                    <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        className="hidden" 
-                        accept=".db"
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleUpload(file);
-                            e.target.value = '';
-                        }}
-                    />
-                    <Button 
-                        size="lg" 
-                        className="gap-2" 
-                        onClick={handleCreateBackup}
-                    >
-                        <Plus className="h-4 w-4" />
-                        {isAr ? 'إنشاء نسخة جديدة' : 'Create New Backup'}
-                    </Button>
-                </div>
-            </div>
-
+            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="bg-primary/5 border-primary/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -273,6 +322,7 @@ const BackupPage: React.FC = () => {
                 </Card>
             </div>
 
+            {/* Backup List */}
             <Card>
                 <CardHeader>
                     <CardTitle>{isAr ? 'سجل النسخ الاحتياطية' : 'Backup History'}</CardTitle>
@@ -281,7 +331,7 @@ const BackupPage: React.FC = () => {
                     {isLoading ? (
                         <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     ) : (
-                        <div className="rounded-md border">
+                        <div className="rounded-md border border-white/5">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -304,10 +354,10 @@ const BackupPage: React.FC = () => {
                                                     <Button variant="ghost" size="icon" onClick={() => handleDownload(backup.filename)} title={isAr ? 'تنزيل' : 'Download'}>
                                                         <Download className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleRestore(backup.filename)} title={isAr ? 'استعادة' : 'Restore'}>
-                                                        <RotateCcw className="h-4 w-4" />
+                                                    <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleRestore(backup.filename)} title={isAr ? 'استعادة' : 'Restore'} disabled={!!actionLoading}>
+                                                        {actionLoading === 'restore' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(backup.filename)} title={isAr ? 'حذف' : 'Delete'}>
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(backup.filename)} title={isAr ? 'حذف' : 'Delete'} disabled={!!actionLoading}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </TableCell>
@@ -322,14 +372,6 @@ const BackupPage: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
-
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-4 rounded-lg flex gap-4">
-                <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full h-fit mt-1"><RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div>
-                <div>
-                    <h3 className="font-bold text-amber-800 dark:text-amber-200">{isAr ? 'تنبيه حول الاستعادة' : 'Restore Warning'}</h3>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{isAr ? 'سيتم استبدال قاعدة البيانات الحالية بالكامل.' : 'Current database will be completely replaced.'}</p>
-                </div>
-            </div>
         </div>
     );
 };
