@@ -226,6 +226,93 @@ func (h *BackupHandler) UploadAndRestore(c *gin.Context) {
 	}()
 }
 
+// UploadChunk handles uploading large database files in pieces
+func (h *BackupHandler) UploadChunk(c *gin.Context) {
+	uploadId := c.PostForm("uploadId")
+	if uploadId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing uploadId"})
+		return
+	}
+
+	file, err := c.FormFile("chunk")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No chunk uploaded"})
+		return
+	}
+
+	tempDir := filepath.Join(h.cfg.BackupDir, "temp_uploads")
+	os.MkdirAll(tempDir, 0755)
+	
+	// Open the temp file for appending
+	tempFilePath := filepath.Join(tempDir, uploadId+".tmp")
+	
+	out, err := os.OpenFile(tempFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("[UPLOAD ERROR] Failed to open temp file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open temp file"})
+		return
+	}
+	defer out.Close()
+
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read chunk"})
+		return
+	}
+	defer src.Close()
+
+	if _, err = io.Copy(out, src); err != nil {
+		log.Printf("[UPLOAD ERROR] Failed to append chunk: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to append chunk"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Chunk received successfully"})
+}
+
+// UploadFinalize triggers the restore process after all chunks are uploaded
+func (h *BackupHandler) UploadFinalize(c *gin.Context) {
+	var req struct {
+		UploadId string `json:"uploadId"`
+		Filename string `json:"filename"`
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	tempFilePath := filepath.Join(h.cfg.BackupDir, "temp_uploads", req.UploadId+".tmp")
+	if _, err := os.Stat(tempFilePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Uploaded file not found"})
+		return
+	}
+
+	// Move temp file to a proper backup filename
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	finalFilename := fmt.Sprintf("upload_%s_%s", timestamp, req.Filename)
+	finalPath := filepath.Join(h.cfg.BackupDir, finalFilename)
+
+	if err := os.Rename(tempFilePath, finalPath); err != nil {
+		log.Printf("[RESTORE ERROR] Failed to rename temp file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to finalize upload"})
+		return
+	}
+
+	log.Printf("[RESTORE] Chunked upload finalized. File: %s. Scheduling background restore...", finalPath)
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Backup uploaded successfully. Restoration scheduled."})
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		if err := h.performRestore(finalPath); err != nil {
+			log.Printf("[RESTORE ERROR] Background restore failed: %v", err)
+			return
+		}
+		h.scheduleRestart()
+	}()
+}
+
 // scheduleRestart gracefully exits the process after a short delay.
 // Railway's restart policy will automatically restart the service with fresh DB connections.
 func (h *BackupHandler) scheduleRestart() {

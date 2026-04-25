@@ -90,16 +90,35 @@ const BackupPage: React.FC = () => {
         try {
             setActionLoading('upload');
             setUploadProgress(0);
-            const formData = new FormData();
-            formData.append('backup', file);
             
-            await api.post('/dashboard/backups/upload', formData, {
-                onUploadProgress: (progressEvent) => {
-                    if (progressEvent.total) {
-                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                        setUploadProgress(percentCompleted);
-                    }
-                }
+            const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            const uploadId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
+            
+            // Upload chunks sequentially
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+                
+                const formData = new FormData();
+                formData.append('chunk', chunk);
+                formData.append('uploadId', uploadId);
+                formData.append('chunkIndex', i.toString());
+                
+                await api.post('/dashboard/backups/upload/chunk', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                
+                // Calculate precise progress based on chunks
+                const percentCompleted = Math.round(((i + 1) / totalChunks) * 100);
+                setUploadProgress(percentCompleted);
+            }
+            
+            // Finalize the upload and trigger restoration
+            await api.post('/dashboard/backups/upload/finalize', {
+                uploadId: uploadId,
+                filename: file.name
             });
             
             setUploadProgress(100);

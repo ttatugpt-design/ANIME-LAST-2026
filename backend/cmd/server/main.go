@@ -476,6 +476,8 @@ func main() {
 				dashboard.GET("/backups/delete-now/:filename", backupHandler.DeleteBackup) // GET Fallback for Delete
 				dashboard.POST("/backups/restore/:filename", backupHandler.RestoreBackup)
 				dashboard.POST("/backups/upload", backupHandler.UploadAndRestore)
+				dashboard.POST("/backups/upload/chunk", backupHandler.UploadChunk)
+				dashboard.POST("/backups/upload/finalize", backupHandler.UploadFinalize)
 			}
 
 			// Settings Update
