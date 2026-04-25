@@ -221,7 +221,7 @@ const WitAnimeScraperPage: React.FC = () => {
                                 ))}
                             </div>
                         ) : (
-                            animes.map((a: AnimeItem) => (
+                            animes?.map((a: AnimeItem) => (
                                 <button
                                     key={a.id}
                                     onClick={() => setSelectedAnimeId(a.id)}
@@ -318,7 +318,7 @@ const WitAnimeScraperPage: React.FC = () => {
                         </div>
 
                         <div className="grid gap-4">
-                            {batchResult.episodes.map((ep) => (
+                            {batchResult?.episodes?.map((ep) => (
                                 <div 
                                     key={ep.episodeNum}
                                     className={cn(
@@ -345,7 +345,7 @@ const WitAnimeScraperPage: React.FC = () => {
                                     {expandedEpisode === ep.episodeNum && (
                                         <div className="p-6 pt-0 border-t border-gray-100 dark:border-white/5">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                                                {ep.links.map((link, idx) => (
+                                                {ep.links?.map((link, idx) => (
                                                     <div key={idx} className="bg-gray-50 dark:bg-black/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 space-y-3 shadow-sm">
                                                         <div className="flex items-center justify-between">
                                                             <span className={cn("text-[10px] font-bold px-2 py-1 rounded-md border uppercase", HOST_COLORS[link.host] || HOST_COLORS.unknown)}>

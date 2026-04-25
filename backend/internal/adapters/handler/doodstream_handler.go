@@ -38,6 +38,167 @@ type DoodResponse struct {
 	Result interface{} `json:"result"`
 }
 
+func (h *DoodstreamHandler) RemoteUpload(c *gin.Context) {
+	var input struct {
+		ApiKey     string   `json:"api_key"`
+		FolderName string   `json:"folder_name"`
+		Urls       []string `json:"urls"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.ApiKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing DoodStream API Key"})
+		return
+	}
+
+	if len(input.Urls) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No URLs provided"})
+		return
+	}
+
+	// 1. Get or Create Folder
+	fldID := "0"
+	if input.FolderName != "" && input.FolderName != "/" {
+		fldID = h.getOrCreateFolder(input.FolderName, input.ApiKey)
+	}
+
+	// 2. Trigger Remote Upload for each URL
+	results := []string{}
+	for _, videoUrl := range input.Urls {
+		apiUrl := fmt.Sprintf("https://doodapi.co/api/upload/url?key=%s&url=%s&fld_id=%s", input.ApiKey, url.QueryEscape(videoUrl), fldID)
+		resp, err := http.Get(apiUrl)
+		if err == nil {
+			defer resp.Body.Close()
+			var res DoodResponse
+			if err := json.NewDecoder(resp.Body).Decode(&res); err == nil && res.Status == 200 {
+				resMap, ok := res.Result.(map[string]interface{})
+				if ok {
+					fileCode := fmt.Sprintf("%v", resMap["filecode"])
+					results = append(results, fileCode)
+				}
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      fmt.Sprintf("Successfully queued %d files for DoodStream remote upload", len(results)),
+		"files_queued": len(results),
+		"folder_id":    fldID,
+		"file_codes":   results,
+	})
+}
+
+func (h *DoodstreamHandler) ListFilesByKey(c *gin.Context) {
+	apiKey := c.Query("key")
+	fldID := c.DefaultQuery("fld_id", "0")
+	if apiKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing key"})
+		return
+	}
+
+	apiUrl := fmt.Sprintf("https://doodapi.co/api/file/list?key=%s&fld_id=%s", apiKey, fldID)
+	resp, err := http.Get(apiUrl)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var res DoodResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse DoodStream response"})
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *DoodstreamHandler) DeleteFilesByKey(c *gin.Context) {
+	var input struct {
+		ApiKey string   `json:"key"`
+		Codes  []string `json:"codes"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, code := range input.Codes {
+		apiUrl := fmt.Sprintf("https://doodapi.co/api/file/delete?key=%s&file_code=%s", input.ApiKey, code)
+		http.Get(apiUrl)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Delete requests sent"})
+}
+
+func (h *DoodstreamHandler) RenameFileByKey(c *gin.Context) {
+	apiKey := c.Query("key")
+	code := c.Query("code")
+	name := c.Query("name")
+	if apiKey == "" || code == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing parameters"})
+		return
+	}
+
+	apiUrl := fmt.Sprintf("https://doodapi.co/api/file/rename?key=%s&file_code=%s&name=%s", apiKey, code, url.QueryEscape(name))
+	resp, err := http.Get(apiUrl)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var res DoodResponse
+	json.NewDecoder(resp.Body).Decode(&res)
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *DoodstreamHandler) MoveFileByKey(c *gin.Context) {
+	apiKey := c.Query("key")
+	code := c.Query("code")
+	fldID := c.Query("fld_id")
+	if apiKey == "" || code == "" || fldID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing parameters"})
+		return
+	}
+
+	apiUrl := fmt.Sprintf("https://doodapi.co/api/file/move?key=%s&file_code=%s&fld_id=%s", apiKey, code, fldID)
+	resp, err := http.Get(apiUrl)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var res DoodResponse
+	json.NewDecoder(resp.Body).Decode(&res)
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *DoodstreamHandler) CreateFolderByKey(c *gin.Context) {
+	apiKey := c.Query("key")
+	name := c.Query("name")
+	if apiKey == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing parameters"})
+		return
+	}
+
+	apiUrl := fmt.Sprintf("https://doodapi.co/api/folder/create?key=%s&name=%s", apiKey, url.QueryEscape(name))
+	resp, err := http.Get(apiUrl)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var res DoodResponse
+	json.NewDecoder(resp.Body).Decode(&res)
+	c.JSON(http.StatusOK, res)
+}
+
 func (h *DoodstreamHandler) HandleUpload(c *gin.Context) {
 	episodeID, err := strconv.ParseUint(c.Param("episode_id"), 10, 32)
 	if err != nil {

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
     Search, Loader2, Copy, Check, ExternalLink, Globe, Download, 
@@ -324,7 +324,7 @@ const RistoAnimeScraperPage: React.FC = () => {
                                 ))}
                             </div>
                         ) : (
-                            animes.map((a: any) => (
+                            animes?.map((a: any) => (
                                 <button
                                     key={a.id}
                                     onClick={() => setSelectedAnimeId(a.id)}
@@ -496,7 +496,7 @@ const RistoAnimeScraperPage: React.FC = () => {
 
                         {/* Episodes List */}
                         <div className="grid gap-4">
-                            {batchResult.episodes.map((ep) => (
+                            {batchResult?.episodes?.map((ep) => (
                                 <div 
                                     key={ep.episodeNum}
                                     className={cn(
@@ -581,7 +581,7 @@ const RistoAnimeScraperPage: React.FC = () => {
                                         <div className="p-6 pt-0 border-t border-gray-100 dark:border-white/5 animate-in slide-in-from-top-4 duration-300">
                                             {ep.links.length > 0 ? (
                                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-6">
-                                                    {ep.links.map((link, lidx) => (
+                                                    {ep.links?.map((link, lidx) => (
                                                         <div key={lidx} className="bg-gray-50 dark:bg-[#0f0f0f] rounded-xl border border-gray-100 dark:border-white/5 p-4 space-y-3 shadow-sm hover:shadow-md transition-all">
                                                             <div className="flex items-center justify-between">
                                                                 <span className={cn(

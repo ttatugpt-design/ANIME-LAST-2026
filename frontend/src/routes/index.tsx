@@ -60,7 +60,7 @@ import FriendsPage from '@/pages/dashboard/FriendsPage';
 import CommunityPage from '@/pages/social/CommunityPage';
 import PostDetailPage from '@/pages/social/PostDetailPage';
 import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
-import BackupPage from '@/pages/dashboard/BackupPage';
+import BackupSystem from '@/pages/dashboard/BackupSystem';
 import BatchAnimeSelectionPage from '@/pages/dashboard/BatchAnimeSelectionPage';
 import BatchUploadPage from '@/pages/dashboard/BatchUploadPage';
 import EmbedAccountsPage from '@/pages/dashboard/EmbedAccountsPage';
@@ -76,6 +76,9 @@ import WitAnimeScraperPage from '@/pages/dashboard/WitAnimeScraperPage';
 import Anime3rbScraperPage from '@/pages/dashboard/Anime3rbScraperPage';
 import ImageScraperPage from '@/pages/dashboard/ImageScraperPage';
 import AnimercoScraperPage from '@/pages/dashboard/AnimercoScraperPage';
+import PCloudBrowserPage from '@/pages/dashboard/PCloudBrowserPage';
+import Anime3rbDirectLinksPage from '@/pages/dashboard/Anime3rbDirectLinksPage';
+import CrunchyrollImporterPage from '@/pages/dashboard/CrunchyrollImporterPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
@@ -363,7 +366,7 @@ export const routes = [
                             },
                             {
                                 path: 'backups',
-                                element: <BackupPage />,
+                                element: <BackupSystem />,
                             },
                             {
                                 path: 'ai-lab',
@@ -428,6 +431,18 @@ export const routes = [
                             {
                                 path: 'anime3rb-images',
                                 element: <Anime3rbScraperPage />,
+                            },
+                            {
+                                path: 'anime3rb-direct-links',
+                                element: <Anime3rbDirectLinksPage />,
+                            },
+                            {
+                                path: 'my-pcloud',
+                                element: <PCloudBrowserPage />,
+                            },
+                            {
+                                path: 'crunchyroll-importer',
+                                element: <CrunchyrollImporterPage />,
                             },
                         ],
                     },

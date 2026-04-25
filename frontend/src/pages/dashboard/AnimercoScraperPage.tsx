@@ -74,7 +74,8 @@ const AnimercoScraperPage: React.FC = () => {
     });
     const animes = useMemo(() => {
         if (!animesRes) return [];
-        return Array.isArray(animesRes) ? animesRes : (animesRes.data || []);
+        const data = Array.isArray(animesRes) ? animesRes : (animesRes.data || []);
+        return Array.isArray(data) ? data : [];
     }, [animesRes]);
 
     // Fetch episodes for selected anime
@@ -84,6 +85,7 @@ const AnimercoScraperPage: React.FC = () => {
         enabled: !!selectedAnimeId,
     });
     const dbEpisodes: any[] = Array.isArray(episodesRes) ? episodesRes : (episodesRes?.data || []);
+    const safeDbEpisodes = Array.isArray(dbEpisodes) ? dbEpisodes : [];
 
     const scrapeMutation = useMutation({
         mutationFn: async (targetUrl: string) => {
@@ -131,23 +133,34 @@ const AnimercoScraperPage: React.FC = () => {
             const match = dbEpisodes.find(de => de.episode_number === ep.episodeNum);
             if (!match) continue;
 
-            const bestLink = ep.links.find(l => !!l.embedUrl);
-            if (bestLink?.embedUrl) {
+            let updatedServers = [...(match.servers || [])];
+            let addedForThisEp = false;
+
+            for (const link of ep.links) {
+                if (link.embedUrl && !updatedServers.some(s => s.url === link.embedUrl)) {
+                    updatedServers.push({
+                        episode_id: match.id,
+                        language: "ar",
+                        name: link.title || "Animerco",
+                        url: link.embedUrl,
+                        type: "embed"
+                    });
+                    addedForThisEp = true;
+                }
+            }
+
+            if (addedForThisEp) {
                 try {
                     await api.put(`/episodes/${match.id}`, {
                         ...match,
-                        servers: [...(match.servers || []), {
-                            episode_id: match.id,
-                            language: "ar",
-                            name: bestLink.title || "Animerco",
-                            url: bestLink.embedUrl,
-                            type: "embed"
-                        }],
+                        servers: updatedServers,
                         is_published: true
                     });
                     successCount++;
                     setPublishedEps(prev => new Set(prev).add(match.id));
-                } catch (e) { console.error(e); }
+                } catch (e) { 
+                    console.error(`Failed to publish episode ${ep.episodeNum}:`, e); 
+                }
             }
         }
 
@@ -305,7 +318,7 @@ const AnimercoScraperPage: React.FC = () => {
                         </div>
 
                         <div className="grid gap-4">
-                            {batchResult.episodes.map((ep) => (
+                            {batchResult?.episodes?.map((ep) => (
                                 <div 
                                     key={ep.episodeNum}
                                     className={cn(
@@ -332,7 +345,7 @@ const AnimercoScraperPage: React.FC = () => {
                                     {expandedEpisode === ep.episodeNum && (
                                         <div className="p-6 pt-0 border-t border-white/5">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                                                {ep.links.map((link, idx) => (
+                                                {ep.links?.map((link, idx) => (
                                                     <div key={idx} className="bg-black/40 p-4 rounded-xl border border-white/5 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <span className={cn("text-[10px] font-bold px-2 py-1 rounded-md border uppercase", HOST_COLORS[link.host] || HOST_COLORS.unknown)}>

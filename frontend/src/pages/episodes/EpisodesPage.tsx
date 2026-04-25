@@ -32,7 +32,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { getImageUrl } from "@/utils/image-utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Server } from "lucide-react";
+import { Server, AlertTriangle } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function EpisodesPage() {
     const queryClient = useQueryClient();
@@ -84,6 +94,8 @@ export default function EpisodesPage() {
     const [selectedEpisodeId, setSelectedEpisodeId] = useState<number | null>(null);
     const [isDoodUploading, setIsDoodUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [episodeToDelete, setEpisodeToDelete] = useState<number | null>(null);
+    const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
 
     const handleDoodstreamClick = (episodeId: number) => {
         setSelectedEpisodeId(episodeId);
@@ -360,9 +372,18 @@ export default function EpisodesPage() {
         setIsEditModalOpen(true);
     };
 
-    const handleDeleteClick = (id: number) => {
-        if (confirm("Are you sure you want to delete this episode?")) {
-            deleteMutation.mutate(id);
+    const handleDeleteClick = (e: React.MouseEvent, id: number) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setEpisodeToDelete(id);
+        setIsDeleteAlertOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (episodeToDelete) {
+            deleteMutation.mutate(episodeToDelete);
+            setIsDeleteAlertOpen(false);
+            setEpisodeToDelete(null);
         }
     };
 
@@ -515,7 +536,12 @@ export default function EpisodesPage() {
                                             <Button variant="ghost" size="icon" onClick={() => handleEditClick(ep)}>
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteClick(ep.id)}>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="text-destructive hover:text-destructive" 
+                                                onClick={(e) => handleDeleteClick(e, ep.id)}
+                                            >
                                                 <Trash className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -572,6 +598,30 @@ export default function EpisodesPage() {
                 accept="video/*"
                 onChange={handleFileChange}
             />
+
+            {/* Delete Confirmation Alert */}
+            <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-destructive" />
+                            هل أنت متأكد من الحذف؟
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            سيتم حذف هذه الحلقة نهائياً مع كافة السيرفرات والتعليقات والبيانات المرتبطة بها. لا يمكن التراجع عن هذا الإجراء.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setEpisodeToDelete(null)}>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={confirmDelete}
+                            className="bg-destructive hover:bg-destructive/90 text-white"
+                        >
+                            تأكيد الحذف
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

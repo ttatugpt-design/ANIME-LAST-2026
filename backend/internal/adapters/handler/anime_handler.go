@@ -20,34 +20,28 @@ func NewAnimeHandler(service *service.AnimeService) *AnimeHandler {
 	return &AnimeHandler{service: service}
 }
 
-// sanitizeAnime removes the hardcoded localhost:8080 prefix from image URLs
-// This fixes Mixed Content errors when serving over HTTPS
-func (h *AnimeHandler) sanitizeAnime(a *domain.Anime) {
+ func (h *AnimeHandler) sanitizeAnime(a *domain.Anime) {
 	if a == nil {
 		return
 	}
-	a.Image = strings.ReplaceAll(a.Image, "http://localhost:8080", "")
-	a.Cover = strings.ReplaceAll(a.Cover, "http://localhost:8080", "")
-	a.IconImage = strings.ReplaceAll(a.IconImage, "http://localhost:8080", "")
-	a.PosterImageConfusion = strings.ReplaceAll(a.PosterImageConfusion, "http://localhost:8080", "")
-	a.BannerImageConfusion = strings.ReplaceAll(a.BannerImageConfusion, "http://localhost:8080", "")
+	
+	// Helper to remove any absolute URL prefix and keep only /uploads/...
+	cleanPath := func(path string) string {
+		if path == "" { return "" }
+		if idx := strings.Index(path, "/uploads/"); idx != -1 {
+			return path[idx:]
+		}
+		if idx := strings.Index(path, "uploads/"); idx != -1 {
+			return "/" + path[idx:]
+		}
+		return path
+	}
 
-	// Also sanitize relative paths if they don't start with / but should (optional safeguard)
-	if !strings.HasPrefix(a.Image, "http") && !strings.HasPrefix(a.Image, "/") && a.Image != "" {
-		a.Image = "/" + a.Image
-	}
-	if !strings.HasPrefix(a.Cover, "http") && !strings.HasPrefix(a.Cover, "/") && a.Cover != "" {
-		a.Cover = "/" + a.Cover
-	}
-	if !strings.HasPrefix(a.IconImage, "http") && !strings.HasPrefix(a.IconImage, "/") && a.IconImage != "" {
-		a.IconImage = "/" + a.IconImage
-	}
-	if !strings.HasPrefix(a.PosterImageConfusion, "http") && !strings.HasPrefix(a.PosterImageConfusion, "/") && a.PosterImageConfusion != "" {
-		a.PosterImageConfusion = "/" + a.PosterImageConfusion
-	}
-	if !strings.HasPrefix(a.BannerImageConfusion, "http") && !strings.HasPrefix(a.BannerImageConfusion, "/") && a.BannerImageConfusion != "" {
-		a.BannerImageConfusion = "/" + a.BannerImageConfusion
-	}
+	a.Image = cleanPath(a.Image)
+	a.Cover = cleanPath(a.Cover)
+	a.IconImage = cleanPath(a.IconImage)
+	a.PosterImageConfusion = cleanPath(a.PosterImageConfusion)
+	a.BannerImageConfusion = cleanPath(a.BannerImageConfusion)
 }
 
 func (h *AnimeHandler) deleteFile(path string) {

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
-import { Database, Download, RotateCcw, Trash2, Upload, Plus, Loader2, FileText, Calendar, HardDrive, Server, ShieldCheck, Save } from 'lucide-react';
+import { Database, Download, RotateCcw, Trash2, Upload, Plus, Loader2, FileText, HardDrive, Server, ShieldCheck, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -18,9 +18,24 @@ interface BackupInfo {
 }
 
 const BackupPage: React.FC = () => {
-    const { t, i18n } = useTranslation();
+    const { i18n } = useTranslation();
     const queryClient = useQueryClient();
     const isAr = i18n.language === 'ar';
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Local Loading States
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+    // Function to get token manually
+    const getAuthHeader = () => {
+        const token = useAuthStore.getState().accessToken;
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
+
+    const apiPath = (path: string) => {
+        const base = api.defaults.baseURL || '/api';
+        return `${base}${path}`;
+    };
 
     const { data: backups, isLoading } = useQuery<BackupInfo[]>({
         queryKey: ['backups'],
@@ -32,102 +47,98 @@ const BackupPage: React.FC = () => {
         queryFn: async () => (await api.get('/dashboard/backup-stats')).data,
     });
 
-    const createBackupMutation = useMutation({
-        mutationFn: async () => (await api.post('/dashboard/backups')).data,
-        onSuccess: () => {
+    // --- MANUAL ACTIONS ---
+
+    const handleCreateBackup = async () => {
+        try {
+            setActionLoading('create');
+            const res = await fetch(apiPath('/dashboard/backups'), {
+                method: 'POST',
+                headers: getAuthHeader()
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             queryClient.invalidateQueries({ queryKey: ['backups'] });
-            toast.success(isAr ? 'تم إنشاء النسخة الاحتياطية بنجاح' : 'Backup created successfully');
-        },
-        onError: () => {
-            toast.error(isAr ? 'فشل إنشاء النسخة الاحتياطية' : 'Failed to create backup');
+            alert(isAr ? 'تم إنشاء النسخة بنجاح' : 'Backup created successfully');
+        } catch (err: any) {
+            console.error('Create error:', err);
+            alert(isAr ? 'فشل إنشاء النسخة' : 'Failed to create backup: ' + err.message);
+        } finally {
+            setActionLoading(null);
         }
-    });
+    };
 
-    const restoreMutation = useMutation({
-        mutationFn: async (filename: string) => (await api.post(`/dashboard/backups/restore/${filename}`)).data,
-        onSuccess: () => {
-            toast.success(isAr ? 'تمت استعادة البيانات بنجاح' : 'Data restored successfully');
-            // Optionally reload page or re-re-fetch all data
-            setTimeout(() => window.location.reload(), 2000);
-        },
-        onError: (error: any) => {
-            toast.error(isAr ? `فشلت الاستعادة: ${error.response?.data?.error || error.message}` : 'Restore failed');
+    const handleRestore = async (filename: string) => {
+        if (!window.confirm(isAr ? 'سيتم استبدال البيانات الحالية، هل أنت متأكد؟' : 'Current data will be replaced, are you sure?')) return;
+        
+        try {
+            setActionLoading('restore');
+            const res = await fetch(apiPath(`/dashboard/backups/restore/${filename}`), {
+                method: 'POST',
+                headers: getAuthHeader()
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            alert(isAr ? 'تمت الجدولة، سيتم إعادة التشغيل' : 'Restore scheduled, server is restarting');
+            setTimeout(() => window.location.reload(), 3000);
+        } catch (err: any) {
+            console.error('Restore error:', err);
+            alert(isAr ? 'فشلت الاستعادة' : 'Restore failed: ' + err.message);
+            setActionLoading(null);
         }
-    });
+    };
 
-    const deleteMutation = useMutation({
-        mutationFn: async (filename: string) => (await api.delete(`/dashboard/backups/${filename}`)).data,
-        onSuccess: () => {
+    const handleDelete = async (filename: string) => {
+        if (!window.confirm(isAr ? 'هل أنت متأكد من حذف هذه النسخة؟' : 'Are you sure you want to delete this backup?')) return;
+        
+        try {
+            setActionLoading('delete');
+            const res = await fetch(apiPath(`/dashboard/backups/delete/${filename}`), {
+                method: 'POST',
+                headers: getAuthHeader()
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             queryClient.invalidateQueries({ queryKey: ['backups'] });
-            toast.success(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
+            alert(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
+        } catch (err: any) {
+            console.error('Delete error:', err);
+            alert(isAr ? 'فشل حذف النسخة' : 'Delete failed: ' + err.message);
+        } finally {
+            setActionLoading(null);
         }
-    });
+    };
 
-    const uploadMutation = useMutation({
-        mutationFn: async (file: File) => {
+    const handleUpload = async (file: File) => {
+        if (!window.confirm(isAr ? 'سيتم استبدال البيانات الحالية! هل أنت متأكد؟' : 'Current data will be replaced! Are you sure?')) return;
+        
+        try {
+            setActionLoading('upload');
             const formData = new FormData();
             formData.append('backup', file);
-            return (await api.post('/dashboard/backups/upload', formData)).data;
-        },
-        onSuccess: () => {
-            toast.success(isAr ? 'تم رفع واستعادة النسخة بنجاح' : 'Backup uploaded and restored successfully');
-            setTimeout(() => window.location.reload(), 2000);
-        },
-        onError: (error: any) => {
-            toast.error(isAr ? `فشل الرفع: ${error.response?.data?.error || error.message}` : 'Upload failed');
-        }
-    });
-
-    const exportAccountsMutation = useMutation({
-        mutationFn: async () => {
-            const response = await api.get('/embed-accounts/all/export', { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'embed_accounts_backup.json');
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        },
-        onSuccess: () => {
-            toast.success(isAr ? 'تم تصدير الحسابات بنجاح' : 'Accounts exported successfully');
-        }
-    });
-
-    const importAccountsMutation = useMutation({
-        mutationFn: async (file: File) => {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            return (await api.post('/embed-accounts/all/import', data)).data;
-        },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
-            toast.success(isAr ? `تم استيراد ${data.count} حساب بنجاح` : `Imported ${data.count} accounts successfully`);
-        },
-        onError: (error: any) => {
-            toast.error(isAr ? 'فشل الاستيراد: تنسيق الملف غير صحيح' : 'Import failed: Invalid file format');
-        }
-    });
-
-    const handleImportAccounts = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            importAccountsMutation.mutate(file);
+            const res = await fetch(apiPath('/dashboard/backups/upload'), {
+                method: 'POST',
+                headers: getAuthHeader(),
+                body: formData
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            alert(isAr ? 'تم الرفع، انتظر إعادة التشغيل' : 'Uploaded, waiting for restart');
+            setTimeout(() => window.location.reload(), 3000);
+        } catch (err: any) {
+            console.error('Upload error:', err);
+            alert(isAr ? 'فشل الرفع' : 'Upload failed: ' + err.message);
+            setActionLoading(null);
         }
     };
 
     const handleDownload = (filename: string) => {
         const token = useAuthStore.getState().accessToken;
-        window.open(`${api.defaults.baseURL}/dashboard/backups/download/${filename}?token=${token}`, '_blank');
-    };
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (window.confirm(isAr ? 'هل أنت متأكد؟ سيتم حذف البيانات الحالية واستبدالها!' : 'Are you sure? Current data will be replaced!')) {
-                uploadMutation.mutate(file);
-            }
-        }
+        let downloadUrl = `${api.defaults.baseURL}/dashboard/backups/download/${filename}?token=${token}`;
+        if (downloadUrl.startsWith('/')) downloadUrl = window.location.origin + downloadUrl;
+        
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     };
 
     const formatSize = (bytes: number) => {
@@ -136,42 +147,57 @@ const BackupPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* GLOBAL LOADING OVERLAY */}
+            {actionLoading && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[999] flex items-center justify-center flex-col gap-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <h3 className="text-xl font-bold">{isAr ? 'جاري التنفيذ...' : 'Processing...'}</h3>
+                    <p className="text-muted-foreground">{isAr ? 'يرجى الانتظار، قد يقوم السيرفر بإعادة التشغيل.' : 'Please wait, the server may restart.'}</p>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                         <Database className="h-8 w-8 text-primary" />
-                        {isAr ? 'النسخ الاحتياطي لقاعدة البيانات' : 'Database Backups'}
+                        {isAr ? 'النسخة الاحتياطية V4 - قيد التجربة' : 'Backups V4 - DEBUG MODE'}
                     </h2>
-                    <p className="text-muted-foreground mt-2">
-                        {isAr 
-                            ? 'إدارة نسخ البيانات الاحتياطية، يمكنك إنشاء نسخ جديدة أو استعادة نسخ سابقة.' 
-                            : 'Manage your database backups. Create new ones or restore previous versions.'}
-                    </p>
+                    <Button 
+                        onClick={() => alert('DEBUG: Button click works!')} 
+                        variant="destructive"
+                        className="mt-2"
+                    >
+                        Click here to test if JS is running
+                    </Button>
                 </div>
                 <div className="flex items-center gap-3">
                     <Button 
                         variant="outline" 
                         size="lg" 
-                        className="gap-2 relative"
-                        disabled={uploadMutation.isPending}
+                        className="gap-2"
+                        onClick={() => fileInputRef.current?.click()}
                     >
                         <Upload className="h-4 w-4" />
-                        {isAr ? 'رفع نسخة واستعادتها' : 'Upload & Restore'}
-                        <input 
-                            type="file" 
-                            className="absolute inset-0 opacity-0 cursor-pointer" 
-                            accept=".db"
-                            onChange={handleFileUpload}
-                        />
+                        {isAr ? 'رفع نسخة' : 'Upload Backup'}
                     </Button>
+                    <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        className="hidden" 
+                        accept=".db"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpload(file);
+                            e.target.value = '';
+                        }}
+                    />
                     <Button 
                         size="lg" 
                         className="gap-2" 
-                        onClick={() => createBackupMutation.mutate()}
-                        disabled={createBackupMutation.isPending}
+                        onClick={handleCreateBackup}
                     >
-                        {createBackupMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        <Plus className="h-4 w-4" />
                         {isAr ? 'إنشاء نسخة جديدة' : 'Create New Backup'}
                     </Button>
                 </div>
@@ -202,10 +228,7 @@ const BackupPage: React.FC = () => {
                         <ShieldCheck className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-xs text-muted-foreground">
-                            {isAr ? 'تشمل الأنميات، الحلقات، والحسابات' : 'Includes Animes, Episodes & Accounts'}
-                        </div>
-                        <div className="text-lg font-bold mt-1">
+                        <div className="text-lg font-bold">
                             {stats ? (stats.animes + stats.episodes) : 0} {isAr ? 'عنصر' : 'items'}
                         </div>
                     </CardContent>
@@ -223,61 +246,15 @@ const BackupPage: React.FC = () => {
                 </Card>
             </div>
 
-            <Card className="border-primary/20 bg-primary/5">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Server className="h-5 w-5" />
-                        {isAr ? 'نسخ احتياطي لحسابات الرفع (Portability)' : 'Portable Accounts Backup'}
-                    </CardTitle>
-                    <CardDescription>
-                        {isAr 
-                            ? 'يمكنك تصدير حسابات الرفع (API Keys) فقط كملف JSON لاستعادتها بشكل منفصل عن قاعدة البيانات.' 
-                            : 'Export only your upload accounts (API Keys) as a JSON file to restore them separately from the full database.'}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-4">
-                    <Button 
-                        variant="default"
-                        onClick={() => exportAccountsMutation.mutate()}
-                        disabled={exportAccountsMutation.isPending}
-                        className="gap-2"
-                    >
-                        <Save className="h-4 w-4" />
-                        {isAr ? 'تصدير الحسابات (JSON)' : 'Export Accounts (JSON)'}
-                    </Button>
-                    <Button 
-                        variant="outline"
-                        className="gap-2 relative"
-                        disabled={importAccountsMutation.isPending}
-                    >
-                        {importAccountsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        {isAr ? 'استيراد حسابات من JSON' : 'Import Accounts from JSON'}
-                        <input 
-                            type="file" 
-                            className="absolute inset-0 opacity-0 cursor-pointer" 
-                            accept=".json"
-                            onChange={handleImportAccounts}
-                        />
-                    </Button>
-                </CardContent>
-            </Card>
-
             <Card>
                 <CardHeader>
                     <CardTitle>{isAr ? 'سجل النسخ الاحتياطية' : 'Backup History'}</CardTitle>
-                    <CardDescription>
-                        {isAr 
-                            ? 'قائمة بجميع النسخ الاحتياطية المتوفرة على السيرفر.' 
-                            : 'All available database backups stored on the server.'}
-                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="flex justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
+                        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     ) : (
-                        <div className="rounded-md border relative">
+                        <div className="rounded-md border">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -297,53 +274,20 @@ const BackupPage: React.FC = () => {
                                                     {format(new Date(backup.date), 'yyyy/MM/dd HH:mm', { locale: isAr ? ar : undefined })}
                                                 </TableCell>
                                                 <TableCell className="text-right flex justify-end gap-2">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        onClick={() => handleDownload(backup.filename)}
-                                                        title={isAr ? 'تنزيل' : 'Download'}
-                                                    >
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDownload(backup.filename)} title={isAr ? 'تنزيل' : 'Download'}>
                                                         <Download className="h-4 w-4" />
                                                     </Button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="text-blue-500 hover:text-blue-600 hover:bg-blue-50"
-                                                        onClick={() => {
-                                                            if (window.confirm(isAr ? 'سيتم استبدال البيانات الحالية، هل أنت متأكد؟' : 'Current data will be replaced, are you sure?')) {
-                                                                restoreMutation.mutate(backup.filename);
-                                                            }
-                                                        }}
-                                                        title={isAr ? 'استعادة' : 'Restore'}
-                                                        disabled={restoreMutation.isPending}
-                                                    >
-                                                        {restoreMutation.isPending && restoreMutation.variables === backup.filename 
-                                                            ? <Loader2 className="h-4 w-4 animate-spin" /> 
-                                                            : <RotateCcw className="h-4 w-4" />
-                                                        }
+                                                    <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleRestore(backup.filename)} title={isAr ? 'استعادة' : 'Restore'}>
+                                                        <RotateCcw className="h-4 w-4" />
                                                     </Button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="text-destructive hover:bg-destructive/10"
-                                                        onClick={() => {
-                                                            if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه النسخة؟' : 'Are you sure you want to delete this backup?')) {
-                                                                deleteMutation.mutate(backup.filename);
-                                                            }
-                                                        }}
-                                                        title={isAr ? 'حذف' : 'Delete'}
-                                                    >
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(backup.filename)} title={isAr ? 'حذف' : 'Delete'}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                                                {isAr ? 'لا توجد نسخ احتياطية بعد' : 'No backups found'}
-                                            </TableCell>
-                                        </TableRow>
+                                        <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">{isAr ? 'لا توجد نسخ' : 'No backups'}</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -353,18 +297,10 @@ const BackupPage: React.FC = () => {
             </Card>
 
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-4 rounded-lg flex gap-4">
-                <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full h-fit mt-1">
-                    <RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full h-fit mt-1"><RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div>
                 <div>
-                    <h3 className="font-bold text-amber-800 dark:text-amber-200">
-                        {isAr ? 'تنبيه حول الاستعادة' : 'Restore Warning'}
-                    </h3>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                        {isAr 
-                            ? 'عند استعادة أي نسخة احتياطية، سيتم استبدال قاعدة البيانات الحالية بالكامل. يوصى بأخذ نسخة احتياطية للبيانات الحالية قبل القيام بعملية الاستعادة.' 
-                            : 'When restoring any backup, the current database will be completely replaced. It is recommended to take a backup of your current data before performing a restore.'}
-                    </p>
+                    <h3 className="font-bold text-amber-800 dark:text-amber-200">{isAr ? 'تنبيه حول الاستعادة' : 'Restore Warning'}</h3>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{isAr ? 'سيتم استبدال قاعدة البيانات الحالية بالكامل.' : 'Current database will be completely replaced.'}</p>
                 </div>
             </div>
         </div>

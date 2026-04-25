@@ -33,7 +33,7 @@ interface ScrapeResult {
 
 const ImageScraperPage: React.FC = () => {
     const [url, setUrl] = useState('');
-    const [maxImages, setMaxImages] = useState(50);
+    const [maxImages, setMaxImages] = useState(100);
     const [animeName, setAnimeName] = useState('');
     const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
     const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
@@ -115,6 +115,7 @@ const ImageScraperPage: React.FC = () => {
         if (activeAnime) {
             importToDBMutation.mutate({ 
                 ...activeAnime,
+                poster: activeAnime.url,
                 detailUrl: localDetailUrl || activeAnime.detailUrl,
                 auto_scrape: autoScrapeServers 
             });
@@ -125,6 +126,7 @@ const ImageScraperPage: React.FC = () => {
         if (activeAnime) {
             deepImportMutation.mutate({ 
                 ...activeAnime,
+                poster: activeAnime.url,
                 detailUrl: localDetailUrl || activeAnime.detailUrl,
                 auto_scrape: false // Not needed as deep import is synchronous
             });
@@ -277,7 +279,7 @@ const ImageScraperPage: React.FC = () => {
                             </div>
                         </div>
                         <h3 className="text-2xl font-bold text-white mb-2">جاري قراءة الصفحة...</h3>
-                        <p className="text-gray-500">نقوم الآن بالنزول لأسفل الصفحة وتجاوز أنظمة الحماية لجمع أفضل الصور</p>
+                        <p className="text-gray-500">نقوم الآن بجمع البوسترات وزيارة الصفحات بالتوازي لجلب القصة والتفاصيل بسرعة عالية</p>
                     </div>
                 ) : scrapeResult ? (
                     <div className="mt-12 space-y-8">

@@ -21,14 +21,14 @@ type BackupHandler struct {
 }
 
 func NewBackupHandler(repo *repository.SQLiteRepository, cfg *config.Config) *BackupHandler {
-	// Ensure backup dir exists
-	if _, err := os.Stat(cfg.BackupDir); os.IsNotExist(err) {
-		err := os.MkdirAll(cfg.BackupDir, 0755)
-		if err != nil {
-			fmt.Printf("Error creating backup directory: %v\n", err)
+	// Ensure backup dir exists with absolute path resolution
+	absBackupDir, _ := filepath.Abs(cfg.BackupDir)
+	if _, err := os.Stat(absBackupDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(absBackupDir, 0755); err != nil {
+			log.Printf("[BACKUP ERROR] Could not create backup directory: %v", err)
 		}
 	}
-	log.Printf("Backup handler initialized with directory: %s", cfg.BackupDir)
+	log.Printf("[BACKUP SYSTEM] Initialized. Storage: %s", absBackupDir)
 	return &BackupHandler{repo: repo, cfg: cfg}
 }
 
@@ -90,6 +90,7 @@ func (h *BackupHandler) GetBackupStats(c *gin.Context) {
 }
 
 func (h *BackupHandler) CreateBackup(c *gin.Context) {
+	log.Println("[BACKUP] Received request to create backup...")
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	backupFilename := fmt.Sprintf("db_backup_%s.db", timestamp)
 	backupPath := filepath.Join(h.cfg.BackupDir, backupFilename)
@@ -99,17 +100,33 @@ func (h *BackupHandler) CreateBackup(c *gin.Context) {
 	}
 
 	// Use SQLite VACUUM INTO for a safe online backup if possible
-	err = h.repo.DB().Exec(fmt.Sprintf("VACUUM INTO '%s'", absBackupPath)).Error
+	// Normalize path to forward slashes for SQLite compatibility on Windows
+	sqlitePath := filepath.ToSlash(absBackupPath)
+	err = h.repo.DB().Exec(fmt.Sprintf("VACUUM INTO '%s'", sqlitePath)).Error
 	if err != nil {
-		// Fallback to manual copy if VACUUM INTO fails
+		log.Printf("[BACKUP ERROR] VACUUM INTO failed: %v. Trying manual copy...", err)
 		err = h.copyFile(h.cfg.DBUrl, backupPath)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create backup: %v", err)})
+			log.Printf("[BACKUP ERROR] Manual copy failed: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create physical backup file"})
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Backup created successfully", "filename": backupFilename})
+	log.Printf("[BACKUP SUCCESS] Created: %s", backupFilename)
+
+	// If redirect param is present, redirect back to frontend
+	redirect := c.Query("redirect")
+	if redirect != "" {
+		c.Redirect(http.StatusFound, redirect)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Backup created successfully",
+		"filename": backupFilename,
+		"status":   "success",
+	})
 }
 
 func (h *BackupHandler) DownloadBackup(c *gin.Context) {
@@ -123,6 +140,8 @@ func (h *BackupHandler) DownloadBackup(c *gin.Context) {
 		return
 	}
 
+	// Force browser to download instead of trying to open
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.File(backupPath)
 }
 
@@ -133,6 +152,13 @@ func (h *BackupHandler) DeleteBackup(c *gin.Context) {
 
 	if err := os.Remove(backupPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete backup"})
+		return
+	}
+
+	// If redirect param is present, redirect back to frontend
+	redirect := c.Query("redirect")
+	if redirect != "" {
+		c.Redirect(http.StatusFound, redirect)
 		return
 	}
 
@@ -149,40 +175,55 @@ func (h *BackupHandler) RestoreBackup(c *gin.Context) {
 		return
 	}
 
-	if err := h.performRestore(backupPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Restore failed: %v", err)})
-		return
-	}
+	// NEW: Return success immediately and do restore in background
+	// This prevents the connection from hanging when the DB closes
+	c.JSON(http.StatusOK, gin.H{"message": "Restore scheduled. The server will restart in a few seconds."})
 
-	c.JSON(http.StatusOK, gin.H{"message": "Database restored successfully. Server is restarting to apply changes..."})
-	// Schedule a graceful restart so ALL repositories get fresh connections
-	h.scheduleRestart()
+	go func() {
+		time.Sleep(1 * time.Second)
+		if err := h.performRestore(backupPath); err != nil {
+			log.Printf("[RESTORE ERROR] Background restore failed: %v", err)
+			return
+		}
+		h.scheduleRestart()
+	}()
 }
 
 func (h *BackupHandler) UploadAndRestore(c *gin.Context) {
+	log.Printf("[RESTORE] Received upload request")
 	file, err := c.FormFile("backup")
 	if err != nil {
+		log.Printf("[RESTORE ERROR] No file in request: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
 		return
 	}
+
+	log.Printf("[RESTORE] Uploaded file: %s (Size: %d)", file.Filename, file.Size)
 
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	tempFilename := fmt.Sprintf("upload_%s_%s", timestamp, file.Filename)
 	tempPath := filepath.Join(h.cfg.BackupDir, tempFilename)
 
+	log.Printf("[RESTORE] Saving temp file to: %s", tempPath)
 	if err := c.SaveUploadedFile(file, tempPath); err != nil {
+		log.Printf("[RESTORE ERROR] Failed to save file: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save uploaded file"})
 		return
 	}
 
-	if err := h.performRestore(tempPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Restore failed: %v", err)})
-		return
-	}
+	log.Printf("[RESTORE] File saved. Scheduling background restore...")
+	
+	// NEW: Return success immediately and do restore in background
+	c.JSON(http.StatusOK, gin.H{"message": "Backup uploaded. Restoration scheduled."})
 
-	c.JSON(http.StatusOK, gin.H{"message": "Uploaded backup restored successfully. Server is restarting to apply changes..."})
-	// Schedule a graceful restart so ALL repositories get fresh connections
-	h.scheduleRestart()
+	go func() {
+		time.Sleep(1 * time.Second)
+		if err := h.performRestore(tempPath); err != nil {
+			log.Printf("[RESTORE ERROR] Background restore failed: %v", err)
+			return
+		}
+		h.scheduleRestart()
+	}()
 }
 
 // scheduleRestart gracefully exits the process after a short delay.
@@ -212,20 +253,38 @@ func (h *BackupHandler) performRestore(backupPath string) error {
 		log.Printf("[RESTORE] Warning: failed to close DB before restore: %v", err)
 	}
 
+	// Give Windows a moment to release file handles
+	time.Sleep(500 * time.Millisecond)
+
 	// 2. Aggressively purge any cached SQLite state files
 	// This is the CRITICAL STEP to prevent data conflicts
 	log.Println("[RESTORE] Purging existing database and WAL/SHM files...")
-	os.Remove(h.cfg.DBUrl)
-	os.Remove(h.cfg.DBUrl + "-wal")
-	os.Remove(h.cfg.DBUrl + "-shm")
-	os.Remove(h.cfg.DBUrl + "-journal")
+	
+	filesToPurge := []string{
+		h.cfg.DBUrl,
+		h.cfg.DBUrl + "-wal",
+		h.cfg.DBUrl + "-shm",
+		h.cfg.DBUrl + "-journal",
+	}
+
+	for _, f := range filesToPurge {
+		if _, err := os.Stat(f); err == nil {
+			if err := os.Remove(f); err != nil {
+				log.Printf("[RESTORE] Warning: failed to remove %s: %v (might be locked)", f, err)
+				// If main DB is locked, we probably can't continue
+				if f == h.cfg.DBUrl {
+					return fmt.Errorf("database file is locked and cannot be replaced: %v", err)
+				}
+			}
+		}
+	}
 
 	// 3. Copy the backup file to the live DB path
 	log.Printf("[RESTORE] Copying backup to live path: %s", h.cfg.DBUrl)
 	if err := h.copyFile(backupPath, h.cfg.DBUrl); err != nil {
+		log.Printf("[RESTORE ERROR] Copy failed: %v", err)
 		// Attempt to reopen to prevent infinite crash loop
-		log.Printf("[RESTORE ERROR] Build copy failed: %v", err)
-		h.repo.ReopenWithDSN(h.cfg.DBUrl)
+		_ = h.repo.ReopenWithDSN(h.cfg.DBUrl)
 		return fmt.Errorf("failed to copy backup to live DB: %v", err)
 	}
 

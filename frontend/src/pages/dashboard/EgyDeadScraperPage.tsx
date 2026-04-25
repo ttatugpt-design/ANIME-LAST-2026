@@ -478,7 +478,7 @@ const EgyDeadScraperPage: React.FC = () => {
                                         activeAnime ? "lg:col-span-8 grid-cols-2 md:grid-cols-3 xl:grid-cols-4" : "lg:col-span-12 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
                                     )}>
                                         {viewMode === 'grid' ? (
-                                            scrapeResult.data.map((item, idx) => (
+                                            scrapeResult.data?.map((item, idx) => (
                                                 <div 
                                                     key={idx}
                                                     onClick={() => {
@@ -537,7 +537,7 @@ const EgyDeadScraperPage: React.FC = () => {
                                             ))
                                         ) : (
                                             <div className="space-y-4 col-span-full">
-                                                {scrapeResult.data.map((item, idx) => (
+                                                {scrapeResult.data?.map((item, idx) => (
                                                     <div 
                                                         key={idx}
                                                         onClick={() => {
@@ -568,7 +568,7 @@ const EgyDeadScraperPage: React.FC = () => {
                                                             </div>
                                                             <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{item.story}</p>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {item.genres.slice(0, 4).map((g, i) => (
+                                                                {item.genres?.slice(0, 4).map((g, i) => (
                                                                     <span key={i} className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20">{g}</span>
                                                                 ))}
                                                                 {item.episodes && <span className="text-[10px] bg-white/5 text-gray-500 px-2 py-0.5 rounded">{item.episodes}</span>}
@@ -621,7 +621,7 @@ const EgyDeadScraperPage: React.FC = () => {
                                                     <div className="text-center space-y-1">
                                                         <h3 className="text-xl font-black text-white">{activeAnime.title}</h3>
                                                         <div className="flex flex-wrap justify-center gap-2 mt-2">
-                                                            {activeAnime.genres.map((g, i) => (
+                                                            {activeAnime.genres?.map((g, i) => (
                                                                 <span key={i} className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-gray-400">{g}</span>
                                                             ))}
                                                         </div>
@@ -808,7 +808,7 @@ const EgyDeadScraperPage: React.FC = () => {
                                     <span className="text-sm font-bold text-gray-400">الأنمي في قاعدة البيانات</span>
                                 </div>
                                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {animes.map((a: any) => (
+                                    {animes?.map((a: any) => (
                                         <button 
                                             key={a.id}
                                             onClick={() => setSelectedAnimeId(a.id)}
@@ -847,8 +847,8 @@ const EgyDeadScraperPage: React.FC = () => {
                                             <span className="text-xs text-gray-500 font-mono" dir="ltr">{batchResult.title}</span>
                                         </div>
                                         <div className="grid gap-3">
-                                            {batchResult.episodes.map(ep => {
-                                                const matchInDB = dbEpisodes.find(de => de.episode_number === ep.episodeNum);
+                                            {batchResult?.episodes?.map(ep => {
+                                                const matchInDB = dbEpisodes?.find(de => de.episode_number === ep.episodeNum);
                                                 const isPublished = publishedEps.has(matchInDB?.id || -1);
 
                                                 return (

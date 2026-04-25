@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,6 +49,70 @@ type AnimeImportRequest struct {
 
 func NewScraperHandler(db *gorm.DB, baseDir string) *ScraperHandler {
 	return &ScraperHandler{db: db, BaseDir: baseDir}
+}
+
+type DoodstreamProxyRequest struct {
+	URL string `json:"url"`
+}
+
+func (h *ScraperHandler) ProxyDoodstream(c *gin.Context) {
+	var req DoodstreamProxyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if !strings.HasPrefix(req.URL, "https://doodapi.co/") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Doodstream URL"})
+		return
+	}
+
+	resp, err := http.Get(req.URL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to contact Doodstream"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
+		return
+	}
+
+	c.Data(resp.StatusCode, "application/json", body)
+}
+
+type StreamHGProxyRequest struct {
+	URL string `json:"url"`
+}
+
+func (h *ScraperHandler) ProxyStreamHG(c *gin.Context) {
+	var req StreamHGProxyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if !strings.HasPrefix(req.URL, "https://streamhgapi.com/") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid StreamHG URL"})
+		return
+	}
+
+	resp, err := http.Get(req.URL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to contact StreamHG"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
+		return
+	}
+
+	c.Data(resp.StatusCode, "application/json", body)
 }
 
 // getScriptPath returns the absolute path to a scraper script, searching in multiple project subdirectories.
@@ -278,8 +343,8 @@ func (h *ScraperHandler) FetchEgyDeadBatch(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "egydead_batch_scraper.js")
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("egydead_batch_scraper.js")
 
 	// Batch scraping takes longer, so we increase the timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
@@ -323,8 +388,8 @@ func (h *ScraperHandler) FetchAnime4Up(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "anime4up_scraper.js")
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("anime4up_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*60*time.Second)
 	defer cancel()
@@ -367,8 +432,8 @@ func (h *ScraperHandler) FetchAnime4UpBatch(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "anime4up_batch_scraper.js")
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("anime4up_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
 	defer cancel()
@@ -411,8 +476,8 @@ func (h *ScraperHandler) FetchRistoAnime(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "ristoanime_scraper.js")
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("ristoanime_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*60*time.Second)
 	defer cancel()
@@ -497,8 +562,8 @@ func (h *ScraperHandler) FetchWitAnimeBatch(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "witanime_batch_scraper.js")
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("witanime_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second) 
 	defer cancel()
@@ -541,8 +606,8 @@ func (h *ScraperHandler) FetchAnime3rbBatch(c *gin.Context) {
 		return
 	}
 
-	// Standard path resolution
-	scraperPath := filepath.Join(h.BaseDir, "scraper", "anime3rb_batch_scraper.js")
+	// Standard path resolution using helper
+	scraperPath := h.getScriptPath("anime3rb_batch_scraper.js")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*60*time.Second)
 	defer cancel()
@@ -587,12 +652,12 @@ func (h *ScraperHandler) FetchPageImages(c *gin.Context) {
 	}
 
 	if body.MaxImages <= 0 {
-		body.MaxImages = 50
+		body.MaxImages = 100
 	}
 
 	// Standard path resolution using helper
 	scraperPath := h.getScriptPath("image_scraper.js")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "node", scraperPath, body.URL, fmt.Sprintf("%d", body.MaxImages))
@@ -870,12 +935,17 @@ func (h *ScraperHandler) DeepImportAnime(c *gin.Context) {
 
 	log.Printf("[Scraper] Starting deep import for: %s using script: %s", body.DetailURL, scriptPath)
 	cmd := exec.CommandContext(ctx, "node", scriptPath, body.DetailURL)
-	output, err := cmd.Output() // Use Output() ONLY for stdout (JSON), combined output breaks JSON parsing
+	output, err := cmd.Output()
 	if err != nil {
-		log.Printf("[Scraper] Deep import failed: %v, Output: %s", err, string(output))
-		// If there's an error, combined output might be more useful for the details field
-		combined, _ := cmd.CombinedOutput()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل السحب العميق: " + err.Error(), "details": string(combined)})
+		var stdErr string
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stdErr = string(exitErr.Stderr)
+		}
+		log.Printf("[Scraper] Deep import failed: %v, Output: %s, Stderr: %s", err, string(output), stdErr)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "فشل السحب العميق: " + err.Error(), 
+			"details": string(output) + "\n" + stdErr,
+		})
 		return
 	}
 
@@ -1092,13 +1162,19 @@ func (h *ScraperHandler) downloadPoster(url, title string) (string, error) {
 	}
 	
 	filename := h.slugify(title) + ext
-	relPath := filepath.Join("uploads", "animes", filename)
+	
+	// The physical directory inside the project root
+	// The user specifically wants it inside backend/uploads/animes
+	physicalDir := filepath.Join("backend", "uploads", "animes")
 	
 	// Ensure directory exists using absolute path
-	absPath := filepath.Join(h.BaseDir, relPath)
-	os.MkdirAll(filepath.Dir(absPath), os.ModePerm)
+	absDir := filepath.Join(h.BaseDir, physicalDir)
+	if err := os.MkdirAll(absDir, os.ModePerm); err != nil {
+		return "", fmt.Errorf("failed to create directory: %v", err)
+	}
 
-	out, err := os.Create(absPath)
+	absFilePath := filepath.Join(absDir, filename)
+	out, err := os.Create(absFilePath)
 	if err != nil {
 		return "", err
 	}
@@ -1109,7 +1185,10 @@ func (h *ScraperHandler) downloadPoster(url, title string) (string, error) {
 		return "", err
 	}
 
-	return "/" + strings.ReplaceAll(relPath, "\\", "/"), nil
+	// Return the relative URL path for the database.
+	// Since main.go serves absPath("backend", "uploads") as "/uploads",
+	// the URL for this file should be "/uploads/animes/filename"
+	return "/uploads/animes/" + filename, nil
 }
 
 func (h *ScraperHandler) slugify(s string) string {
@@ -1162,4 +1241,387 @@ func (h *ScraperHandler) FetchAnimercoBatch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *ScraperHandler) DeepImportCrunchyroll(c *gin.Context) {
+	var body struct {
+		URL         string `json:"url"`
+		PreviewOnly bool   `json:"preview_only"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.URL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب تقديم رابط صالح"})
+		return
+	}
+
+	scriptPath := h.getScriptPath("crunchyroll_batch_scraper.js")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "node", scriptPath, body.URL)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "فشل تشغيل سكريبت Crunchyroll",
+			"details": stderr.String(),
+		})
+		return
+	}
+
+	// Parse the flexible result
+	var rawResult map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &rawResult); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تحليل نتائج السكريبت", "details": err.Error(), "raw": stdout.String()})
+		return
+	}
+
+	// If discovery mode — return as-is to the frontend
+	isDiscovery, _ := rawResult["isDiscovery"].(bool)
+	if isDiscovery {
+		c.JSON(http.StatusOK, rawResult)
+		return
+	}
+
+	// If preview only — return scraped data without saving
+	if body.PreviewOnly {
+		c.JSON(http.StatusOK, rawResult)
+		return
+	}
+
+	// ----- FULL DEEP IMPORT -----
+	type EpData struct {
+		Title         string `json:"title"`
+		TitleEn       string `json:"titleEn"`
+		Number        int    `json:"number"`
+		Thumbnail     string `json:"thumbnail"`
+		Link          string `json:"link"`
+		Slug          string `json:"slug"`
+		SlugEn        string `json:"slugEn"`
+		Description   string `json:"description"`
+		DescriptionEn string `json:"descriptionEn"`
+	}
+	type AnimeResult struct {
+		IsDiscovery   bool     `json:"isDiscovery"`
+		Title         string   `json:"title"`
+		Description   string   `json:"description"`
+		DescriptionEn string   `json:"descriptionEn"`
+		Poster        string   `json:"poster"`
+		Banner        string   `json:"banner"`
+		Genres        []string `json:"genres"`
+		Episodes      []EpData `json:"episodes"`
+	}
+
+	var result AnimeResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تحليل بيانات الأنمي"})
+		return
+	}
+
+	if result.Title == "" || result.Title == "N/A" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "لم يتم العثور على عنوان الأنمي. قد يكون الرابط غير صحيح."})
+		return
+	}
+
+	// Build anime record
+	anime := domain.Anime{
+		Title:         result.Title,
+		Description:   result.Description,
+		DescriptionEn: result.DescriptionEn,
+		Status:        "Ongoing",
+		Type:          "TV",
+	}
+
+	// Download Poster
+	if result.Poster != "" {
+		if path, err := h.downloadImage(result.Poster, result.Title, "animes"); err == nil {
+			anime.Image = path
+		}
+	}
+	// Download Banner/Cover
+	if result.Banner != "" {
+		if path, err := h.downloadImage(result.Banner, result.Title+"-cover", "animes"); err == nil {
+			anime.Cover = path
+		}
+	}
+
+	// Save or find existing anime
+	if err := h.db.Where("title = ?", anime.Title).FirstOrCreate(&anime).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل حفظ الأنمي في قاعدة البيانات"})
+		return
+	}
+
+	// Update images and descriptions if not set on existing record
+	updates := map[string]interface{}{}
+	if anime.Image != "" {
+		updates["image"] = anime.Image
+	}
+	if anime.Cover != "" {
+		updates["cover"] = anime.Cover
+	}
+	if anime.Description != "" {
+		updates["description"] = anime.Description
+	}
+	if anime.DescriptionEn != "" {
+		updates["description_en"] = anime.DescriptionEn
+	}
+	if len(updates) > 0 {
+		h.db.Model(&anime).Updates(updates)
+	}
+
+	// Import Episodes
+	importCount := 0
+	for _, ep := range result.Episodes {
+		// Build slug from link if not provided
+		slug := ep.Slug
+		if slug == "" && ep.Link != "" {
+			parts := strings.Split(ep.Link, "/")
+			slug = parts[len(parts)-1]
+		}
+		slugEn := ep.SlugEn
+		if slugEn == "" {
+			slugEn = slug
+		}
+
+		episode := domain.Episode{
+			AnimeID:       anime.ID,
+			Title:         ep.Title,
+			TitleEn:       ep.TitleEn,
+			Slug:          slug,
+			SlugEn:        slugEn,
+			Description:   ep.Description,
+			DescriptionEn: ep.DescriptionEn,
+			EpisodeNumber: ep.Number,
+			SourceURL:     ep.Link,
+			IsPublished:   true,
+		}
+
+		// Download episode thumbnail
+		if ep.Thumbnail != "" {
+			epSlug := fmt.Sprintf("%s-ep-%d", result.Title, ep.Number)
+			if thumbPath, err := h.downloadImage(ep.Thumbnail, epSlug, "episodes"); err == nil {
+				episode.Thumbnail = thumbPath
+			}
+		}
+
+		// Create episode if not exists, otherwise update missing fields
+		var existing domain.Episode
+		res := h.db.Where("anime_id = ? AND episode_number = ?", anime.ID, ep.Number).First(&existing)
+		if res.Error != nil {
+			// Not found – create
+			h.db.Create(&episode)
+		} else {
+			// Update missing fields
+			epUpdates := map[string]interface{}{}
+			if existing.Thumbnail == "" && episode.Thumbnail != "" {
+				epUpdates["thumbnail"] = episode.Thumbnail
+			}
+			if existing.TitleEn == "" && episode.TitleEn != "" {
+				epUpdates["title_en"] = episode.TitleEn
+			}
+			if existing.DescriptionEn == "" && episode.DescriptionEn != "" {
+				epUpdates["description_en"] = episode.DescriptionEn
+			}
+			if existing.Slug == "" && episode.Slug != "" {
+				epUpdates["slug"] = episode.Slug
+			}
+			if existing.SlugEn == "" && episode.SlugEn != "" {
+				epUpdates["slug_en"] = episode.SlugEn
+			}
+			if len(epUpdates) > 0 {
+				h.db.Model(&existing).Updates(epUpdates)
+			}
+		}
+		importCount++
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      fmt.Sprintf("تم استيراد '%s' بنجاح", anime.Title),
+		"anime_id":     anime.ID,
+		"import_count": importCount,
+		"title":        anime.Title,
+		"poster":       anime.Image,
+		"cover":        anime.Cover,
+	})
+}
+
+// UpdateAnimeFromCrunchyroll updates an existing anime in the DB with fresh Crunchyroll data.
+// Preserves: poster image (image field), all EpisodeServer records.
+// Updates: description, banner/cover image, episode titles, episode thumbnails, episode source_url.
+// Adds: new episodes if Crunchyroll count > DB count.
+func (h *ScraperHandler) UpdateAnimeFromCrunchyroll(c *gin.Context) {
+	var body struct {
+		AnimeID     uint   `json:"anime_id"`
+		Description string `json:"description"`
+		Banner      string `json:"banner"`
+		Episodes    []struct {
+			Number    int    `json:"number"`
+			Title     string `json:"title"`
+			Thumbnail string `json:"thumbnail"`
+			Link      string `json:"link"`
+		} `json:"episodes"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.AnimeID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب تقديم anime_id صالح"})
+		return
+	}
+
+	// 1. Fetch existing anime
+	var anime domain.Anime
+	if err := h.db.First(&anime, body.AnimeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "الأنمي غير موجود في قاعدة البيانات"})
+		return
+	}
+
+	// 2. Update description + banner/cover — poster image (image field) stays unchanged
+	animeUpdates := map[string]interface{}{}
+	if body.Description != "" {
+		animeUpdates["description"] = body.Description
+		animeUpdates["description_en"] = body.Description
+	}
+	// Download and update banner (cover) if provided
+	if body.Banner != "" {
+		bannerSlug := fmt.Sprintf("%s-banner-cr", anime.Title)
+		if coverPath, err := h.downloadImage(body.Banner, bannerSlug, "animes"); err == nil {
+			animeUpdates["cover"] = coverPath
+		} else {
+			// Fallback: store URL directly if download fails
+			animeUpdates["cover"] = body.Banner
+		}
+	}
+	if len(animeUpdates) > 0 {
+		h.db.Model(&anime).Updates(animeUpdates)
+	}
+
+	// 3. Process episodes
+	updatedCount := 0
+	addedCount := 0
+	for _, epData := range body.Episodes {
+		// Download new thumbnail (fall back to URL if download fails)
+		thumbPath := epData.Thumbnail
+		if epData.Thumbnail != "" {
+			epSlug := fmt.Sprintf("%s-ep-%d-cr", anime.Title, epData.Number)
+			if path, err := h.downloadImage(epData.Thumbnail, epSlug, "episodes"); err == nil {
+				thumbPath = path
+			}
+		}
+
+		// Find existing episode by anime_id + episode_number
+		var existing domain.Episode
+		res := h.db.Where("anime_id = ? AND episode_number = ?", anime.ID, epData.Number).First(&existing)
+
+		if res.Error != nil {
+			// Episode doesn't exist → create new
+			slug := fmt.Sprintf("%s-%d", anime.Slug, epData.Number)
+			newEp := domain.Episode{
+				AnimeID:       anime.ID,
+				Title:         epData.Title,
+				TitleEn:       epData.Title,
+				Slug:          slug,
+				SlugEn:        slug,
+				EpisodeNumber: epData.Number,
+				Thumbnail:     thumbPath,
+				Banner:        thumbPath,
+				SourceURL:     epData.Link,
+				IsPublished:   true,
+				VideoURLs:     "[]",
+				Rating:        8.0,
+			}
+			h.db.Create(&newEp)
+			addedCount++
+		} else {
+			// Episode exists → update title + thumbnail + source_url
+			// Servers (EpisodeServer) are NOT touched
+			epUpdates := map[string]interface{}{
+				"source_url": epData.Link,
+			}
+			if epData.Title != "" {
+				epUpdates["title"] = epData.Title
+				epUpdates["title_en"] = epData.Title
+			}
+			if thumbPath != "" {
+				epUpdates["thumbnail"] = thumbPath
+				epUpdates["banner"] = thumbPath
+			}
+			h.db.Model(&existing).Updates(epUpdates)
+			updatedCount++
+		}
+	}
+
+	// 4. Update episodes_count if Crunchyroll has more
+	if len(body.Episodes) > 0 {
+		h.db.Model(&anime).Update("episodes_count", len(body.Episodes))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":       true,
+		"message":       fmt.Sprintf("تم تحديث '%s' بنجاح", anime.Title),
+		"anime_id":      anime.ID,
+		"title":         anime.Title,
+		"updated_count": updatedCount,
+		"added_count":   addedCount,
+	})
+}
+
+// downloadImage is a helper to download remote images to a subDirectory in uploads
+func (h *ScraperHandler) downloadImage(imgUrl, title, subDir string) (string, error) {
+	// Parse URL to handle complex ones
+	_, err := url.ParseRequestURI(imgUrl)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.Get(imgUrl)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status code: %d", resp.StatusCode)
+	}
+
+	// Detect image extension from URL first, then from Content-Type
+	ext := ".jpg"
+	lowerUrl := strings.ToLower(imgUrl)
+	if strings.Contains(lowerUrl, ".png") {
+		ext = ".png"
+	} else if strings.Contains(lowerUrl, ".webp") {
+		ext = ".webp"
+	} else if strings.Contains(lowerUrl, ".gif") {
+		ext = ".gif"
+	} else {
+		// Fallback: check Content-Type header
+		ct := resp.Header.Get("Content-Type")
+		if strings.Contains(ct, "png") {
+			ext = ".png"
+		} else if strings.Contains(ct, "webp") {
+			ext = ".webp"
+		} else if strings.Contains(ct, "gif") {
+			ext = ".gif"
+		}
+	}
+
+	filename := h.slugify(title) + ext
+	physicalDir := filepath.Join("backend", "uploads", subDir)
+	absDir := filepath.Join(h.BaseDir, physicalDir)
+	
+	if err := os.MkdirAll(absDir, os.ModePerm); err != nil {
+		return "", err
+	}
+
+	absFilePath := filepath.Join(absDir, filename)
+	out, err := os.Create(absFilePath)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("/uploads/%s/%s", subDir, filename), nil
 }

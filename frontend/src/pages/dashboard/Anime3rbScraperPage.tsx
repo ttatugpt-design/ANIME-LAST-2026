@@ -493,7 +493,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                         activeAnime ? "lg:col-span-8 grid-cols-2 md:grid-cols-3 xl:grid-cols-4" : "lg:col-span-12 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
                                     )}>
                                         {viewMode === 'grid' ? (
-                                            scrapeResult.data.map((item, idx) => (
+                                            scrapeResult?.data?.map((item, idx) => (
                                                 <div
                                                     key={idx}
                                                     onClick={() => {
@@ -548,7 +548,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                             ))
                                         ) : (
                                             <div className="space-y-4 col-span-full">
-                                                {scrapeResult.data.map((item, idx) => (
+                                                {scrapeResult?.data?.map((item, idx) => (
                                                     <div
                                                         key={idx}
                                                         onClick={() => {
@@ -579,7 +579,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                                             </div>
                                                             <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{item.story}</p>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {item.genres.slice(0, 4).map((g, i) => (
+                                                                {item?.genres?.slice(0, 4)?.map((g, i) => (
                                                                     <span key={i} className={`text-[10px] ${accentBg} ${accentText} px-2 py-0.5 rounded border border-emerald-500/20`}>{g}</span>
                                                                 ))}
                                                                 {item.episodes && <span className="text-[10px] bg-white/5 text-gray-500 px-2 py-0.5 rounded">{item.episodes}</span>}
@@ -774,7 +774,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                         onChange={(e) => setSelectedServerId(Number(e.target.value))}
                                     >
                                         <option value="">-- اختر السيرفر --</option>
-                                        {servers.map(s => <option key={s.id} value={s.id}>{s.name_en || s.name}</option>)}
+                                        {servers?.map(s => <option key={s.id} value={s.id}>{s.name_en || s.name}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -825,7 +825,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                     <span className="text-sm font-bold text-gray-400">الأنمي في قاعدة البيانات</span>
                                 </div>
                                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                                {animes.map((a: any) => (
+                                {animes?.map((a: any) => (
                                         <button
                                             key={a.id}
                                             onClick={() => setSelectedAnimeId(a.id)}
@@ -877,7 +877,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                             <span className="text-xs text-gray-500 font-mono" dir="ltr">{batchResult.title}</span>
                                         </div>
                                         <div className="grid gap-3">
-                                            {batchResult.episodes.map(ep => {
+                                            {batchResult?.episodes?.map(ep => {
                                                 const matchInDB = dbEpisodes.find(de => de.episode_number === ep.episodeNum);
                                                 const isPublished = publishedEps.has(matchInDB?.id || -1);
 
@@ -936,7 +936,7 @@ const Anime3rbScraperPage: React.FC = () => {
                                                                     <div className="mt-4 text-center text-gray-600 py-4">لم يتم العثور على سيرفرات لهذه الحلقة</div>
                                                                 ) : (
                                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                                                                        {ep.links.map((link, idx) => (
+                                                                        {ep?.links?.map((link, idx) => (
                                                                             <div key={idx} className="bg-black/40 p-4 rounded-xl border border-white/5 space-y-3 group/item">
                                                                                 <div className="flex items-center justify-between">
                                                                                     <span className={`text-[10px] font-black ${accentBg} ${accentText} px-3 py-1 rounded-md border border-emerald-600/20 uppercase`}>
