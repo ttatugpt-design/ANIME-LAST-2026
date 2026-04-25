@@ -25,17 +25,7 @@ const BackupPage: React.FC = () => {
 
     // Local Loading States
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-    // Function to get token manually
-    const getAuthHeader = (): Record<string, string> => {
-        const token = useAuthStore.getState().accessToken;
-        return token ? { 'Authorization': `Bearer ${token}` } : {};
-    };
-
-    const apiPath = (path: string) => {
-        const base = api.defaults.baseURL || '/api';
-        return `${base}${path}`;
-    };
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
     const { data: backups, isLoading } = useQuery<BackupInfo[]>({
         queryKey: ['backups'],
@@ -52,16 +42,12 @@ const BackupPage: React.FC = () => {
     const handleCreateBackup = async () => {
         try {
             setActionLoading('create');
-            const res = await fetch(apiPath('/dashboard/backups'), {
-                method: 'POST',
-                headers: getAuthHeader()
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await api.post('/dashboard/backups');
             queryClient.invalidateQueries({ queryKey: ['backups'] });
-            alert(isAr ? 'تم إنشاء النسخة بنجاح' : 'Backup created successfully');
+            toast.success(isAr ? 'تم إنشاء النسخة بنجاح' : 'Backup created successfully');
         } catch (err: any) {
             console.error('Create error:', err);
-            alert(isAr ? 'فشل إنشاء النسخة' : 'Failed to create backup: ' + err.message);
+            toast.error(isAr ? 'فشل إنشاء النسخة' : 'Failed to create backup: ' + err.message);
         } finally {
             setActionLoading(null);
         }
@@ -72,16 +58,12 @@ const BackupPage: React.FC = () => {
         
         try {
             setActionLoading('restore');
-            const res = await fetch(apiPath(`/dashboard/backups/restore/${filename}`), {
-                method: 'POST',
-                headers: getAuthHeader()
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            alert(isAr ? 'تمت الجدولة، سيتم إعادة التشغيل' : 'Restore scheduled, server is restarting');
+            await api.post(`/dashboard/backups/restore/${filename}`);
+            toast.success(isAr ? 'تمت الجدولة، سيتم إعادة التشغيل' : 'Restore scheduled, server is restarting');
             setTimeout(() => window.location.reload(), 3000);
         } catch (err: any) {
             console.error('Restore error:', err);
-            alert(isAr ? 'فشلت الاستعادة' : 'Restore failed: ' + err.message);
+            toast.error(isAr ? 'فشلت الاستعادة' : 'Restore failed: ' + err.message);
             setActionLoading(null);
         }
     };
@@ -91,16 +73,12 @@ const BackupPage: React.FC = () => {
         
         try {
             setActionLoading('delete');
-            const res = await fetch(apiPath(`/dashboard/backups/delete/${filename}`), {
-                method: 'POST',
-                headers: getAuthHeader()
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await api.post(`/dashboard/backups/delete/${filename}`);
             queryClient.invalidateQueries({ queryKey: ['backups'] });
-            alert(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
+            toast.success(isAr ? 'تم حذف النسخة بنجاح' : 'Backup deleted successfully');
         } catch (err: any) {
             console.error('Delete error:', err);
-            alert(isAr ? 'فشل حذف النسخة' : 'Delete failed: ' + err.message);
+            toast.error(isAr ? 'فشل حذف النسخة' : 'Delete failed: ' + err.message);
         } finally {
             setActionLoading(null);
         }
@@ -111,20 +89,30 @@ const BackupPage: React.FC = () => {
         
         try {
             setActionLoading('upload');
+            setUploadProgress(0);
             const formData = new FormData();
             formData.append('backup', file);
-            const res = await fetch(apiPath('/dashboard/backups/upload'), {
-                method: 'POST',
-                headers: getAuthHeader(),
-                body: formData
+            
+            await api.post('/dashboard/backups/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                },
+                onUploadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setUploadProgress(percentCompleted);
+                    }
+                }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            alert(isAr ? 'تم الرفع، انتظر إعادة التشغيل' : 'Uploaded, waiting for restart');
+            
+            setUploadProgress(100);
+            toast.success(isAr ? 'تم الرفع، انتظر إعادة التشغيل' : 'Uploaded, waiting for restart');
             setTimeout(() => window.location.reload(), 3000);
         } catch (err: any) {
             console.error('Upload error:', err);
-            alert(isAr ? 'فشل الرفع' : 'Upload failed: ' + err.message);
+            toast.error(isAr ? 'فشل الرفع' : 'Upload failed: ' + err.message);
             setActionLoading(null);
+            setUploadProgress(null);
         }
     };
 
@@ -150,10 +138,33 @@ const BackupPage: React.FC = () => {
         <div className="space-y-6 relative">
             {/* GLOBAL LOADING OVERLAY */}
             {actionLoading && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[999] flex items-center justify-center flex-col gap-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <h3 className="text-xl font-bold">{isAr ? 'جاري التنفيذ...' : 'Processing...'}</h3>
-                    <p className="text-muted-foreground">{isAr ? 'يرجى الانتظار، قد يقوم السيرفر بإعادة التشغيل.' : 'Please wait, the server may restart.'}</p>
+                <div className="fixed inset-0 bg-background/90 backdrop-blur-md z-[999] flex items-center justify-center flex-col gap-6 p-4">
+                    <div className="relative">
+                        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                        {uploadProgress !== null && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xs font-bold text-primary">{uploadProgress}%</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-bold">{isAr ? 'جاري التنفيذ...' : 'Processing...'}</h3>
+                        <p className="text-muted-foreground max-w-md mx-auto">
+                            {actionLoading === 'upload' 
+                                ? (isAr ? 'جاري رفع النسخة الاحتياطية واستعادتها. يرجى عدم إغلاق هذه الصفحة.' : 'Uploading and restoring backup. Please do not close this page.')
+                                : (isAr ? 'يرجى الانتظار، قد يقوم السيرفر بإعادة التشغيل.' : 'Please wait, the server may restart.')}
+                        </p>
+                    </div>
+                    
+                    {/* Progress Bar Container */}
+                    {uploadProgress !== null && (
+                        <div className="w-full max-w-md bg-secondary/50 rounded-full h-3 overflow-hidden border border-border">
+                            <div 
+                                className="bg-primary h-full transition-all duration-300 ease-out"
+                                style={{ width: `${uploadProgress}%` }}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 
