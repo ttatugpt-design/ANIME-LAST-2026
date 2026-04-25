@@ -60,7 +60,7 @@ import FriendsPage from '@/pages/dashboard/FriendsPage';
 import CommunityPage from '@/pages/social/CommunityPage';
 import PostDetailPage from '@/pages/social/PostDetailPage';
 import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
-import BackupSystem from '@/pages/dashboard/BackupSystem';
+import BackupPage from '@/pages/dashboard/BackupPage';
 import BatchAnimeSelectionPage from '@/pages/dashboard/BatchAnimeSelectionPage';
 import BatchUploadPage from '@/pages/dashboard/BatchUploadPage';
 import EmbedAccountsPage from '@/pages/dashboard/EmbedAccountsPage';
@@ -366,7 +366,7 @@ export const routes = [
                             },
                             {
                                 path: 'backups',
-                                element: <BackupSystem />,
+                                element: <BackupPage />,
                             },
                             {
                                 path: 'ai-lab',
