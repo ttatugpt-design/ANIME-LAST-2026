@@ -818,10 +818,11 @@ function EpisodeListItem({ episode, lang, animeTitle, animeId }: { episode: any;
             >
                 {/* Image Section — rounded, clear image, thumbnail popup on hover (Desktop Only) */}
                 <div className="w-[140px] md:w-[260px] h-[80px] md:h-[145px] flex-shrink-0 relative overflow-hidden shadow-sm rounded-xl">
-                    <img
+                    <SpinnerImage
                         src={getImageUrl(image)}
                         alt={title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        className="w-full h-full"
+                        imageClassName="object-cover transition-transform duration-500 group-hover:scale-110"
                         loading="lazy"
                     />
                     {/* Hover overlay with play button */}
@@ -838,10 +839,11 @@ function EpisodeListItem({ episode, lang, animeTitle, animeId }: { episode: any;
                     {episode.thumbnail && (
                         <div className="hidden md:block absolute -top-[100px] left-0 right-0 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
                             <div className="mx-auto w-full rounded-xl overflow-hidden shadow-2xl border border-white/10 aspect-video">
-                                <img
+                                <SpinnerImage
                                     src={getImageUrl(episode.thumbnail)}
                                     alt={title}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full"
+                                    imageClassName="object-cover"
                                     loading="lazy"
                                 />
                             </div>
