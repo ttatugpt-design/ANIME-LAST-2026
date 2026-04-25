@@ -152,7 +152,7 @@ export function CategoriesMenuContent({ onClose, isVisible }: CategoriesMenuCont
                                             className="group cursor-pointer flex flex-col items-center gap-1"
                                             onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
                                         >
-                                            <div className="relative aspect-[2/3] w-full overflow-hidden bg-gray-100 dark:bg-[#111]">
+                                            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-[#111]">
                                                 {!loadedImages[`cat-anime-m-${anime.id}`] && (
                                                     <Loader2 className="w-4 h-4 animate-spin text-gray-400 absolute inset-0 m-auto" />
                                                 )}
@@ -232,7 +232,7 @@ export function CategoriesMenuContent({ onClose, isVisible }: CategoriesMenuCont
                                             className="group cursor-pointer flex flex-col items-center gap-1.5"
                                             onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
                                         >
-                                            <div className="relative aspect-[2/3] w-full overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 bg-gray-100 dark:bg-[#111] flex items-center justify-center">
+                                            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl shadow-md group-hover:shadow-xl transition-all duration-300 bg-gray-100 dark:bg-[#111] flex items-center justify-center">
                                                 {isVisible && (
                                                     <>
                                                         {!loadedImages[`cat-anime-${anime.id}`] && (
@@ -284,14 +284,14 @@ export function CategoriesMenuContent({ onClose, isVisible }: CategoriesMenuCont
                                     key={cat.id}
                                     onClick={() => setSelectedCategoryId(cat.id)}
                                     className={cn(
-                                        "w-full flex items-center justify-end px-5 py-3 transition-all duration-200 group relative border-b border-gray-100/50 dark:border-neutral-800/30 last:border-b-0",
+                                        "w-[calc(100%-16px)] flex items-center justify-end px-5 py-3 transition-all duration-200 group relative rounded-xl mx-2 my-1",
                                         isActive
-                                            ? 'bg-gray-100 dark:bg-[#1a1a1a] text-black dark:text-white'
+                                            ? 'bg-gray-100 dark:bg-[#1a1a1a] text-black dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-white/10'
                                             : 'text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]/50'
                                     )}
                                 >
                                     {isActive && (
-                                        <div className="absolute inset-y-0 right-0 w-1.5 bg-black dark:bg-white" />
+                                        <div className="absolute inset-y-2 right-0 w-1 bg-black dark:bg-white rounded-full" />
                                     )}
                                     <span className={cn(
                                         "text-lg font-bold font-sans transition-colors leading-tight mr-4",

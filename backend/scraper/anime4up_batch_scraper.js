@@ -297,6 +297,7 @@ const scrapeEpisode = async (browser, episodeUrl) => {
             else req.continue();
         });
         
+        console.error(`[Anime4up] Scraping discovery page: ${startUrl}`);
         await discoveryPage.goto(startUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await sleep(2500);
 
@@ -304,8 +305,15 @@ const scrapeEpisode = async (browser, episodeUrl) => {
             const links = [];
             const seen = new Set();
             
-            // Find all episode links on the page
-            const allLinks = Array.from(document.querySelectorAll('a[href*="/episode/"]'));
+            // Optimized selectors for Anime4Up episode links
+            const selectors = [
+                'a[href*="/episode/"]',
+                '.episodes-grid-content .episodes-card-container a',
+                '.episodes-list a',
+                '.ep-list a'
+            ];
+            
+            const allLinks = selectors.flatMap(s => Array.from(document.querySelectorAll(s)));
             
             allLinks.forEach(a => {
                 const href = a.href.split('?')[0].split('#')[0];
@@ -325,7 +333,7 @@ const scrapeEpisode = async (browser, episodeUrl) => {
                 links.push({ href, num, text: text || ('الحلقة ' + num) });
             });
 
-            // Include startUrl itself if not in the list
+            // Include startUrl itself if it's an episode page
             const cleanStart = startUrl.split('?')[0].split('#')[0];
             if (!seen.has(cleanStart) && cleanStart.includes('/episode/')) {
                 const hNum = cleanStart.match(/-(\d+)\/?$/);
@@ -337,23 +345,39 @@ const scrapeEpisode = async (browser, episodeUrl) => {
             return links;
         }, startUrl);
 
+        console.error(`[Anime4up] Found ${episodeUrls.length} episodes.`);
         await discoveryPage.close();
+
+        if (episodeUrls.length === 0 && !startUrl.includes('/episode/')) {
+            throw new Error('لم يتم العثور على أي حلقات في هذا الرابط. تأكد من أنه رابط مسلسل أو حلقة.');
+        }
 
         const allEpisodes = episodeUrls.length > 0 ? episodeUrls : [{ href: startUrl, text: 'الحلقة 1', num: 1 }];
         const episodes = [];
+        const CONCURRENCY_LIMIT = 5;
 
-        for (const ep of allEpisodes) {
-            const result = await scrapeEpisode(browser, ep.href);
-            episodes.push({
-                episodeNum: ep.num,
-                label: ep.text || ('الحلقة ' + ep.num),
-                url: ep.href,
-                title: result.title || ep.text,
-                links: result.links,
-                error: result.error
-            });
-            await sleep(1500);
+        for (let i = 0; i < allEpisodes.length; i += CONCURRENCY_LIMIT) {
+            const chunk = allEpisodes.slice(i, i + CONCURRENCY_LIMIT);
+            console.error(`[Anime4up] Processing block ${Math.floor(i/CONCURRENCY_LIMIT) + 1} (${chunk.length} episodes)...`);
+            
+            const chunkResults = await Promise.all(chunk.map(async (ep) => {
+                const result = await scrapeEpisode(browser, ep.href);
+                return {
+                    episodeNum: ep.num,
+                    label: ep.text || ('الحلقة ' + ep.num),
+                    url: ep.href,
+                    title: result.title || ep.text,
+                    links: result.links,
+                    error: result.error
+                };
+            }));
+            
+            episodes.push(...chunkResults);
+            // Small safety sleep between chunks
+            await sleep(1000);
         }
+
+        episodes.sort((a, b) => a.episodeNum - b.episodeNum);
 
         await browser.close();
         process.stdout.write(JSON.stringify({
@@ -363,6 +387,7 @@ const scrapeEpisode = async (browser, episodeUrl) => {
         }));
 
     } catch (error) {
+        console.error(`[Anime4up Error] ${error.message}`);
         if (browser) await browser.close().catch(() => {});
         process.stdout.write(JSON.stringify({ success: false, error: error.message }));
         process.exit(1);

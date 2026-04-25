@@ -123,7 +123,7 @@ export const HistoryDropdown: React.FC = () => {
                                             onClick={() => setIsOpen(false)}
                                             className="flex items-start gap-4 p-4 hover:bg-white dark:hover:bg-[#1a1a1a] transition-colors border-b border-gray-100 dark:border-[#222] last:border-0 group"
                                         >
-                                            <div className="w-24 aspect-video bg-gray-800 flex-shrink-0 relative group-hover:scale-[1.02] transition-transform duration-300 overflow-hidden">
+                                            <div className="w-24 aspect-video bg-gray-800 flex-shrink-0 relative group-hover:scale-[1.02] transition-transform duration-300 overflow-hidden rounded-lg">
                                                 <img
                                                     src={getImageUrl(item.episode?.thumbnail || item.anime.cover)}
                                                     alt={animeTitle}

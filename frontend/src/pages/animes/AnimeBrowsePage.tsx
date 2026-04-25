@@ -1,73 +1,53 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useTranslation } from "react-i18next";
 import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown, List, Share2, Play, ChevronDown } from "lucide-react";
-import { toast } from "sonner";
+import { Search, Filter, LayoutGrid, List, Play, ChevronDown, Monitor, Film, PlayCircle, Star, ArrowUp, Eye, MessageCircle } from "lucide-react";
 import { WatchLaterButton } from "@/components/common/WatchLaterButton";
-import AnimeListHoverCard from "@/components/AnimeListHoverCard";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import AnimeHoverCard from "@/components/AnimeHoverCard";
-import CrunchyrollSkeleton from "@/components/skeleton/CrunchyrollSkeleton";
-import AnimeBrowseMobileSkeleton from "@/components/skeleton/AnimeBrowseMobileSkeleton";
 import SpinnerImage from "@/components/ui/SpinnerImage";
 import CentralSpinner from "@/components/ui/CentralSpinner";
-import SearchModal from "@/components/modals/SearchModal";
-import FilterModal from "@/components/modals/FilterModal";
-import SearchAnimeModal from "@/components/modals/SearchAnimeModal";
-import FilterAnimeModal from "@/components/modals/FilterAnimeModal";
 import { SocialNavSidebar } from "@/components/social/SocialNavSidebar";
 import { NewsTicker } from "@/components/common/NewsTicker";
 import Footer from "@/components/common/Footer";
 import { renderEmojiContent } from "@/utils/render-content";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { CategoriesMenuContent } from '@/components/header/CategoriesMenuContent';
-
 import { getImageUrl } from '@/utils/image-utils';
+import { slugify } from "@/utils/slug";
+import { useInView } from "react-intersection-observer";
+
+type BrowseMode = 'latest-episodes' | 'latest-animes' | 'latest-movies';
 
 export default function AnimeBrowsePage() {
     const { i18n } = useTranslation();
-    const { theme, setTheme } = useTheme();
     const isRtl = i18n.language === 'ar';
-    const navigate = useNavigate();
-    const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    const [isSearchAnimeModalOpen, setIsSearchAnimeModalOpen] = useState(false);
-    const [isFilterAnimeModalOpen, setIsFilterAnimeModalOpen] = useState(false);
+    const [mode, setMode] = useState<BrowseMode>('latest-episodes');
+
+    const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
+        
+        const handleScroll = () => {
+            if (window.scrollY > 400) {
+                setShowScrollTop(true);
+            } else {
+                setShowScrollTop(false);
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleLanguageSelect = (lang: string) => {
-        if (i18n.language === lang) return;
-        const currentPath = window.location.pathname;
-        const pathSegments = currentPath.split('/').filter(Boolean);
-
-        // Check if first segment is a language code
-        if (pathSegments.length > 0 && (pathSegments[0] === 'ar' || pathSegments[0] === 'en')) {
-            pathSegments[0] = lang;
-            navigate(`/${pathSegments.join('/')}`);
-        } else {
-            navigate(`/${lang}${currentPath}`);
-        }
-    };
-
-    const seoTitle = i18n.language === 'ar' ? 'الرئيسية - AnimeLast' : 'Home - AnimeLast';
+    const seoTitle = i18n.language === 'ar' ? 'تصفح الأنمي - AnimeLast' : 'Browse Anime - AnimeLast';
 
     return (
         <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300 font-sans">
@@ -75,302 +55,98 @@ export default function AnimeBrowsePage() {
                 <title>{seoTitle}</title>
             </Helmet>
 
-            {/* NewsTicker wrapper with min-height to prevent layout jump */}
-            <div className="min-h-[45px]">
-                <NewsTicker />
-            </div>
 
-            {/* Modals */}
-            <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
-            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
-            <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
-            <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
-
-            {/* Main Layout - Same as CommunityPage                        {/* Main Grid: Custom widths for narrower sidebar */}
             <div className="w-full min-h-screen">
                 <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-visible min-h-screen">
-
-                    {/* Left Sidebar - SocialNavSidebar */}
+                    {/* Left Sidebar */}
                     <div className="hidden lg:block sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30 border-r border-gray-100 dark:border-[#333]/50">
                         <SocialNavSidebar />
                     </div>
 
-                    <div className="min-w-0 w-full px-1.5 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5">
-                        <>
-                                {/* Latest Episodes Section - List Design */}
-                                <BrowseSection
-                                    title={i18n.language === 'ar' ? 'تصفح انميات الجديدة' : 'Browse New Animes'}
-                                    endpoint="/episodes/latest"
-                                    lang={i18n.language}
-                                    isRtl={isRtl}
-                                    isEpisodes={true}
-                                />
+                    <div className="min-w-0 w-full px-1.5 sm:px-6 md:px-8 pt-0 pb-8 lg:pt-0">
+                        {/* Navigation Buttons - Centered on desktop, Swipable on mobile */}
+                        <div className="w-full overflow-x-auto no-scrollbar pt-4 pb-2 mb-0 mt-[-5px]">
+                            <div className="flex flex-nowrap md:flex-wrap items-center justify-start md:justify-center gap-2 md:gap-4 px-2 md:px-0">
+                                <button
+                                    onClick={() => setMode('latest-episodes')}
+                                    className={cn(
+                                        "flex items-center justify-center gap-2 px-8 md:px-12 py-3 md:py-3.5 font-black text-xs md:text-sm transition-all border rounded-full whitespace-nowrap min-w-max",
+                                        mode === 'latest-episodes' 
+                                            ? "bg-white border-black text-black shadow-md translate-y-[-1px]" 
+                                            : "bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                    )}
+                                >
+                                    <PlayCircle className="w-4 h-4 md:w-5 md:h-5" />
+                                    {isRtl ? 'أخر الحلقات' : 'Latest Episodes'}
+                                </button>
+                                <button
+                                    onClick={() => setMode('latest-animes')}
+                                    className={cn(
+                                        "flex items-center justify-center gap-2 px-8 md:px-12 py-3 md:py-3.5 font-black text-xs md:text-sm transition-all border rounded-full whitespace-nowrap min-w-max",
+                                        mode === 'latest-animes' 
+                                            ? "bg-white border-black text-black shadow-md translate-y-[-1px]" 
+                                            : "bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                    )}
+                                >
+                                    <Monitor className="w-4 h-4 md:w-5 md:h-5" />
+                                    {isRtl ? 'أخر الأنميات' : 'Latest Animes'}
+                                </button>
+                                <button
+                                    onClick={() => setMode('latest-movies')}
+                                    className={cn(
+                                        "flex items-center justify-center gap-2 px-8 md:px-12 py-3 md:py-3.5 font-black text-xs md:text-sm transition-all border rounded-full whitespace-nowrap min-w-max",
+                                        mode === 'latest-movies' 
+                                            ? "bg-white border-black text-black shadow-md translate-y-[-1px]" 
+                                            : "bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                    )}
+                                >
+                                    <Film className="w-4 h-4 md:w-5 md:h-5" />
+                                    {isRtl ? 'أخر الأفلام' : 'Latest Movies'}
+                                </button>
+                            </div>
+                        </div>
 
-                                {/* Browse All Section */}
-                                <BrowseSection
-                                    title={i18n.language === 'ar' ? 'تصفح كل الأنميات' : 'Browse All Animes'}
-                                    endpoint="/animes"
-                                    lang={i18n.language}
-                                    isRtl={isRtl}
-                                />
-
-                                {/* Latest Animes Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أحدث الأنميات' : 'Latest Animes'}
-                                    endpoint="/animes/latest"
-                                    type="anime"
-                                    limit={12}
-                                    showActionButtons={true}
-                                    onSearchClick={() => setIsSearchAnimeModalOpen(true)}
-                                    onFilterClick={() => setIsFilterAnimeModalOpen(true)}
-                                    lang={i18n.language}
-                                />
-
-                                {/* Latest Manga Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أحدث المانجا' : 'Latest Manga'}
-                                    endpoint="/animes/type/manga"
-                                    type="manga"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget={`/${i18n.language}/mangas`}
-                                    lang={i18n.language}
-                                />
-
-                                {/* Movies Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أفلام مختارة' : 'Selected Movies'}
-                                    endpoint="/animes/type/Movie"
-                                    type="movie"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget={`/${i18n.language}/movies`}
-                                    lang={i18n.language}
-                                />
-
-                                {/* TV Series Section */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'مسلسلات أنمي تلفزيونية' : 'TV Series'}
-                                    endpoint="/animes/type/TV"
-                                    type="anime"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget="/tv-series"
-                                    lang={i18n.language}
-                                />
-
-                                {/* Top Animes */}
-                                <Section
-                                    title={i18n.language === 'ar' ? 'أنميات بتقييم عالي' : 'High Rated Animes'}
-                                    endpoint="/animes/top-rated"
-                                    type="anime"
-                                    limit={12}
-                                    showLink={true}
-                                    linkTarget={`/${i18n.language}/animes`}
-                                    lang={i18n.language}
-                                />
-                        </>
+                        {/* Content Area */}
+                        <BrowseSection 
+                            key={mode}
+                            mode={mode}
+                            lang={i18n.language}
+                            isRtl={isRtl}
+                        />
                     </div>
-                    {/* End Main Content */}
                 </div>
-                {/* End Main Layout with Sidebar */}
             </div>
 
-            {/* Advanced Footer */}
-            {<Footer />}
+            {/* Scroll to Top Button */}
+            {showScrollTop && (
+                <button
+                    onClick={scrollToTop}
+                    className="fixed bottom-6 left-6 z-[999] p-4 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-white/10 text-black dark:text-white rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 group"
+                    aria-label="Scroll to top"
+                >
+                    <ArrowUp className="w-6 h-6 group-hover:translate-y-[-2px] transition-transform" />
+                </button>
+            )}
+
+            <Footer />
         </div>
     );
 }
 
-const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, showActionButtons, onSearchClick, onFilterClick, showLink, linkTarget, lang }: any) => {
-    const { elementRef, hasIntersected } = useIntersectionObserver({ threshold: 0.1 });
-
-    // Hover state management
-    const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
-    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    // Load More state
-    const [displayLimit, setDisplayLimit] = useState(limit);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-    const handleMouseEnter = (index: number) => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        setHoveredCardIndex(index);
-    };
-
-    const handleMouseLeave = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = setTimeout(() => {
-            setHoveredCardIndex(null);
-        }, 100);
-    };
-
-    const keepCardOpen = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    };
-
-    const { data: items, isLoading: isQueryLoading } = useQuery({
-        queryKey: [endpoint, displayLimit],
-        queryFn: async () => (await api.get(endpoint, { params: { limit: displayLimit } })).data,
-        enabled: hasIntersected,
-        staleTime: 5 * 60 * 1000,
-        placeholderData: (previousData) => previousData, // keepPreviousData logic in v5
-    });
-
-    const isLoading = (!hasIntersected || isQueryLoading) && !items;
-
-    const handleLoadMore = async () => {
-        setIsLoadingMore(true);
-        setDisplayLimit((prev: number) => prev + 12);
-        setTimeout(() => setIsLoadingMore(false), 500);
-    };
-
-    const canLoadMore = (type === 'episode' || type === 'anime') && items && items.length >= displayLimit;
-
-    const isEpisode = type === 'episode';
-    const gridCols = "grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-1.5 sm:gap-x-4 gap-y-5 sm:gap-y-8";
-
-    return (
-        <section className="mb-10" ref={elementRef as React.RefObject<HTMLDivElement>}>
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
-
-                {showActionButtons && (
-                    <div className="flex gap-2">
-                        <button
-                            onClick={onSearchClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all shadow-sm rounded-lg"
-                        >
-                            <Search className="w-4 h-4" />
-                            <span className="hidden sm:inline text-sm font-medium">
-                                {lang === 'ar' ? 'بحث' : 'Search'}
-                            </span>
-                        </button>
-                        <button
-                            onClick={onFilterClick}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all shadow-sm rounded-lg"
-                        >
-                            <Filter className="w-4 h-4" />
-                            <span className="hidden sm:inline text-sm font-medium">
-                                {lang === 'ar' ? 'فلترة' : 'Filter'}
-                            </span>
-                        </button>
-                    </div>
-                )}
-
-                {showSearch && (
-                    <div className="relative w-64 hidden md:block">
-                        <Search className="absolute w-4 h-4 text-gray-500 -translate-y-1/2 left-3 top-1/2 cursor-pointer" style={{ right: lang === 'ar' ? 'unset' : '0.75rem', left: lang === 'ar' ? '0.75rem' : 'unset' }} />
-                        <input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            type="text"
-                            placeholder={lang === 'ar' ? "بحث..." : "Search..."}
-                            className="w-full px-4 py-2 bg-gray-100 dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#2a2a2a] text-sm text-gray-900 dark:text-white placeholder-gray-500 outline-none focus:border-black dark:focus:border-white transition-colors"
-                        />
-                    </div>
-                )}
-
-                {showLink && (
-                    <Link to={linkTarget} className="text-sm text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
-                        {lang === 'ar' ? 'عرض الكل' : 'View All'}
-                    </Link>
-                )}
-            </div>
-
-            {isLoading ? (
-                <div className={cn(gridCols, "relative z-0")}>
-                    {Array.from({ length: limit }).map((_, i) => (
-                        <div key={i} className="flex flex-col w-full h-full animate-pulse">
-                            <div className="relative flex-shrink-0 w-full aspect-[3/4] bg-gray-200 dark:bg-neutral-800 rounded-md"></div>
-                            <div className="mt-2.5 flex flex-col items-center flex-1 w-full px-1 gap-2">
-                                <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-800 rounded"></div>
-                                <div className="h-3 w-1/2 bg-gray-200 dark:bg-neutral-800 rounded"></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : items?.length > 0 ? (
-                <>
-                    <div className={cn(gridCols, "relative z-0")}>
-                        {items.map((item: any, index: number) => (
-                            <CardItem
-                                key={item.id}
-                                item={item}
-                                index={index}
-                                type={type}
-                                lang={lang}
-                                isHovered={hoveredCardIndex === index}
-                                onMouseEnter={() => handleMouseEnter(index)}
-                                onMouseLeave={handleMouseLeave}
-                                keepCardOpen={keepCardOpen}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Load More Button */}
-                    {canLoadMore && (
-                        <div className="flex justify-center mt-8">
-                            <button
-                                onClick={handleLoadMore}
-                                disabled={isLoadingMore}
-                                className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-100 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
-                            >
-                                {isLoadingMore ? (
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-white dark:border-black border-t-transparent animate-spin"></div>
-                                        <span>{lang === 'ar' ? 'جاري التحميل...' : 'Loading...'}</span>
-                                    </div>
-                                ) : (
-                                    lang === 'ar' ? 'عرض المزيد' : 'Load More'
-                                )}
-                            </button>
-                        </div>
-                    )}
-                </>
-            ) : (
-                <div className="text-center py-10 text-gray-500">No content found</div>
-            )}
-        </section>
-    );
-};
-
-import { slugify } from "@/utils/slug";
-
-// ─── Component: Browse Section ──────────────────────────────────────────────────
-
-function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: string; endpoint: string; lang: string; isRtl: boolean; isEpisodes?: boolean }) {
-    const { elementRef, hasIntersected } = useIntersectionObserver({ threshold: 0.05 });
-    const [selectedType, setSelectedType] = useState<'All' | 'TV' | 'Movie'>('All');
-    const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
-    const [searchQuery] = useState('');
-    const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+function BrowseSection({ mode, lang, isRtl }: { mode: BrowseMode; lang: string; isRtl: boolean }) {
+    const [layout, setLayout] = useState<'grid' | 'list'>(mode === 'latest-episodes' ? 'list' : 'grid');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const filterMenuRef = useRef<HTMLDivElement>(null);
-
     const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isFilterMenuOpen && filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
-                setIsFilterMenuOpen(false);
-            }
-        };
+    const isEpisodes = mode === 'latest-episodes';
+    const endpoint = mode === 'latest-episodes' ? '/episodes/latest' : (mode === 'latest-animes' ? '/animes' : '/animes/type/Movie');
+    const sectionTitle = isRtl 
+        ? (mode === 'latest-episodes' ? 'تصفح انميات الجديدة' : (mode === 'latest-animes' ? 'تصفح كل الأنميات' : 'تصفح الأفلام'))
+        : (mode === 'latest-episodes' ? 'Browse New Animes' : (mode === 'latest-animes' ? 'Browse All Animes' : 'Browse Movies'));
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFilterMenuOpen]);
-
-    const handleMouseEnter = (index: number) => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        setHoveredCardIndex(index);
-    };
-
-    const handleMouseLeave = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = setTimeout(() => setHoveredCardIndex(null), 100);
-    };
+    const { ref: loadMoreRef, inView } = useInView({ threshold: 0.1 });
 
     const {
         data,
@@ -379,370 +155,314 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
         isFetchingNextPage,
         isLoading,
     } = useInfiniteQuery({
-        queryKey: ['browse-section', endpoint, selectedType, selectedLetter, searchQuery],
+        queryKey: ['browse-v2', mode],
         queryFn: async ({ pageParam = 1 }) => {
             const params: any = {
                 page: pageParam,
                 limit: 12,
-                letter: selectedLetter || '',
-                search: searchQuery,
-                type: selectedType === 'All' ? '' : selectedType,
+                paginate: true,
             };
             const response = await api.get(endpoint, { params });
-            return response.data;
+            return response.data.data || response.data;
         },
         initialPageParam: 1,
-        enabled: hasIntersected,
         getNextPageParam: (lastPage: any, allPages: any[]) => {
             if (!lastPage || lastPage.length < 12) return undefined;
             return allPages.length + 1;
         },
-        staleTime: 5 * 60 * 1000,
     });
 
-    const isLoadingState = (!hasIntersected || isLoading) && !data;
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const allItems = useMemo(() => data?.pages.flat() || [], [data]);
 
-    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    const lettersDisplay = ALPHABET;
-
     return (
-        <div ref={elementRef as React.RefObject<HTMLDivElement>}>
-        <section className="mb-14" ref={filterMenuRef}>
-            {/* Header */}
-            <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-6 text-base font-bold">
+        <section className="mb-14 mt-[-10px]">
+            <div className="flex items-center justify-between gap-1 mb-0 p-0">
+                <h2 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-none">
+                    {sectionTitle}
+                </h2>
+
+                <div className="flex items-center gap-4">
                     <button
                         onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                        className={cn("flex items-center gap-2 text-gray-900 dark:text-white transition-colors", isFilterMenuOpen ? "text-blue-500" : "hover:text-gray-600 dark:hover:text-gray-300")}
+                        className={cn(
+                            "flex items-center gap-2 text-gray-900 dark:text-white transition-colors font-bold",
+                            isFilterMenuOpen ? "text-blue-500" : "hover:text-gray-600 dark:hover:text-gray-300"
+                        )}
                     >
                         <Filter className="w-5 h-5" />
-                        <span>{isRtl ? 'فلتر' : 'Filter'}</span>
+                        <span className="hidden sm:inline">{isRtl ? 'فلتر' : 'Filter'}</span>
                         <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isFilterMenuOpen && "rotate-180")} />
                     </button>
-                    <button className="flex items-center gap-2 text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                        <ArrowUpDown className="w-5 h-5" />
-                        <span>{isRtl ? 'أبجدي' : 'Alphabetical'}</span>
-                    </button>
-                    {isEpisodes && (
-                    <div className="flex items-center bg-white dark:bg-[#1a1a1a] p-1 rounded-lg border border-gray-100 dark:border-white/5 shadow-sm">
-                            <button
-                                onClick={() => setLayout('grid')}
-                                className={cn(
-                                    "p-1.5 rounded-md transition-colors",
-                                    layout === 'grid' ? "bg-white dark:bg-[#2a2a2a] shadow-sm text-black dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                )}
-                                title={lang === 'ar' ? "شبكة" : "Grid"}
-                            >
-                                <LayoutGrid className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setLayout('list')}
-                                className={cn(
-                                    "p-1.5 rounded-md transition-colors",
-                                    layout === 'list' ? "bg-white dark:bg-[#2a2a2a] shadow-sm text-black dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                )}
-                                title={lang === 'ar' ? "قائمة" : "List"}
-                            >
-                                <List className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
+
+                    <div className="flex items-center bg-gray-100 dark:bg-white/5 p-1 rounded-full border border-gray-200 dark:border-white/10">
+                        <button
+                            onClick={() => setLayout('grid')}
+                            className={cn(
+                                "p-2 rounded-full transition-all",
+                                layout === 'grid' ? "bg-white dark:bg-white/10 shadow-sm text-black dark:text-white" : "text-gray-500"
+                            )}
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setLayout('list')}
+                            className={cn(
+                                "p-2 rounded-full transition-all",
+                                layout === 'list' ? "bg-white dark:bg-white/10 shadow-sm text-black dark:text-white" : "text-gray-500"
+                            )}
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-                    {title}
-                </h2>
             </div>
 
-            {/* Categories Mega Menu - appears BELOW header row */}
             <div
                 className={cn(
-                    "w-full z-50 bg-white dark:bg-[#0a0a0a] shadow-2xl border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all duration-300 mb-4",
-                    isFilterMenuOpen
-                        ? "max-h-[800px] opacity-100"
-                        : "max-h-0 opacity-0 pointer-events-none border-transparent dark:border-transparent"
+                    "w-full z-50 bg-white dark:bg-[#0a0a0a] shadow-2xl border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all duration-300 mb-6 rounded-2xl",
+                    isFilterMenuOpen ? "max-h-[800px] opacity-100 p-4" : "max-h-0 opacity-0 pointer-events-none"
                 )}
             >
-                <CategoriesMenuContent
-                    onClose={() => setIsFilterMenuOpen(false)}
-                    isVisible={isFilterMenuOpen}
-                />
+                <CategoriesMenuContent onClose={() => setIsFilterMenuOpen(false)} isVisible={isFilterMenuOpen} />
             </div>
 
-            {/* Alphabet Bar */}
-            <div className="w-full border-b border-gray-200 dark:border-neutral-800 py-3 flex justify-center sticky top-[60px] z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md mb-6">
-                <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-sm md:text-base font-bold font-sans text-gray-500 dark:text-gray-500 uppercase">
-                    <button
-                        onClick={() => setSelectedLetter(null)}
-                        className={`hover:text-black dark:hover:text-white transition-colors ${selectedLetter === null ? 'text-black dark:text-white underline decoration-2' : ''}`}
-                    >
-                        #
-                    </button>
-                    {lettersDisplay.map((letter) => (
-                        <button
-                            key={letter}
-                            onClick={() => setSelectedLetter(letter)}
-                            className={`hover:text-black dark:hover:text-white transition-colors ${selectedLetter === letter ? 'text-black dark:text-white underline decoration-2' : ''}`}
-                        >
-                            {letter}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content List */}
-            <div className={layout === 'list' && isEpisodes ? "flex flex-col gap-2 relative z-0" : "grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-1.5 sm:gap-x-4 gap-y-5 sm:gap-y-8 relative z-0"}>
-                {isLoadingState ? (
-                    layout === 'list' && isEpisodes ? (
-                        Array.from({ length: 12 }).map((_, i) => (
-                            <div key={i} className="flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 animate-pulse">
-                                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-md bg-gray-200 dark:bg-neutral-800 ml-3 rtl:ml-0 rtl:mr-3"></div>
-                                <div className="flex-1 px-2 md:px-3 flex flex-col gap-2">
-                                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-800 rounded"></div>
-                                    <div className="h-3 w-1/2 bg-gray-200 dark:bg-neutral-800 rounded"></div>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        Array.from({ length: 12 }).map((_, i) => (
-                            <div key={i} className="flex flex-col w-full h-full animate-pulse">
-                                <div className="relative flex-shrink-0 w-full aspect-[3/4] bg-gray-200 dark:bg-neutral-800 rounded-md"></div>
-                                <div className="mt-2.5 flex flex-col items-center flex-1 w-full px-1 gap-2">
-                                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-800 rounded"></div>
-                                    <div className="h-3 w-1/2 bg-gray-200 dark:bg-neutral-800 rounded"></div>
-                                </div>
-                            </div>
-                        ))
-                    )
-                ) : allItems.length > 0 ? (
-                    allItems.map((item: any, index: number) => (
-                        layout === 'list' && isEpisodes ? (
-                            <ListItem
-                                key={item.id}
-                                item={item}
-                                lang={lang}
-                            />
-                        ) : (
-                            <CardItem
-                                key={item.id}
-                                item={item}
-                                index={index}
-                                type={isEpisodes ? 'episode' : 'anime'}
-                                lang={lang}
-                                isHovered={hoveredCardIndex === index}
-                                onMouseEnter={() => handleMouseEnter(index)}
-                                onMouseLeave={handleMouseLeave}
-                                keepCardOpen={() => {
-                                    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                                }}
-                            />
-                        )
+            <div className={layout === 'list' ? "grid grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"}>
+                {isLoading ? (
+                    Array.from({ length: 10 }).map((_, i) => (
+                        <div key={i} className="aspect-[3/4] bg-gray-100 dark:bg-white/5 animate-pulse rounded-xl" />
                     ))
-                ) : (
-                    <div className="col-span-full text-center py-10 text-gray-500">
-                        {isRtl ? 'لا توجد نتائج' : 'No results found'}
+                ) : allItems.map((item: any, index: number) => (
+                    layout === 'list' ? (
+                        <ListItem key={item.id} item={item} lang={lang} isEpisode={isEpisodes} />
+                    ) : (
+                        <CardItem 
+                            key={item.id} 
+                            item={item} 
+                            index={index} 
+                            type={isEpisodes ? 'episode' : 'anime'} 
+                            lang={lang} 
+                            isHovered={hoveredCardIndex === index}
+                            onMouseEnter={() => {
+                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                                setHoveredCardIndex(index);
+                            }}
+                            onMouseLeave={() => {
+                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                                hoverTimeoutRef.current = setTimeout(() => setHoveredCardIndex(null), 100);
+                            }}
+                            keepCardOpen={() => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); }}
+                        />
+                    )
+                ))}
+            </div>
+
+            <div ref={loadMoreRef} className="py-12 flex justify-center">
+                {(isFetchingNextPage || hasNextPage) && (
+                    <div className="flex flex-col items-center gap-4">
+                        <CentralSpinner size="medium" />
+                        <span className="text-xs font-black text-gray-500 uppercase tracking-widest animate-pulse">
+                            {isRtl ? 'جاري تحميل المزيد...' : 'Loading More...'}
+                        </span>
                     </div>
                 )}
             </div>
-
-            {/* Load More */}
-            {hasNextPage && (
-                <div className="flex justify-center mt-8">
-                    <button
-                        onClick={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="px-8 py-2.5 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-100 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
-                    >
-                        {isFetchingNextPage ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin" />
-                                <span>{isRtl ? 'جاري التحميل...' : 'Loading...'}</span>
-                            </>
-                        ) : (
-                            <span>{isRtl ? 'عرض المزيد' : 'Show More'}</span>
-                        )}
-                    </button>
-                </div>
-            )}
         </section>
-        </div>
     );
 }
 
-// ─── Grid Item Design ──────────────────────────────────────────────────────────
+// ─── Reactions Helper ──────────────────────────────────────────────────────────
+
+const REACTION_EMOJIS: Record<string, string> = {
+    like:      '/uploads/تفاعل البوست/أعجبني.png',
+    love:      '/uploads/تفاعل البوست/أحببتة.png',
+    haha:      '/uploads/تفاعل البوست/اضحكني.png',
+    wow:       '/uploads/تفاعل البوست/واوو.png',
+    sad:       '/uploads/تفاعل البوست/أحزنني.gif',
+    angry:     '/uploads/تفاعل البوست/أغضبني.gif',
+    super_sad: '/uploads/تفاعل البوست/أحززنني جدا.png',
+};
+
+const REACTION_KEYS: { key: string; col: string }[] = [
+    { key: 'like',      col: 'likes_count' },
+    { key: 'love',      col: 'loves_count' },
+    { key: 'haha',      col: 'hahas_count' },
+    { key: 'wow',       col: 'wows_count' },
+    { key: 'sad',       col: 'sads_count' },
+    { key: 'angry',     col: 'angrys_count' },
+    { key: 'super_sad', col: 'super_sads_count' },
+];
+
+function getTopReactions(item: any, maxShown = 3) {
+    return REACTION_KEYS
+        .map(({ key, col }) => ({ key, count: Number(item[col] || 0) }))
+        .filter(r => r.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, maxShown);
+}
+
+function formatReactionCount(n: number) {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+    return String(n);
+}
 
 const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter, onMouseLeave, keepCardOpen }: any) => {
-    const queryClient = useQueryClient();
     const isEpisode = type === 'episode';
     const animeObj = item.anime || item.series;
-    const animeId = animeObj?.id || item.anime_id || item.id;
-
-    // Prefetch anime details and episodes on hover
-    const handlePrefetch = () => {
-        if (!animeId) return;
-        
-        queryClient.prefetchQuery({
-            queryKey: ["anime", String(animeId)],
-            queryFn: async () => {
-                const response = await api.get(`/animes/${animeId}`);
-                return response.data;
-            },
-            staleTime: 20 * 60 * 1000,
-        });
-
-        queryClient.prefetchInfiniteQuery({
-            queryKey: ["episodes-infinite", Number(animeId), "", null],
-            queryFn: async () => {
-                const response = await api.get(`/episodes`, { 
-                    params: { anime_id: animeId, paginate: true, limit: 25, page: 1 } 
-                });
-                return response.data;
-            },
-            initialPageParam: 1,
-            staleTime: 5 * 60 * 1000,
-        });
-    };
-
-    const image = animeObj?.cover || item.cover || item.image || item.banner;
-    const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
-
-    // For episodes, format needs to assume structure
-    const displayTitle = title || 'عنوان غير متوفر';
-    const subText = isEpisode ? (lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (lang === 'ar' ? 'ترجمة | دبلجة' : 'Sub | Dub');
-
-
-    // SEO Slug Logic
-    const animeTitleForSlug = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);
-    const slug = slugify(animeTitleForSlug);
-
-    const targetLink = isEpisode
-        ? `/${lang}/watch/${animeId}/${item.episode_number}/${slug}`
-        : `/${lang}/animes/${item.id}/${slug}`;
+    const image = isEpisode ? (item.thumbnail || animeObj?.cover || item.image) : (animeObj?.cover || item.cover || item.image || item.banner);
+    const animeTitle = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || animeObj?.title || item.title);
+    const url = isEpisode 
+        ? `/${lang}/watch/${animeObj?.id}/${item.episode_number}/${slugify(animeTitle)}`
+        : `/${lang}/animes/${item.id}/${slugify(animeTitle)}`;
 
     return (
-        <div
-            className="group cursor-pointer relative z-0 flex flex-col"
-            onMouseEnter={() => {
-                onMouseEnter();
-                handlePrefetch();
-            }}
+        <div 
+            className="group relative flex flex-col"
+            onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
-            <Link to={targetLink} className="flex flex-col w-full h-full">
-                {/* Cover Container */}
-                <div className={`relative flex-shrink-0 w-full aspect-[3/4] overflow-hidden bg-white dark:bg-[#1c1c1c] transition-transform duration-300 border border-transparent group-hover:border-gray-100 dark:group-hover:border-white/5`}>
-                    <SpinnerImage
-                        src={getImageUrl(image)}
-                        alt={displayTitle}
-                        className="w-full h-full"
-                        imageClassName="object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+            <Link to={url} className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
+                <SpinnerImage src={getImageUrl(image)} alt={animeTitle} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    <Play className="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300 fill-current" />
                 </div>
-
-                {/* Metadata Below Card */}
-                <div className="mt-2.5 text-center flex flex-col items-center flex-1 w-full px-1">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-2 leading-relaxed group-hover:text-red-500 transition-colors">
-                        {renderEmojiContent(displayTitle)}
-                    </h3>
-                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                        {renderEmojiContent(subText)}
-                    </p>
-                </div>
-            </Link>
-
-            {/* Hover Card Component */}
-            {isHovered && (
-                <div className="absolute inset-0 z-50 pointer-events-none md:pointer-events-auto">
-                    <AnimeHoverCard
-                        data={item}
-                        lang={lang}
-                        onMouseEnter={keepCardOpen}
-                        onMouseLeave={onMouseLeave}
-                    />
-                </div>
-            )}
-        </div>
-    );
-});
-
-// ─── List Item Design ──────────────────────────────────────────────────────────
-
-const ListItem = React.memo(({ item, lang }: any) => {
-    const animeObj = item.anime || item.series;
-    const image = animeObj?.cover || item.cover || item.image || item.banner || item.thumbnail;
-    const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
-    const displayTitle = title || (lang === 'ar' ? 'عنوان غير متوفر' : 'No Title Available');
-
-    // Anime title for subtext and slug
-    const animeTitle = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);
-
-    // SubText is episode number and series title
-    const subText = `${animeTitle} - ${lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`}`;
-
-    const animeId = animeObj?.id || item.anime_id || item.id;
-    const slug = slugify(animeTitle);
-
-    const targetLink = `/${lang}/watch/${animeId}/${item.episode_number}/${slug}`;
-
-    const handleShare = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const url = `${window.location.origin}${targetLink}`;
-        navigator.clipboard.writeText(url);
-        toast.success(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
-    };
-
-    return (
-        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm">
-            <Link to={targetLink} className="flex-1 flex items-center min-w-0">
-                {/* Thumbnail */}
-                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-md overflow-hidden bg-white dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative border border-gray-100 dark:border-white/5 shadow-sm">
-                    <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md fill-white" />
+                {isEpisode && (
+                    <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-black px-2 py-1 rounded-md border border-white/10 uppercase">
+                        {lang === 'ar' ? 'حلقة' : 'EP'} {item.episode_number}
                     </div>
-                </div>
-
-                {/* Center: Title */}
-                <div className="flex-1 min-w-0 px-2 md:px-3">
-                    <h4 className="text-sm md:text-base font-bold text-gray-900 dark:text-white truncate group-hover:text-blue-500 transition-colors">
-                        {renderEmojiContent(displayTitle)}
-                    </h4>
-                    <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
-                        {renderEmojiContent(subText)}
-                    </p>
-                </div>
+                )}
             </Link>
-
-            {/* Right: Duration/Number and Actions */}
-            <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end ml-2 rtl:ml-0 rtl:mr-2">
-                {/* Default: Duration or episode number - Hidden on hover */}
-                <span className="text-xs text-gray-400 group-hover:hidden whitespace-nowrap font-medium">
-                    {lang === 'ar' ? `حلقة ${item.episode_number}` : `Ep ${item.episode_number}`}
-                </span>
-
-                {/* Hover Actions - Visible only on hover */}
-                <div className="hidden group-hover:flex items-center gap-1">
-                    <WatchLaterButton
-                        animeId={Number(animeId)}
-                        episodeId={Number(item.id)}
-                        episodeTitle={displayTitle}
-                        episodeNumber={item.episode_number}
-                        episodeImage={getImageUrl(image)}
-                        variant="default"
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all shadow-sm"
-                        showLabel={false}
-                    />
-                    <button
-                        onClick={handleShare}
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
-                        title={lang === 'ar' ? 'نسخ الرابط' : 'Copy Link'}
-                    >
-                        <Share2 className="w-4 h-4" />
-                    </button>
-                </div>
+            
+            <div className="mt-3 px-1">
+                <h3 className="text-sm font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-blue-500 transition-colors">
+                    {renderEmojiContent(animeTitle)}
+                </h3>
+                <p className="text-[11px] text-gray-500 font-bold mt-0.5">
+                    {isEpisode ? (lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (lang === 'ar' ? 'مسلسل' : 'TV Series')}
+                </p>
             </div>
         </div>
     );
 });
+
+const ListItem = ({ item, lang, isEpisode }: any) => {
+    const isRtl = lang === 'ar';
+    const animeObj = item.anime || item.series;
+    const animeTitle = isRtl ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || animeObj?.title || item.title);
+    const image = isEpisode ? (item.thumbnail || animeObj?.cover || item.image) : (animeObj?.cover || item.cover || item.image || item.banner);
+    const url = isEpisode 
+        ? `/${lang}/watch/${animeObj?.id}/${item.episode_number}/${slugify(animeTitle)}`
+        : `/${lang}/animes/${item.id}/${slugify(animeTitle)}`;
+    const title = isRtl ? (item.title || `حلقة ${item.episode_number}`) : (item.title_en || `Episode ${item.episode_number}`);
+    const description = isRtl ? (item.description || 'لا يوجد وصف متاح للا هذه الحلقة.') : (item.description_en || 'No description available for this episode.');
+    const topReactions = getTopReactions(item);
+
+    return (
+        <div className="group relative">
+            <Link
+                to={url}
+                className="flex flex-col md:flex-row gap-2 md:gap-6 bg-transparent hover:bg-white dark:hover:bg-neutral-900/40 transition-all duration-200 relative z-10 p-0 md:p-2 border border-transparent hover:border-gray-100 dark:hover:border-transparent hover:shadow-md rounded-lg"
+            >
+                {/* Image Section */}
+                <div className="w-full md:w-[260px] aspect-video md:h-[145px] flex-shrink-0 relative overflow-hidden shadow-sm rounded-xl">
+                    <img
+                        src={getImageUrl(image)}
+                        alt={title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center rounded-xl">
+                        <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-75 group-hover:scale-100">
+                            <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                        </div>
+                    </div>
+                    {isEpisode && (
+                        <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-black px-1.5 py-0.5 rounded border border-white/10 uppercase">
+                            {isRtl ? 'حلقة' : 'EP'} {item.episode_number}
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Section */}
+                <div className={`flex-1 flex flex-col items-start py-1 md:py-2 ${isRtl ? 'text-right' : 'text-left'} w-full min-w-0`}>
+                    <h3 className="text-sm md:text-xl font-black text-gray-900 dark:text-white mb-1 md:mb-2 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-1 md:line-clamp-2">
+                        {renderEmojiContent(animeTitle)}
+                    </h3>
+
+                    
+                    <div className="hidden md:block w-full">
+                        <p className="text-[12.5px] md:text-base text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3 mb-1 md:mb-2 font-normal">
+                            {isEpisode ? description : (lang === 'ar' ? 'عرض تفاصيل الأنمي والمزيد.' : 'View anime details and more.')}
+                        </p>
+                    </div>
+
+                    {/* Reactions & Comments row */}
+                    {isEpisode && (
+                        <div className="flex items-center flex-wrap gap-2 md:gap-3 mb-1.5 md:mb-2">
+                            {topReactions.map(r => (
+                                <div key={r.key} className="flex items-center gap-0.5">
+                                    <img
+                                        src={getImageUrl(REACTION_EMOJIS[r.key])}
+                                        alt={r.key}
+                                        className="w-7 h-7 md:w-8 md:h-8 object-contain"
+                                        loading="lazy"
+                                    />
+                                    <span className="text-xs md:text-xs font-bold text-gray-600 dark:text-gray-400">
+                                        {formatReactionCount(r.count)}
+                                    </span>
+                                </div>
+                            ))}
+                            
+                            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
+                                <span className="text-xs font-bold">{formatReactionCount(item.comments_count || 0)}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-auto flex flex-row items-center justify-between md:justify-start gap-2 md:gap-6 w-full pt-0 md:pt-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm md:text-xl font-black text-gray-900 dark:text-white">
+                                {isEpisode ? (isRtl ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (isRtl ? 'تفاصيل' : 'Details')}
+                            </p>
+                            
+                            {/* Views Count */}
+                            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                <span className="text-[10px] md:text-xs font-bold">{formatReactionCount(item.views || 0)}</span>
+                            </div>
+
+                            {/* Mobile Watch Later Icon-Only Button - Next to Episode text */}
+                            <div className="md:hidden">
+                                <WatchLaterButton 
+                                    animeId={animeObj?.id || item.id} 
+                                    episodeId={isEpisode ? Number(item.id) : undefined}
+                                    variant="icon"
+                                    showLabel={false}
+                                    className="p-1 bg-transparent dark:bg-transparent border-none text-gray-400 dark:text-gray-500 scale-90"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="hidden md:flex items-center gap-6">
+                            <span className="text-[10px] md:text-sm font-black text-black dark:text-white uppercase tracking-tighter">
+                                {isRtl ? 'مشاهدة الآن' : 'Watch Now'}
+                            </span>
+                            {(item.rating || animeObj?.rating) && (
+                                <div className="flex items-center gap-1.5 text-[10px] md:text-sm text-gray-500 font-bold">
+                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
+                                    <span>{item.rating || animeObj?.rating}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </Link>
+        </div>
+    );
+};

@@ -20,6 +20,7 @@ import {
 import { QuickEmojiRow, QUICK_EMOJIS } from './QuickEmojiRow';
 import { CommentsSkeleton } from './CommentsSkeleton';
 import { useSocketStore } from '@/stores/socket-store';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 
 interface CommentsSectionProps {
     itemId: number;
@@ -597,8 +598,8 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
             )}
 
             {isLoading ? (
-                <div className="flex justify-center items-center py-12">
-                    <Loader2 className="w-12 h-12 text-black dark:text-gray-400 animate-spin" />
+                <div className="flex-1 flex items-center justify-center py-20">
+                    <CentralSpinner />
                 </div>
             ) : comments && comments.length > 0 ? (
                 <div

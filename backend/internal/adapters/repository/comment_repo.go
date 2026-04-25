@@ -229,9 +229,32 @@ func (r *CommentRepository) Update(comment *domain.Comment) error {
 	return r.db.Save(comment).Error
 }
 
-// Delete removes a comment
+// Delete removes a comment and all its associated data (reactions, children)
 func (r *CommentRepository) Delete(id uint) error {
-	return r.db.Delete(&domain.Comment{}, id).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Delete all reactions (likes/interactions) for this comment
+		if err := tx.Where("comment_id = ?", id).Delete(&domain.CommentLike{}).Error; err != nil {
+			return err
+		}
+
+		// 2. Delete all reactions for child comments (recursive cleanup for nested structure)
+		// Note: Since we only have 1 level depth in UI, we can just delete children's likes
+		if err := tx.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE parent_id = ?)", id).Error; err != nil {
+			return err
+		}
+
+		// 3. Delete all children (replies)
+		if err := tx.Where("parent_id = ?", id).Delete(&domain.Comment{}).Error; err != nil {
+			return err
+		}
+
+		// 4. Finally delete the comment itself
+		if err := tx.Delete(&domain.Comment{}, id).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // ToggleLike handles like/dislike logic for comments via 7 reaction types

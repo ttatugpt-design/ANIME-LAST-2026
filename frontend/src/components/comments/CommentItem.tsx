@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 
 import {
     Sheet,
@@ -18,6 +19,23 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { getImageUrl } from '@/utils/image-utils';
@@ -140,6 +158,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     postAuthor
 }) => {
     const { user } = useAuthStore();
+    const isAdmin = user?.role?.name === 'admin' || user?.role?.name === 'super_admin';
+    const isOwner = user?.id === comment.user_id;
+
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const { i18n } = useTranslation();
@@ -579,14 +601,20 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     };
 
     const handleDelete = async () => {
-        if (!confirm(isAr ? 'هل أنت متأكد من حذف هذا التعليق؟' : 'Are you sure you want to delete this comment?')) return;
+        console.log('handleDelete invoked for comment:', comment.id);
+        
         try {
             const url = (type === 'episode' || type === 'chapter')
                 ? `/comments/${comment.id}`
                 : `/posts/comments/${comment.id}`;
+            
+            console.log('API Request: DELETE', url);
             await api.delete(url);
+            console.log('API Response: Success');
             onDeleteSuccess(comment.id);
+            setIsDeleteDialogOpen(false);
         } catch (err: any) {
+            console.error('Delete comment failure:', err);
             const errorMsg = err.response?.data?.error || err.message;
             toast.error(`${isAr ? 'فشل حذف التعليق' : 'Failed to delete comment'}: ${errorMsg}`);
         }
@@ -753,45 +781,56 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: i18n.language === 'ar' ? ar : undefined })}
                             </span>
 
-                            {/* Actions Menu */}
-                            {user && user.id === comment.user_id && (
-                                <div className="relative">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowOptionsMenu(!showOptionsMenu);
-                                        }}
-                                        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-[#272727] transition-colors"
-                                    >
-                                        <MoreVertical className="w-4 h-4" />
-                                    </button>
-
-                                    {showOptionsMenu && (
-                                        <>
-                                            <div className="fixed inset-0 z-[998]" onClick={() => setShowOptionsMenu(false)} />
-                                            <div className={`absolute ${isAr ? 'left-0' : 'right-0'} top-full mt-1 w-32 bg-white dark:bg-[#1f1f1f] rounded-none shadow-xl border border-gray-100 dark:border-[#333] py-1 z-[999] animate-in fade-in zoom-in-95 duration-200`}>
-                                                <button
-                                                    onClick={() => {
-                                                        setCurrentEmojiTarget('edit');
-                                                        setIsEditing(true);
-                                                        setShowOptionsMenu(false);
-                                                    }}
-                                                    className={`w-full ${isAr ? 'text-right' : 'text-left'} px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#272727] flex items-center gap-2`}
+                            {user && (isOwner || isAdmin) && (
+                                <div className="flex items-center">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors focus:outline-none focus:ring-0 ring-0">
+                                                <MoreVertical className="w-4 h-4" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align={isAr ? "start" : "end"} className="w-32 bg-white dark:bg-[#1f1f1f] border-gray-100 dark:border-[#333] p-1">
+                                            {isOwner && (
+                                                <DropdownMenuItem 
+                                                    onClick={() => setIsEditing(true)}
+                                                    className="cursor-pointer gap-2 font-bold text-xs text-gray-700 dark:text-gray-200"
                                                 >
                                                     <Edit2 className="w-4 h-4" /> {isAr ? 'تعديل' : 'Edit'}
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        handleDelete();
-                                                        setShowOptionsMenu(false);
-                                                    }}
-                                                    className={`w-full ${isAr ? 'text-right' : 'text-left'} px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2`}
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuItem 
+                                                onClick={() => setIsDeleteDialogOpen(true)}
+                                                className="cursor-pointer gap-2 font-bold text-xs text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20 focus:text-red-600"
+                                            >
+                                                <Trash2 className="w-4 h-4" /> {isAr ? 'حذف' : 'Delete'}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+
+                                    {/* Final Solution Delete Confirmation Dialog */}
+                                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                                        <AlertDialogContent className="bg-white dark:bg-[#1f1f1f] border-gray-100 dark:border-[#333]">
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle className="text-black dark:text-white">
+                                                    {isAr ? 'حذف التعليق' : 'Delete Comment'}
+                                                </AlertDialogTitle>
+                                                <AlertDialogDescription className="text-gray-500 dark:text-gray-400">
+                                                    {isAr ? 'هل أنت متأكد من حذف هذا التعليق؟ لا يمكن التراجع عن هذا الإجراء.' : 'Are you sure you want to delete this comment? This action cannot be undone.'}
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter className="gap-2">
+                                                <AlertDialogCancel className="bg-gray-100 dark:bg-[#272727] text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333] border-none">
+                                                    {isAr ? 'إلغاء' : 'Cancel'}
+                                                </AlertDialogCancel>
+                                                <AlertDialogAction 
+                                                    onClick={handleDelete}
+                                                    className="bg-red-600 hover:bg-red-700 text-white border-none"
                                                 >
-                                                    <Trash2 className="w-4 h-4" /> {isAr ? 'حذف' : 'Delete'}
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
+                                                    {isAr ? 'حذف' : 'Delete'}
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             )}
                         </div>
@@ -1078,7 +1117,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                 {isHoveringStats && (
                                     <div className="absolute bottom-full left-0 md:left-auto mb-2 w-56 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-md rounded-xl shadow-xl border border-gray-200/50 dark:border-[#333]/50 p-3 z-50 text-sm animate-in fade-in slide-in-from-bottom-2 cursor-default">
                                          {isLoadingReactions ? ( 
-                                             <div className="flex justify-center py-2"><Loader2 className="w-5 h-5 animate-spin text-blue-500" /></div> 
+                                             <div className="flex justify-center py-4"><CentralSpinner size="small" /></div> 
                                          ) : Object.keys(reactionUsers).length > 0 ? (
                                               Object.entries(reactionUsers).map(([type, users]) => {
                                                   const reactionInfo = REACTIONS.find(rx => rx.key === type);
@@ -1211,7 +1250,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                                         disabled={!replyText.trim() || isSubmitting}
                                                         className="px-8 py-2.5 bg-blue-600 dark:bg-white text-white dark:text-black rounded-full font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
                                                     >
-                                                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                                                        {isSubmitting ? <CentralSpinner size="small" /> : (
                                                             <>
                                                                 <SendHorizontal className={cn("w-4 h-4", isAr && "rotate-180")} />
                                                                 <span>{isAr ? 'رد' : 'Reply'}</span>
@@ -1312,7 +1351,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                                 disabled={!replyText.trim() || isSubmitting}
                                                 className="w-10 h-10 flex items-center justify-center bg-blue-600 dark:bg-white text-white dark:text-black rounded-full shadow-lg active:scale-95 transition-all disabled:opacity-50 shrink-0"
                                             >
-                                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <SendHorizontal className={cn("w-5 h-5", isAr && "rotate-180")} />}
+                                                {isSubmitting ? <CentralSpinner size="small" /> : <SendHorizontal className={cn("w-5 h-5", isAr && "rotate-180")} />}
                                             </button>
                                         </div>
                                     </div>
@@ -1340,52 +1379,54 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         <div className="mt-3">
                             {visibleRepliesCount > 0 && (
                                 <div className="space-y-0 md:space-y-4 mb-4">
-                                    {comment.children.slice(0, visibleRepliesCount).map((child, idx) => {
-                                    let pText: string | undefined = undefined;
-                                    const match = child.content.match(/^@([^:]+):\s*([\s\S]*)$/);
-                                    if (match) {
-                                        const mentionName = match[1].trim();
-                                        
-                                        // Find all comments by this user in the thread
-                                        const siblings = comment.children!.filter(c => c.user?.name?.trim() === mentionName);
-                                        
-                                        // Pick the latest comment by this user BEFORE the current comment's ID
-                                        const priorSiblings = siblings.filter(c => c.id < child.id);
-                                        if (priorSiblings.length > 0) {
-                                            // sort descending by ID so [0] is the closest
-                                            pText = priorSiblings.sort((a, b) => b.id - a.id)[0].content;
-                                        } else if (siblings.length > 0) {
-                                            // fallback to any sibling by them if IDs are strange
-                                            pText = siblings[0].content;
-                                        }
+                                    <AnimatePresence initial={false}>
+                                        {comment.children.slice(0, visibleRepliesCount).map((child, idx) => {
+                                            let pText: string | undefined = undefined;
+                                            const match = child.content.match(/^@([^:]+):\s*([\s\S]*)$/);
+                                            if (match) {
+                                                const mentionName = match[1].trim();
+                                                const siblings = comment.children!.filter(c => c.user?.name?.trim() === mentionName);
+                                                const priorSiblings = siblings.filter(c => c.id < child.id);
+                                                if (priorSiblings.length > 0) {
+                                                    pText = priorSiblings.sort((a, b) => b.id - a.id)[0].content;
+                                                } else if (siblings.length > 0) {
+                                                    pText = siblings[0].content;
+                                                }
+                                                if (!pText && comment.user?.name?.trim() === mentionName) {
+                                                    pText = comment.content;
+                                                }
+                                            }
+                                            if (!pText) {
+                                                pText = child.parent_id === comment.id ? comment.content : comment.children?.find(c => c.id === child.parent_id)?.content;
+                                            }
 
-                                        if (!pText && comment.user?.name?.trim() === mentionName) {
-                                            pText = comment.content;
-                                        }
-                                    }
-                                    // Fallback if no match or not found
-                                    if (!pText) {
-                                        pText = child.parent_id === comment.id ? comment.content : comment.children?.find(c => c.id === child.parent_id)?.content;
-                                    }
-
-                                    return (
-                                        <CommentItem
-                                            key={child.id}
-                                            comment={child}
-                                            type={type}
-                                            itemId={itemId}
-                                            depth={1}
-                                            rootParentId={comment.id}
-                                            onReplySuccess={onReplySuccess}
-                                            onUpdateSuccess={onUpdateSuccess}
-                                            onDeleteSuccess={onDeleteSuccess}
-                                            isLast={idx === (comment.children?.length ?? 0) - 1 || idx === visibleRepliesCount - 1}
-                                            activeCommentId={activeCommentId}
-                                            parentCommentContent={pText}
-                                            postAuthor={postAuthor}
-                                        />
-                                    );
-                                })}
+                                            return (
+                                                <motion.div
+                                                    key={child.id}
+                                                    initial={{ opacity: 0, height: 0, y: -10 }}
+                                                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                                                    exit={{ opacity: 0, height: 0, y: -10 }}
+                                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <CommentItem
+                                                        comment={child}
+                                                        type={type}
+                                                        itemId={itemId}
+                                                        depth={1}
+                                                        rootParentId={comment.id}
+                                                        onReplySuccess={onReplySuccess}
+                                                        onUpdateSuccess={onUpdateSuccess}
+                                                        onDeleteSuccess={onDeleteSuccess}
+                                                        isLast={idx === (comment.children?.length ?? 0) - 1 || idx === visibleRepliesCount - 1}
+                                                        activeCommentId={activeCommentId}
+                                                        parentCommentContent={pText}
+                                                        postAuthor={postAuthor}
+                                                    />
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </AnimatePresence>
                                 </div>
                             )}
                             

@@ -87,14 +87,18 @@ export default function ForeignAnimesPage() {
     const createMutation = useMutation({
         mutationFn: async (data: any) => {
             const payload = { ...data };
-            payload.seasons = parseInt(payload.seasons);
-            payload.rating = parseFloat(payload.rating);
-            payload.duration = parseInt(payload.duration);
-            payload.season_id = parseInt(payload.season_id);
-            payload.studio_id = parseInt(payload.studio_id);
-            payload.language_id = parseInt(payload.language_id);
+            payload.seasons = parseInt(payload.seasons as any) || 1;
+            payload.rating = parseFloat(payload.rating as any) || 0;
+            payload.duration = parseInt(payload.duration as any) || 24;
+            payload.season_id = parseInt(payload.season_id as any) || 0;
+            payload.studio_id = parseInt(payload.studio_id as any) || 0;
+            payload.language_id = parseInt(payload.language_id as any) || 0;
 
-            if (payload.release_date) payload.release_date = new Date(payload.release_date).toISOString();
+            if (payload.release_date) {
+                payload.release_date = new Date(payload.release_date).toISOString();
+            } else {
+                (payload as any).release_date = undefined;
+            }
 
             return await api.post("/animes", payload);
         },
@@ -113,14 +117,18 @@ export default function ForeignAnimesPage() {
         mutationFn: async () => {
             if (!editingAnime) throw new Error("No anime selected");
             const payload = { ...formData };
-            payload.seasons = parseInt(payload.seasons as any);
-            payload.rating = parseFloat(payload.rating as any);
-            payload.duration = parseInt(payload.duration as any);
-            payload.season_id = parseInt(payload.season_id as any);
-            payload.studio_id = parseInt(payload.studio_id as any);
-            payload.language_id = parseInt(payload.language_id as any);
+            payload.seasons = parseInt(payload.seasons as any) || 1;
+            payload.rating = parseFloat(payload.rating as any) || 0;
+            payload.duration = parseInt(payload.duration as any) || 24;
+            payload.season_id = parseInt(payload.season_id as any) || 0;
+            payload.studio_id = parseInt(payload.studio_id as any) || 0;
+            payload.language_id = parseInt(payload.language_id as any) || 0;
 
-            if (payload.release_date) payload.release_date = new Date(payload.release_date).toISOString();
+            if (payload.release_date) {
+                payload.release_date = new Date(payload.release_date).toISOString();
+            } else {
+                (payload as any).release_date = undefined;
+            }
 
             return await api.put(`/animes/${editingAnime.id}`, payload);
         },

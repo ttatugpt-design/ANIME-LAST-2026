@@ -48,14 +48,19 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
             const type = req.resourceType();
             
             // Capture player page URL or direct media URLs
-            if (!capturedUrl && url.includes('vid3rb.com')) {
-                if (url.includes('/player/') || url.includes('.mp4') || url.includes('.m3u8')) {
+            if (!capturedUrl && (type === 'media' || url.includes('.mp4') || url.includes('.m3u8'))) {
+                if (!url.includes('ad') && !url.includes('track') && !url.includes('analytics') && !url.includes('.js')) {
+                    capturedUrl = url;
+                    console.error(`[Scraper] Captured URL from network: ${url}`);
+                }
+            } else if (!capturedUrl && url.includes('vid3rb.com')) {
+                if (url.includes('/player/')) {
                     capturedUrl = url;
                     console.error(`[Scraper] Captured URL from network: ${url}`);
                 }
             }
             
-            if (['image', 'font', 'media'].includes(type) || url.includes('google-analytics') || url.includes('ads')) {
+            if (['image', 'font', 'stylesheet'].includes(type) || url.includes('google-analytics') || url.includes('ads')) {
                 req.abort();
             } else {
                 req.continue();

@@ -1,11 +1,49 @@
 import { cn } from "@/lib/utils";
 
-export default function CentralSpinner({ className }: { className?: string }) {
+export default function CentralSpinner({ className, size = "large" }: { className?: string, size?: "small" | "medium" | "large" }) {
+    // Exact sizes based on AnimeDetailsPage loader
+    const sizes = {
+        small: {
+            outer: "w-8 h-8 border-2",
+            after: "w-6 h-6 border-2",
+            before: "w-4 h-4 border-2"
+        },
+        medium: {
+            outer: "w-12 h-12 border-[3px]",
+            after: "w-9 h-9 border-[3px]",
+            before: "w-6 h-6 border-[3px]"
+        },
+        large: {
+            outer: "w-16 h-16 border-4",
+            after: "w-12 h-12 border-4",
+            before: "w-8 h-8 border-4"
+        }
+    };
+
+    const currentSize = sizes[size];
+
     return (
-        <div className={cn("flex-1 flex items-center justify-center min-h-[70vh] w-full", className)}>
-            <div className="relative w-16 h-16 md:w-20 md:h-20">
-                <div className="absolute inset-0 border-4 border-gray-100 dark:border-neutral-900 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+        <div className={cn("flex items-center justify-center", size === "large" ? "min-h-[70vh] w-full" : "", className)}>
+            <div className="flex items-center justify-center relative">
+                <style>{`
+                    @keyframes ep-spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+                    @keyframes ep-spinBack { 0%{transform:rotate(0deg)} 100%{transform:rotate(-360deg)} }
+                `}</style>
+                
+                {/* Triple Ring Spinner - Correctly Scaled without CSS transform:scale */}
+                <div className={cn(
+                    "rounded-full inline-block relative border-solid border-[#888] border-r-transparent border-b-transparent animate-[ep-spin_1s_linear_infinite] box-border",
+                    currentSize.outer
+                )}>
+                    <div className={cn(
+                        "absolute inset-0 m-auto border-solid border-transparent border-b-[#FF3D00] border-l-[#FF3D00] rounded-full animate-[ep-spinBack_0.6s_linear_infinite] box-border",
+                        currentSize.after
+                    )} />
+                    <div className={cn(
+                        "absolute inset-0 m-auto border-solid border-[#888] border-r-transparent border-b-transparent rounded-full animate-[ep-spin_1.2s_linear_infinite] box-border",
+                        currentSize.before
+                    )} />
+                </div>
             </div>
         </div>
     );

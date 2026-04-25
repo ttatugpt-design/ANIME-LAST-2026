@@ -204,6 +204,24 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/anime3rb-images`),
         },
         {
+            label: i18n.language === 'ar' ? 'روابط العرب المباشرة' : 'Direct Arab Links',
+            icon: Zap,
+            href: `/${lang}/dashboard/anime3rb-direct-links`,
+            active: pathname.startsWith(`/${lang}/dashboard/anime3rb-direct-links`),
+        },
+        {
+            label: 'my.pcloud',
+            icon: Folder,
+            href: `/${lang}/dashboard/my-pcloud`,
+            active: pathname.startsWith(`/${lang}/dashboard/my-pcloud`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'مستورد Crunchyroll الشامل' : 'Crunchyroll Full Importer',
+            icon: Zap,
+            href: `/${lang}/dashboard/crunchyroll-importer`,
+            active: pathname.startsWith(`/${lang}/dashboard/crunchyroll-importer`),
+        },
+        {
             label: i18n.language === 'ar' ? 'الفصول' : 'Chapters',
             icon: Library,
             href: `/${lang}/dashboard/chapters`,

@@ -160,8 +160,8 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                             </div>
 
                             {/* 2. Premium/Trial Banner */}
-                            <div className="px-2 mb-2">
-                                <div className="bg-black dark:bg-white rounded-none p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors text-white dark:text-black">
+                            <div className="px-4 mb-2">
+                                <div className="bg-black dark:bg-white rounded-xl p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors text-white dark:text-black shadow-lg">
                                     <Crown className="w-5 h-5 fill-current" />
                                     <span className="text-base font-black uppercase tracking-wide">تجربة مجانية لـ 7 يومًا</span>
                                 </div>
@@ -175,7 +175,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                 {/* Home Link */}
                                 <button
                                     onClick={() => handleNavigation('/')}
-                                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
+                                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a] mx-2 w-[calc(100%-16px)]"
                                 >
                                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                                         {isRtl ? 'الرئيسية' : 'Home'}
@@ -186,7 +186,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                 {/* Community Link */}
                                 <button
                                     onClick={() => handleNavigation('/community')}
-                                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
+                                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a] mx-2 w-[calc(100%-16px)]"
                                 >
                                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                                         {isRtl ? 'المجتمع' : 'Community'}
@@ -202,19 +202,19 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                     <div className="flex flex-col border-b border-gray-100 dark:border-[#2a2a2a] mb-4">
                                         <button
                                             onClick={() => handleNavigation('/browse')}
-                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
+                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl mx-2 w-[calc(100%-16px)] transition-colors"
                                         >
                                             <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'تصفح الكل' : 'Browse All'}</span>
                                         </button>
                                         <button
                                             onClick={() => handleNavigation('/animes')}
-                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
+                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl mx-2 w-[calc(100%-16px)] transition-colors"
                                         >
                                             <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'جديد' : 'New'}</span>
                                         </button>
                                         <button
                                             onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
-                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
+                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl mx-2 w-[calc(100%-16px)] transition-colors"
                                         >
                                             <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'الفئات' : 'Categories'}</span>
                                         </button>
@@ -231,7 +231,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                                     <button
                                                         key={category.id}
                                                         onClick={() => handleNavigation(`/browse?categoryId=${category.id}`)}
-                                                        className="flex items-center justify-center px-3 py-2 text-xs font-medium bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#333] hover:border-black hover:text-black dark:hover:text-white dark:hover:border-white transition-colors text-center"
+                                                        className="flex items-center justify-center px-3 py-2 text-xs font-medium bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#333] hover:border-black hover:text-black dark:hover:text-white dark:hover:border-white transition-colors text-center rounded-xl"
                                                     >
                                                         {isRtl ? category.name : (category.name_en || category.name)}
                                                     </button>
@@ -239,7 +239,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                             </div>
                                             <button
                                                 onClick={() => handleNavigation('/categories')}
-                                                className="w-full mt-3 px-3 py-2 text-xs font-bold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                                className="w-full mt-3 px-3 py-2 text-xs font-bold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors rounded-xl"
                                             >
                                                 {isRtl ? 'عرض جميع الفئات' : 'View All Categories'}
                                             </button>
@@ -269,7 +269,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                                                 className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
                                                                 onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
                                                             >
-                                                                <div className="w-[100px] aspect-[2/3] flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-[#111] shadow-lg">
+                                                                <div className="w-[100px] aspect-[2/3] flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-[#111] shadow-lg">
                                                                     <SpinnerImage
                                                                         src={getImageUrl(anime.image || anime.cover)}
                                                                         alt={title}
@@ -321,7 +321,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                                                 className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
                                                                 onClick={() => handleNavigation(`/watch/${animeId}/${episode.episode_number}/${slug}`)}
                                                             >
-                                                                <div className="w-[140px] aspect-video flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-[#111] shadow-lg relative">
+                                                                <div className="w-[140px] aspect-video flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-[#111] shadow-lg relative">
                                                                     <SpinnerImage
                                                                         src={getImageUrl(episode.thumbnail || episode.banner || animeObj?.cover)}
                                                                         alt={animeTitle}

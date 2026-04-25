@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import api from "@/lib/api";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash, Check, X as XIcon, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash, Check, X as XIcon, Search, ChevronLeft, ChevronRight, Database, HardDrive } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,16 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
     Table,
@@ -35,6 +45,8 @@ export default function AnimesPage() {
     const queryClient = useQueryClient();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [animeToDelete, setAnimeToDelete] = useState<number | null>(null);
 
     // Pagination & Search State
     const [page, setPage] = useState(1);
@@ -67,8 +79,8 @@ export default function AnimesPage() {
         is_published: true
     });
 
-    const [uploadingImage, setUploadingImage] = useState(false);
-    const [uploadingCover, setUploadingCover] = useState(false);
+    const [uploading, setUploading] = useState<Record<string, boolean>>({});
+    const [previews, setPreviews] = useState<Record<string, string>>({});
 
     const [editingAnime, setEditingAnime] = useState<any>(null);
 
@@ -109,14 +121,18 @@ export default function AnimesPage() {
     const createMutation = useMutation({
         mutationFn: async (data: any) => {
             const payload = { ...data };
-            payload.seasons = parseInt(payload.seasons);
-            payload.rating = parseFloat(payload.rating);
-            payload.duration = parseInt(payload.duration);
-            payload.season_id = parseInt(payload.season_id);
-            payload.studio_id = parseInt(payload.studio_id);
-            payload.language_id = parseInt(payload.language_id);
+            payload.seasons = parseInt(payload.seasons as any) || 1;
+            payload.rating = parseFloat(payload.rating as any) || 0;
+            payload.duration = parseInt(payload.duration as any) || 24;
+            payload.season_id = parseInt(payload.season_id as any) || 0;
+            payload.studio_id = parseInt(payload.studio_id as any) || 0;
+            payload.language_id = parseInt(payload.language_id as any) || 0;
 
-            if (payload.release_date) payload.release_date = new Date(payload.release_date).toISOString();
+            if (payload.release_date) {
+                payload.release_date = new Date(payload.release_date).toISOString();
+            } else {
+                (payload as any).release_date = undefined;
+            }
 
             return await api.post("/animes", payload);
         },
@@ -135,14 +151,18 @@ export default function AnimesPage() {
         mutationFn: async () => {
             if (!editingAnime) throw new Error("No anime selected");
             const payload = { ...formData };
-            payload.seasons = parseInt(payload.seasons as any);
-            payload.rating = parseFloat(payload.rating as any);
-            payload.duration = parseInt(payload.duration as any);
-            payload.season_id = parseInt(payload.season_id as any);
-            payload.studio_id = parseInt(payload.studio_id as any);
-            payload.language_id = parseInt(payload.language_id as any);
+            payload.seasons = parseInt(payload.seasons as any) || 1;
+            payload.rating = parseFloat(payload.rating as any) || 0;
+            payload.duration = parseInt(payload.duration as any) || 24;
+            payload.season_id = parseInt(payload.season_id as any) || 0;
+            payload.studio_id = parseInt(payload.studio_id as any) || 0;
+            payload.language_id = parseInt(payload.language_id as any) || 0;
 
-            if (payload.release_date) payload.release_date = new Date(payload.release_date).toISOString();
+            if (payload.release_date) {
+                payload.release_date = new Date(payload.release_date).toISOString();
+            } else {
+                (payload as any).release_date = undefined;
+            }
 
             return await api.put(`/animes/${editingAnime.id}`, payload);
         },
@@ -203,30 +223,57 @@ export default function AnimesPage() {
         }
     });
 
-    const uploadFile = async (file: File) => {
+    const uploadFile = async (file: File, folder?: string, filename?: string) => {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await api.post("/upload", formData);
+        
+        let url = "/upload";
+        const params = new URLSearchParams();
+        if (folder) params.append("folder", folder);
+        if (filename) params.append("filename", filename);
+        
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+
+        const res = await api.post(url, formData);
         return res.data.url;
     };
 
-    const handleImageUpload = async (e: any, field: 'image' | 'cover' | 'icon_image') => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image' | 'cover' | 'icon_image') => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (field === 'image') setUploadingImage(true);
-        else if (field === 'cover') setUploadingCover(true);
-        // We can add simple loading state for icon if needed, or share
+        // Show local preview immediately
+        const objectUrl = URL.createObjectURL(file);
+        setPreviews(prev => ({ ...prev, [field]: objectUrl }));
+
+        setUploading(prev => ({ ...prev, [field]: true }));
 
         try {
-            const url = await uploadFile(file);
-            handleChange(field, url);
-            toast.success("Image uploaded");
+            // Generate a clean filename based on title or slug
+            let baseName = formData.slug || formData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+            if (!baseName) baseName = `anime-${Date.now()}`; // Fallback if title is empty or Arabic only
+
+            const targetFilename = field === 'image' ? `${baseName}-poster` : 
+                                 field === 'cover' ? `${baseName}-banner` : 
+                                 `${baseName}-icon`;
+
+            const url = await uploadFile(file, 'animes', targetFilename);
+            // Add a timestamp to bypass browser cache since we are now using fixed filenames
+            const cacheBustedUrl = `${url}?t=${Date.now()}`;
+            handleChange(field, cacheBustedUrl);
+            toast.success("Image uploaded successfully");
         } catch (err) {
+            console.error("Upload error:", err);
             toast.error("Upload failed");
+            // Clear preview on failure so user knows it didn't work
+            setPreviews(prev => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
         } finally {
-            if (field === 'image') setUploadingImage(false);
-            else if (field === 'cover') setUploadingCover(false);
+            setUploading(prev => ({ ...prev, [field]: false }));
         }
     };
 
@@ -237,6 +284,7 @@ export default function AnimesPage() {
             image: "", icon_image: "", cover: "", duration: 24, trailer: "", type: "TV", is_published: true,
             season_id: 0, studio_id: 0, language_id: 0
         });
+        setPreviews({});
     };
 
     const handleEditClick = (anime: any) => {
@@ -274,8 +322,16 @@ export default function AnimesPage() {
     };
 
     const handleDeleteClick = (id: number) => {
-        if (confirm("Are you sure you want to delete this anime?")) {
-            deleteMutation.mutate(id);
+        console.log('handleDeleteClick triggered for anime ID:', id);
+        setAnimeToDelete(id);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (animeToDelete) {
+            deleteMutation.mutate(animeToDelete);
+            setIsDeleteDialogOpen(false);
+            setAnimeToDelete(null);
         }
     };
 
@@ -333,8 +389,8 @@ export default function AnimesPage() {
                                 languageOptions={languageOptions}
                                 seasonOptions={seasonOptions}
                                 handleImageUpload={handleImageUpload}
-                                uploadingImage={uploadingImage}
-                                uploadingCover={uploadingCover}
+                                uploading={uploading}
+                                previews={previews}
                                 onSubmit={handleCreate}
                                 isPending={createMutation.isPending}
                                 onCancel={() => setIsAddModalOpen(false)}
@@ -360,8 +416,8 @@ export default function AnimesPage() {
                         languageOptions={languageOptions}
                         seasonOptions={seasonOptions}
                         handleImageUpload={handleImageUpload}
-                        uploadingImage={uploadingImage}
-                        uploadingCover={uploadingCover}
+                        uploading={uploading}
+                        previews={previews}
                         onSubmit={() => updateMutation.mutate()}
                         isPending={updateMutation.isPending}
                         onCancel={() => setIsEditModalOpen(false)}
@@ -426,22 +482,43 @@ export default function AnimesPage() {
                                             {anime.is_published ? <Check className="text-green-500 h-4 w-4" /> : <XIcon className="text-red-500 h-4 w-4" />}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button 
+                                            <div className="flex justify-end gap-2">                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
                                                     className={anime.is_published ? "text-red-500 hover:text-red-600" : "text-green-500 hover:text-green-600"}
-                                                    onClick={() => togglePublishedMutation.mutate(anime)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        togglePublishedMutation.mutate(anime);
+                                                    }}
                                                     disabled={togglePublishedMutation.isPending}
                                                 >
                                                     {anime.is_published ? "Draft" : "Publish"}
                                                 </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(anime)}>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        handleEditClick(anime);
+                                                    }}
+                                                >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteClick(anime.id)}>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="text-destructive hover:text-destructive" 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        handleDeleteClick(anime.id);
+                                                    }}
+                                                >
                                                     <Trash className="h-4 w-4" />
                                                 </Button>
+
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -483,6 +560,25 @@ export default function AnimesPage() {
                     </div>
                 )}
             </Card>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the anime,
+                            all its episodes, chapters, and associated data from our servers.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setAnimeToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Delete Anime
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
@@ -492,7 +588,7 @@ export default function AnimesPage() {
 export function AnimeFormContent({
     formData, handleChange,
     categoryOptions, typeOptions, studioOptions, languageOptions, seasonOptions,
-    handleImageUpload, uploadingImage, uploadingCover,
+    handleImageUpload, uploading, previews,
     onSubmit, isPending, onCancel, submitLabel
 }: any) {
     return (
@@ -598,31 +694,67 @@ export function AnimeFormContent({
                             </div>
                         </div>
                     </TabsContent>
+                     <TabsContent value="media" className="space-y-6 py-4">
+                        <div className="grid gap-2">
+                            <Label className="flex justify-between items-center">
+                                Icon Image
+                                {formData.icon_image && <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive" onClick={() => handleChange('icon_image', '')}>Clear</Button>}
+                            </Label>
+                            <div className="flex gap-4 items-start">
+                                <div className="flex-1">
+                                    <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'icon_image')} disabled={uploading['icon_image']} />
+                                    {uploading['icon_image'] && <p className="text-[10px] text-muted-foreground mt-1 animate-pulse">Uploading...</p>}
+                                </div>
+                                <div className="h-12 w-12 rounded-full border bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {(previews['icon_image'] || formData.icon_image) ? (
+                                        <img src={previews['icon_image'] || formData.icon_image} alt="Icon" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <Database className="h-5 w-5 text-muted-foreground/50" />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
 
-                    <TabsContent value="media" className="space-y-4 py-4">
                         <div className="grid gap-2">
-                            <Label>Icon Image</Label>
-                            <div className="flex gap-2 items-center">
-                                <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'icon_image')} disabled={uploadingImage} />
+                            <Label className="flex justify-between items-center">
+                                Poster Image
+                                {formData.image && <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive" onClick={() => handleChange('image', '')}>Clear</Button>}
+                            </Label>
+                            <div className="flex gap-4 items-start">
+                                <div className="flex-1">
+                                    <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image')} disabled={uploading['image']} />
+                                    {uploading['image'] && <p className="text-[10px] text-muted-foreground mt-1 animate-pulse">Uploading...</p>}
+                                </div>
+                                <div className="h-24 w-16 rounded border bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {(previews['image'] || formData.image) ? (
+                                        <img src={previews['image'] || formData.image} alt="Poster" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <Plus className="h-5 w-5 text-muted-foreground/50" />
+                                    )}
+                                </div>
                             </div>
-                            {formData.icon_image && <img src={formData.icon_image} alt="Icon" className="h-10 w-10 object-cover rounded mt-2 border" />}
                         </div>
+
                         <div className="grid gap-2">
-                            <Label>Poster Image</Label>
-                            <div className="flex gap-2 items-center">
-                                <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image')} disabled={uploadingImage} />
-                                {uploadingImage && <span className="text-xs text-muted-foreground">Uploading...</span>}
+                            <Label className="flex justify-between items-center">
+                                Banner Image (Cover)
+                                {formData.cover && <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive" onClick={() => handleChange('cover', '')}>Clear</Button>}
+                            </Label>
+                            <div className="flex gap-4 items-start">
+                                <div className="flex-1">
+                                    <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} disabled={uploading['cover']} />
+                                    {uploading['cover'] && <p className="text-[10px] text-muted-foreground mt-1 animate-pulse">Uploading...</p>}
+                                </div>
+                                <div className="h-24 w-40 rounded border bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {(previews['cover'] || formData.cover) ? (
+                                        <img src={previews['cover'] || formData.cover} alt="Banner" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <HardDrive className="h-8 w-8 text-muted-foreground/50" />
+                                    )}
+                                </div>
                             </div>
-                            {formData.image && <img src={formData.image} alt="Poster" className="h-20 w-auto object-cover rounded mt-2 border" />}
                         </div>
-                        <div className="grid gap-2">
-                            <Label>Banner Image</Label>
-                            <div className="flex gap-2 items-center">
-                                <Input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} disabled={uploadingCover} />
-                                {uploadingCover && <span className="text-xs text-muted-foreground">Uploading...</span>}
-                            </div>
-                            {formData.cover && <img src={formData.cover} alt="Banner" className="h-20 w-auto object-cover rounded mt-2 border" />}
-                        </div>
+
                         <div className="grid gap-2">
                             <Label>Trailer URL</Label>
                             <Input value={formData.trailer} onChange={(e) => handleChange('trailer', e.target.value)} />

@@ -66,21 +66,21 @@ export function DesktopNavigation() {
         <div className={cn("items-center hidden h-full gap-2 lg:flex lg:flex-1", isRtl ? "mr-6" : "ml-6")}>
             <button
                 onClick={() => navigate(`/${i18n.language}`)}
-                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full"
             >
                 <span className="hover-underline-expand">{isRtl ? 'الرئيسية' : 'Home'}</span>
             </button>
 
             <button
                 onClick={() => navigate(`/${i18n.language}/animes`)}
-                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full"
             >
                 <span className="hover-underline-expand">{isRtl ? 'جديد' : 'New'}</span>
             </button>
 
             <button
                 onClick={() => navigate(`/${i18n.language}/community`)}
-                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full"
             >
                 <span className="hover-underline-expand">{isRtl ? 'المجتمع' : 'Community'}</span>
             </button>
@@ -93,7 +93,7 @@ export function DesktopNavigation() {
             >
                 <button
                     onClick={toggleAnimeMenu}
-                    className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 outline-none"
+                    className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 outline-none rounded-full"
                 >
                     <span className="hover-underline-expand">{isRtl ? 'الكل' : 'All'}</span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isAnimeMenuOpen && "rotate-180")} />
@@ -123,7 +123,7 @@ export function DesktopNavigation() {
             >
                 <button
                     onClick={toggleCategoriesMenu}
-                    className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 outline-none"
+                    className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 outline-none rounded-full"
                 >
                     <span className="hover-underline-expand">{isRtl ? 'الفئات' : 'Categories'}</span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isCategoriesMenuOpen && "rotate-180")} />

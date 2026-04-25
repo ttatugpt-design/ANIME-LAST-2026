@@ -149,73 +149,124 @@ const scrapeAnime3rb = async (browser, url, maxImages) => {
 
 /**
  * Generic scraper for non-anime3rb sites.
- * Visits listing pages to find detail URLs, then visits each detail page for metadata.
+ * Optimized for large batches:
+ * 1. Extracts posters/titles directly from listing cards where possible.
+ * 2. Visits detail pages in parallel batches for missing metadata.
  */
 const scrapeGeneric = async (browser, url, maxImages) => {
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8' });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 1000 });
 
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-    await sleep(1500);
+    // --- AD BLOCKING & OPTIMIZATION ---
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+        const type = req.resourceType();
+        const url = req.url();
+        const blockList = ['google-analytics', 'doubleclick', 'adsystem', 'popads', 'ad-score', 'track', 'cloud-flare-challenge'];
+        if (['image', 'font', 'media'].includes(type) || blockList.some(b => url.includes(b))) {
+            req.abort();
+        } else {
+            req.continue();
+        }
+    });
 
-    try {
-        await page.evaluate(() => {
-            const banner = document.querySelector('#onetrust-consent-sdk, .cookie-banner');
-            if (banner) banner.remove();
-        });
-    } catch (e) {}
+    // --- NAVIGATION WITH RETRY ---
+    const navigate = async () => {
+        try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+        } catch (e) {
+            console.error(`First navigation attempt failed: ${e.message}. Retrying...`);
+            await page.goto(url, { waitUntil: 'load', timeout: 120000 });
+        }
+    };
 
-    const pageTitle = await page.title();
-    let animeInfoList = [];
+    await navigate();
+    await sleep(3000);
 
+    // Initial results list (contains entries found in cards)
+    const animeInfoList = [];
+    let previousSize = 0;
+    let stagnatedCycles = 0;
+
+    // Detect if we are already on a detail page
     const isDetailPage = await page.evaluate(() => {
-        const href = window.location.href;
         const hasDetailInfo = !!(document.querySelector('.anime-story') || document.querySelector('.anime-details-title') || document.querySelector('.entry-content'));
         const hasBigPoster = !!(document.querySelector('.anime-thumbnail img') || document.querySelector('.anime-post-thumbnail img') || document.querySelector('.poster img'));
-        return href.includes('/anime/') || href.includes('/animes/') || href.includes('/serie/') || href.includes('/series/') || href.includes('/seasons/') || (hasDetailInfo && hasBigPoster);
+        return window.location.href.includes('/anime/') || (hasDetailInfo && hasBigPoster);
     });
 
     if (isDetailPage) {
         animeInfoList.push({ detailUrl: url });
-    }
+    } else {
+        // --- STEP 1: Fast Listing Extraction ---
+        while (animeInfoList.length < maxImages && stagnatedCycles < 8) {
+            const currentCards = await page.evaluate(() => {
+                const results = [];
+                const seenUrls = new Set();
 
-    let previousSize = 0;
-    let stagnatedCycles = 0;
-
-    if (!isDetailPage) {
-        while (animeInfoList.length < maxImages && stagnatedCycles < 5) {
-            const currentLinks = await page.evaluate(() => {
-                const links = [];
-                const selectors = [
-                    '.anime-card-poster a', '.anime-card-container a', 'a.overlay',
-                    '.anime-card-details h3 a', '.view.col-xs-12 h3 a',
-                    '.series-box a', '.movie-item a', '.item-poster a', '.box-item a', '.poster a',
-                    '.anime-post-container a', '.anime-post-thumbnail a',
-                    'a[href*="/anime/"]', 'a[href*="/animes/"]', 'a[href*="/series/"]', 'a[href*="/season/"]', 'a[href*="/seasons/"]',
-                    'a[href*="/serie/"]', 'a[href*="/movie/"]'
+                // Selectors for anime cards (listing pages)
+                const cardSelectors = [
+                    '.anime-card-poster', '.anime-card-container', '.series-box', 
+                    '.movie-item', '.item-poster', '.box-item', '.poster',
+                    '.anime-post-container', '.anime-post-thumbnail', '.item',
+                    '.animepost', '.anime-item', 'article', '.card', '.box'
                 ];
-                selectors.forEach(sel => {
-                    document.querySelectorAll(sel).forEach(el => {
-                        const href = el.href;
-                        if (!href || !href.startsWith('http')) return;
+
+                cardSelectors.forEach(sel => {
+                    document.querySelectorAll(sel).forEach(card => {
+                        const anchor = card.querySelector('a') || (card.tagName === 'A' ? card : null);
+                        if (!anchor) return;
+
+                        const href = anchor.href.split('?')[0].split('#')[0];
+                        if (!href || seenUrls.has(href)) return;
+
+                        // Identify if it's an anime link
+                        const isAnime = href.includes('/anime/') || href.includes('/animes/') || href.includes('/series/') || 
+                                        href.includes('/serie/') || href.includes('/movie/') ;
+                        const isEp = href.includes('/episode/') || href.includes('/watch/') || href.includes('/ep/');
                         
-                        // WitAnime specific: ignore search params in links
-                        const plainUrl = href.split('?')[0].split('#')[0];
-                        
-                        const isWork = plainUrl.includes('/anime/') || plainUrl.includes('/animes/') || plainUrl.includes('/series/') ||
-                                       plainUrl.includes('/season/') || plainUrl.includes('/seasons/') || plainUrl.includes('/serie/') || plainUrl.includes('/movie/');
-                        const isEpisode = plainUrl.includes('/episode/') || plainUrl.includes('/watch/') || plainUrl.includes('/ep/');
-                        if (isWork && !isEpisode) links.push(plainUrl);
+                        if (isAnime && !isEp) {
+                            seenUrls.add(href);
+                            const img = card.querySelector('img');
+                            const src = img ? (img.getAttribute('data-src') || img.src) : '';
+                            
+                            // Try to get title from img alt, a text, or h3
+                            let title = img ? (img.alt || '').trim() : '';
+                            if (!title) {
+                                const titleEl = card.querySelector('h3, h2, .title, .anime-card-details h3');
+                                title = titleEl ? titleEl.textContent.trim() : '';
+                            }
+
+                            results.push({
+                                detailUrl: href,
+                                poster: src,
+                                title: title,
+                                url: src // Primary image URL
+                            });
+                        }
                     });
                 });
-                return Array.from(new Set(links));
+
+                // Fallback: look for ANY links that look like anime links if no cards were found
+                if (results.length === 0) {
+                    document.querySelectorAll('a').forEach(a => {
+                        const href = a.href.split('?')[0].split('#')[0];
+                        if (!href || seenUrls.has(href)) return;
+                        const isWork = (href.includes('/anime/') || href.includes('/series/')) && !href.includes('/episode/');
+                        if (isWork) {
+                            seenUrls.add(href);
+                            results.push({ detailUrl: href });
+                        }
+                    });
+                }
+
+                return results;
             });
 
-            for (const link of currentLinks) {
-                if (animeInfoList.length < maxImages && !animeInfoList.find(a => a.detailUrl === link)) {
-                    animeInfoList.push({ detailUrl: link });
+            for (const card of currentCards) {
+                if (animeInfoList.length < maxImages && !animeInfoList.find(a => a.detailUrl === card.detailUrl)) {
+                    animeInfoList.push(card);
                 }
             }
 
@@ -224,45 +275,63 @@ const scrapeGeneric = async (browser, url, maxImages) => {
             previousSize = animeInfoList.length;
 
             if (animeInfoList.length >= maxImages) break;
-            await page.evaluate(() => window.scrollBy(0, 1000));
+            
+            // Scroll down
+            await page.evaluate(() => window.scrollBy(0, 1500));
             await sleep(2000);
         }
     }
 
+    const pageTitle = await page.title();
     await page.close();
 
-    // Visit each detail page
+    // --- STEP 2: Parallel Metadata Enrichment ---
     const results = [];
     const targets = animeInfoList.slice(0, maxImages);
-
-    for (const entry of targets) {
+    
+    // Concurrency limit for detail page visits (Low to avoid bot detection)
+    const CONCURRENCY = 5;
+    
+    const fetchMetadata = async (entry) => {
+        let detailPage = null;
         try {
-            const detailPage = await browser.newPage();
+            detailPage = await browser.newPage();
+            // Optimize page load
             await detailPage.setRequestInterception(true);
             detailPage.on('request', (req) => {
-                if (['image', 'font', 'stylesheet', 'media'].includes(req.resourceType())) req.abort();
+                if (['image', 'font', 'media'].includes(req.resourceType())) req.abort();
                 else req.continue();
             });
+
             await detailPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
-            await detailPage.goto(entry.detailUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await detailPage.goto(entry.detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
             await sleep(1500);
 
             const metadata = await detailPage.evaluate(() => {
                 const getInfo = (label) => {
-                    for (const item of document.querySelectorAll('.anime-info, .info-list li, .movie-info li')) {
+                    for (const item of Array.from(document.querySelectorAll('.anime-info, .info-list li, .movie-info li, .anime-info-container li'))) {
                         if (item.textContent.includes(label)) return item.textContent.replace(label, '').trim();
                     }
                     return '';
                 };
                 const getText = (el) => el ? (el.textContent || el.innerText || '').trim() : '';
 
-                const storyEl = document.querySelector('.anime-story,.entry-content,.story-text,.movie-story,.post-content,.description-content,.story-content');
-                const titleEl = document.querySelector('h1.entry-title,.anime-details-title h1,.anime-title,.movie-title h1,.post-title h1,h1.title,h1');
-                const titleValue = getText(titleEl) || document.querySelector('meta[property="og:title"]')?.getAttribute('content') || document.title?.split('|')[0]?.trim();
+                const storyEl = document.querySelector('.anime-story, .entry-content, .story-text, .movie-story, .post-content, .description-content, .story-content, .anime-details-story');
+                const titleEl = document.querySelector('h1.entry-title, .anime-details-title h1, .anime-title, .movie-title h1, .post-title h1, h1.title, h1');
+                
+                const genres = Array.from(document.querySelectorAll('.anime-genres a, .genres a, .item-list a[href*="/genre/"], .movie-genres a, .post-genres a, a[href*="/genre/"]'))
+                    .map(a => getText(a)).filter(g => g.length > 1);
 
-                const genres = Array.from(document.querySelectorAll('.anime-genres a,.genres a,.item-list a[href*="/genre/"],.movie-genres a,.post-genres a')).map(a => getText(a));
-                const imgEl = document.querySelector('.anime-thumbnail img,.anime-post-thumbnail img,img[itemprop="image"],.poster img,.movie-poster img,.entry-content img,.post-thumbnail img');
-                let poster = imgEl ? (imgEl.getAttribute('data-src') || imgEl.src) : '';
+                const imgSelectors = ['.anime-thumbnail img', '.anime-post-thumbnail img', 'img[itemprop="image"]', '.poster img', '.movie-poster img', '.entry-content img', '.post-thumbnail img', '.anime-details-image img'];
+                let poster = '';
+                for (const sel of imgSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el) {
+                        poster = el.getAttribute('data-src') || el.src;
+                        if (poster) break;
+                    }
+                }
+
                 if (!poster) poster = document.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
                 if (poster && poster.match(/-\d+x\d+\.(jpg|jpeg|png|webp|gif)$/i)) poster = poster.replace(/-\d+x\d+(\.(jpg|jpeg|png|webp|gif))$/i, '$1');
                 if (poster && poster.startsWith('//')) poster = 'https:' + poster;
@@ -271,27 +340,55 @@ const scrapeGeneric = async (browser, url, maxImages) => {
                 if (!storyValue || storyValue.length < 10) storyValue = document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
 
                 return {
-                    title: typeof titleValue === 'string' ? titleValue.trim() : getText(titleValue),
-                    story: storyValue, poster, genres,
+                    title: getText(titleEl) || document.querySelector('meta[property="og:title"]')?.getAttribute('content') || document.title?.split('|')[0]?.trim(),
+                    story: storyValue,
+                    poster: poster,
+                    genres: Array.from(new Set(genres)),
                     episodes: getInfo('عدد الحلقات:') || getInfo('الحلقات:'),
                     status: getInfo('حالة الأنمي:') || getInfo('الحالة:'),
                     season: getInfo('الموسم:'),
                     type: getInfo('النوع:'),
-                    malUrl: document.querySelector('.anime-mal')?.href || '',
+                    malUrl: document.querySelector('.anime-mal, a[href*="myanimelist.net"]')?.href || '',
                     seriesUrl: window.location.href
                 };
             });
 
-            if (metadata.poster || metadata.title) {
-                results.push({ url: metadata.poster, detailUrl: metadata.seriesUrl || entry.detailUrl, ...metadata });
+            // Merge metadata with entry (preserving what we found in cards if detail page fails)
+            const result = {
+                ...entry,
+                ...metadata,
+                url: metadata.poster || entry.poster, // Prefer detail poster
+                detailUrl: entry.detailUrl
+            };
+
+            if (result.poster || result.title) {
+                results.push(result);
             }
-            await detailPage.close();
         } catch (err) {
-            console.error(`Error scraping ${entry.detailUrl}:`, err.message);
+            console.error(`Error enriching ${entry.detailUrl}:`, err.message);
+            // Fallback to card data if enrichment failed
+            if (entry.poster || entry.title) {
+                results.push(entry);
+            }
+        } finally {
+            if (detailPage) await detailPage.close();
         }
+    };
+
+    // Process in batches
+    for (let i = 0; i < targets.length; i += CONCURRENCY) {
+        const batch = targets.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(entry => fetchMetadata(entry)));
     }
 
-    return { pageTitle, results };
+    // Sort back to relative order if needed (results will be in fetch-completion order currently)
+    const sortedResults = results.sort((a, b) => {
+        const idxA = targets.findIndex(t => t.detailUrl === a.detailUrl);
+        const idxB = targets.findIndex(t => t.detailUrl === b.detailUrl);
+        return idxA - idxB;
+    });
+
+    return { pageTitle, results: sortedResults };
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────

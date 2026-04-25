@@ -75,8 +75,23 @@ func (s *AnimeService) Update(anime *domain.Anime, cascadeEpisodes bool) (*domai
 	existing.Status = anime.Status
 	existing.ReleaseDate = anime.ReleaseDate
 	existing.Rating = anime.Rating
-	existing.Image = anime.Image
-	existing.Cover = anime.Cover
+
+	// Image updates + clearing confusion/blurred versions if changed
+	if anime.Image != "" && anime.Image != existing.Image {
+		existing.Image = anime.Image
+		existing.PosterImageConfusion = "" // Clear blurred version so it doesn't show old image
+	}
+	if anime.Cover != "" && anime.Cover != existing.Cover {
+		existing.Cover = anime.Cover
+		existing.BannerImageConfusion = "" // Clear blurred version
+	}
+	if anime.IconImage != "" {
+		existing.IconImage = anime.IconImage
+	}
+
+	existing.SeasonID = anime.SeasonID
+	existing.StudioID = anime.StudioID
+	existing.LanguageID = anime.LanguageID
 	existing.StudioName = anime.StudioName
 	existing.Slug = anime.Slug
 	existing.SlugEn = anime.SlugEn
@@ -84,6 +99,17 @@ func (s *AnimeService) Update(anime *domain.Anime, cascadeEpisodes bool) (*domai
 	existing.Language = anime.Language
 	existing.Trailer = anime.Trailer
 	existing.Type = anime.Type
+
+	// Update Categories (Many-to-Many)
+	if len(anime.Categories) > 0 {
+		existing.Categories = anime.Categories
+	} else if len(anime.CategoryIDs) > 0 {
+		// If only IDs are provided
+		existing.Categories = make([]domain.Category, len(anime.CategoryIDs))
+		for i, id := range anime.CategoryIDs {
+			existing.Categories[i] = domain.Category{ID: id}
+		}
+	}
 
 	// Cascade publication status
 	if existing.IsPublished != anime.IsPublished && cascadeEpisodes {

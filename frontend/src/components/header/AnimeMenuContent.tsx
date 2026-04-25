@@ -60,7 +60,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
             <div className="w-1/5 border-r border-gray-100 dark:border-neutral-800 p-0 flex flex-col">
                 <button
                     onClick={() => handleNavigation('/browse')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                         {isRtl ? 'تصفح الكل' : 'Browse All'}
@@ -70,7 +70,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
                 <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
                 <button
                     onClick={() => handleNavigation('/animes')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                         {isRtl ? 'جديد الأنمي' : 'New Anime'}
@@ -83,7 +83,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
                         <button
                             key={cat.id}
                             onClick={() => handleNavigation(`/browse?categoryId=${cat.id}`)}
-                            className="px-2.5 py-1.5 text-[10px] font-bold bg-gray-50 dark:bg-[#111] border border-gray-100 dark:border-neutral-800 hover:border-black dark:hover:border-white transition-all uppercase"
+                            className="px-2.5 py-1.5 text-[10px] font-bold bg-gray-50 dark:bg-[#111] border border-gray-100 dark:border-neutral-800 hover:border-black dark:hover:border-white transition-all uppercase rounded-full"
                         >
                             {isRtl ? cat.name : (cat.name_en || cat.name)}
                         </button>
@@ -124,7 +124,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
                                         className="group cursor-pointer flex flex-col items-center"
                                         onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
                                     >
-                                        <div className="relative aspect-[2/3] w-full overflow-hidden shadow-md group-hover:shadow-black/20 transition-all duration-500 bg-gray-100 dark:bg-[#111] flex items-center justify-center">
+                                        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl shadow-md group-hover:shadow-black/20 transition-all duration-500 bg-gray-100 dark:bg-[#111] flex items-center justify-center">
                                             {isVisible && (
                                                 <>
                                                     {!loadedImages[`anime-${anime.id}`] && (
@@ -181,7 +181,7 @@ export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) 
                                 const slug = slugify(animeTitle);
                                 return (
                                     <div key={episode.id} className="group cursor-pointer flex flex-col" onClick={() => handleNavigation(`/watch/${animeObj?.id || episode.anime_id}/${episode.episode_number}/${slug}`)}>
-                                        <div className="relative aspect-video w-full overflow-hidden shadow-md bg-gray-100 dark:bg-[#111] flex items-center justify-center">
+                                        <div className="relative aspect-video w-full overflow-hidden rounded-xl shadow-md bg-gray-100 dark:bg-[#111] flex items-center justify-center">
                                             {isVisible && (
                                                 <>
                                                     {!loadedImages[`ep-${episode.id}`] && (

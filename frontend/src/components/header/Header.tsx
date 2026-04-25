@@ -115,7 +115,7 @@ export function Header() {
                         <img 
                             src="/uploads/settings/logo_8d118394-7aaa-469a-8e03-3fa43420fadd.png" 
                             alt="Logo" 
-                            className="w-auto h-9 object-contain" 
+                            className="w-auto h-9 object-contain rounded-lg" 
                         />
                         <span className="font-bold text-gray-900 dark:text-white hidden sm:block text-xl uppercase">ANIME LAST</span>
                     </Link>

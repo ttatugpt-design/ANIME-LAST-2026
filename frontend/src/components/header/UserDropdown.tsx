@@ -74,7 +74,7 @@ function GuestMenuContent({ onClose }: GuestMenuContentProps) {
                 {/* Login */}
                 <button
                     onClick={() => handleNavigation('/auth/login')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تسجيل الدخول</span>
                     <LogIn className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -83,7 +83,7 @@ function GuestMenuContent({ onClose }: GuestMenuContentProps) {
                 {/* Register */}
                 <button
                     onClick={() => handleNavigation('/auth/register')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تسجيل حساب جديد</span>
                     <UserPlus className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -96,7 +96,7 @@ function GuestMenuContent({ onClose }: GuestMenuContentProps) {
             <div className="py-1">
                 <button
                     onClick={() => handleNavigation('/')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">العودة إلى الصفحة الرئيسية</span>
                     <Home className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -111,7 +111,7 @@ function GuestMenuContent({ onClose }: GuestMenuContentProps) {
                 <div className="relative">
                     <button
                         onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                        className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                        className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                     >
                         <div className="flex items-center gap-2">
                             <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showLanguageMenu && "rotate-90")} />
@@ -288,7 +288,7 @@ export function UserDropdown({ isOpen: controlledIsOpen, onOpenChange: controlle
                         {DesktopTrigger}
                     </DropdownMenuTrigger>
 
-                    <DropdownMenuContent align="end" className="w-96 mt-2 border-gray-100 dark:border-neutral-800 bg-white dark:bg-[#111] rounded-none p-0">
+                    <DropdownMenuContent align="end" className="w-96 mt-2 border-gray-100 dark:border-neutral-800 bg-white dark:bg-[#111] rounded-2xl p-0 overflow-hidden shadow-2xl">
                         {user ? (
                             <UserMenuContent user={user} onClose={() => setIsOpen(false)} />
                         ) : (

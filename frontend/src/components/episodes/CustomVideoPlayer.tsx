@@ -26,6 +26,7 @@ interface CustomVideoPlayerProps {
     qualities?: Quality[];
     onQualityChange?: (url: string) => void;
     currentQuality?: string;
+    autoPlay?: boolean;
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ 
@@ -33,7 +34,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     poster, 
     qualities = [], 
     onQualityChange,
-    currentQuality
+    currentQuality,
+    autoPlay = false
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -139,6 +141,16 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
             if (isPlaying && !isProgressBarHovered) setShowControls(false);
         }, 3000);
     };
+ 
+    useEffect(() => {
+        if (autoPlay && videoRef.current) {
+            videoRef.current.play().then(() => {
+                setIsPlaying(true);
+            }).catch(err => {
+                console.warn("Autoplay blocked or failed:", err);
+            });
+        }
+    }, [autoPlay, src]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {

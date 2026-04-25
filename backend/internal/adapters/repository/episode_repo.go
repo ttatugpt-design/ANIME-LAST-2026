@@ -146,7 +146,42 @@ func (r *SQLiteRepository) UpdateEpisode(episode *domain.Episode) error {
 }
 
 func (r *SQLiteRepository) DeleteEpisode(id uint) error {
-	return r.db.Delete(&domain.Episode{}, id).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Delete episode servers
+		if err := tx.Where("episode_id = ?", id).Delete(&domain.EpisodeServer{}).Error; err != nil {
+			return err
+		}
+
+		// 2. Delete episode likes/reactions
+		if err := tx.Where("episode_id = ?", id).Delete(&domain.EpisodeLike{}).Error; err != nil {
+			return err
+		}
+
+		// 3. Delete comments associated with this episode
+		// We delete reactions, replies, and notifications related to comments in this episode
+		var commentIDs []uint
+		if err := tx.Model(&domain.Comment{}).Where("episode_id = ?", id).Pluck("id", &commentIDs).Error; err != nil {
+			return err
+		}
+
+		if len(commentIDs) > 0 {
+			// Delete comment likes
+			if err := tx.Where("comment_id IN ?", commentIDs).Delete(&domain.CommentLike{}).Error; err != nil {
+				return err
+			}
+			// Delete notifications related to these comments
+			if err := tx.Where("comment_id IN ?", commentIDs).Delete(&domain.Notification{}).Error; err != nil {
+				return err
+			}
+			// Delete the comments themselves
+			if err := tx.Where("episode_id = ?", id).Delete(&domain.Comment{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// 4. Finally delete the episode
+		return tx.Delete(&domain.Episode{}, id).Error
+	})
 }
 
 func (r *SQLiteRepository) GetEpisodesByAnimeID(animeID uint, limit, offset int) ([]domain.Episode, error) {

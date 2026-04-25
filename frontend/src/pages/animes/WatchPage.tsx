@@ -44,7 +44,6 @@ import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
 
 import { getImageUrl } from '@/utils/image-utils';
 import { useAuthStore } from '@/stores/auth-store';
-import BulkDeleteServersModal from '@/components/episodes/BulkDeleteServersModal';
 import CustomVideoPlayer from '@/components/episodes/CustomVideoPlayer';
 
 
@@ -222,7 +221,9 @@ export default function WatchPage() {
 
     const queryClient = useQueryClient();
 
-    // State
+    // ==========================================
+    // 1. CORE STATE & REFS
+    // ==========================================
     const [activeTab, setActiveTab] = useState<'episodes' | 'comments'>('episodes');
     const [selectedServer, setSelectedServer] = useState<number>(0);
     const [isEpisodesModalOpen, setIsEpisodesModalOpen] = useState(false);
@@ -230,28 +231,37 @@ export default function WatchPage() {
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [isEpisodeInfoOpen, setIsEpisodeInfoOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
+    const [deletingServerIdx, setDeletingServerIdx] = useState<number | null>(null);
     const [isSwapMode, setIsSwapMode] = useState(false);
     const [selectedServersForSwap, setSelectedServersForSwap] = useState<number[]>([]);
-    const [showMobileActions, setShowMobileActions] = useState(false);
-    const activeEpisodeRef = useRef<HTMLDivElement>(null);
-    const listRef = useRef<HTMLDivElement>(null);
-    const sidebarRef = useRef<HTMLDivElement>(null);
-
-    // Mobile Expansion State
-    const [isEpisodesExpanded, setIsEpisodesExpanded] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-    const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
-
-    // Episode Stats State
+    
     const [stats, setStats] = useState<EpisodeStats | null>(null);
     const [userReaction, setUserReaction] = useState<string | null>(null);
-    const [isAnimating, setIsAnimating] = useState<string | null>(null);
-    const [isTheaterMode, setIsTheaterMode] = useState(false);
+    const [isPlayerUnlocked, setIsPlayerUnlocked] = useState(false);
     const [isVideoLoading, setIsVideoLoading] = useState(false);
     const [isRefreshingVideo, setIsRefreshingVideo] = useState(false);
     const [dynamicVideoUrl, setDynamicVideoUrl] = useState<string | null>(null);
-    const backgroundScrapedRef = useRef<string | null>(null);
+    const [lastRefreshedId, setLastRefreshedId] = useState<string | null>(null);
+    
+    const [isMobile, setIsMobile] = useState(false);
+    const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
+    const [showControls, setShowControls] = useState(true);
+
+    const sidebarRef = useRef<HTMLDivElement>(null);
+    const commentsSectionRef = useRef<any>(null);
+    const trackedEpisodeRef = useRef<string | null>(null);
+    const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const resetControlsTimer = useCallback(() => {
+        setShowControls(true);
+        if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+        controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
+    }, []);
+
+    // ==========================================
+    // 2. DATA FETCHING (TanStack Query)
+    // ==========================================
 
     // Fetch Anime Data (includes episodes) using id
     const { data: anime, isLoading: isQueryLoading } = useQuery({
@@ -263,366 +273,24 @@ export default function WatchPage() {
         enabled: !!id,
     });
 
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 1024); // lg breakpoint is usually where sidebar moves
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    // Fullscreen change listener
-    const [showControls, setShowControls] = useState(true);
-    const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-    const resetControlsTimer = useCallback(() => {
-        if (!isBrowserFullscreen) {
-            setShowControls(true);
-            return;
-        }
-        setShowControls(true);
-        if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-        controlsTimerRef.current = setTimeout(() => {
-            setShowControls(false);
-        }, 3000); // Hide after 3 seconds of inactivity
-    }, [isBrowserFullscreen]);
-
-    useEffect(() => {
-        const handleFSChange = () => {
-            const isFS = !!document.fullscreenElement;
-            setIsBrowserFullscreen(isFS);
-            if (!isFS) {
-                setShowControls(true);
-                if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
-            } else {
-                resetControlsTimer();
-            }
-        };
-        document.addEventListener('fullscreenchange', handleFSChange);
-        document.addEventListener('webkitfullscreenchange', handleFSChange);
-        document.addEventListener('mozfullscreenchange', handleFSChange);
-        document.addEventListener('MSFullscreenChange', handleFSChange);
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFSChange);
-            document.removeEventListener('webkitfullscreenchange', handleFSChange);
-            document.removeEventListener('mozfullscreenchange', handleFSChange);
-            document.removeEventListener('MSFullscreenChange', handleFSChange);
-        };
-    }, [resetControlsTimer]);
-
-    useEffect(() => {
-        if (isBrowserFullscreen) {
-            window.addEventListener('mousemove', resetControlsTimer);
-            window.addEventListener('touchstart', resetControlsTimer);
-            window.addEventListener('click', resetControlsTimer);
-            resetControlsTimer();
-        } else {
-            window.removeEventListener('mousemove', resetControlsTimer);
-            window.removeEventListener('touchstart', resetControlsTimer);
-            window.removeEventListener('click', resetControlsTimer);
-            setShowControls(true);
-        }
-        return () => {
-            window.removeEventListener('mousemove', resetControlsTimer);
-            window.removeEventListener('touchstart', resetControlsTimer);
-            window.removeEventListener('click', resetControlsTimer);
-        };
-    }, [isBrowserFullscreen, resetControlsTimer]);
-
-    // Handling mobile back button to close modals
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            // Close all modals when back button is pressed
-            setIsEpisodesModalOpen(false);
-            setIsMobileCommentsOpen(false);
-            setIsReportModalOpen(false);
-            setIsEpisodeInfoOpen(false);
-            setIsShareModalOpen(false);
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, []);
-
-    const openModal = useCallback((setter: (v: boolean) => void) => {
-        setter(true);
-        window.history.pushState({ modalOpen: true }, '');
-    }, []);
-
-    // Hover State
-    const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
-    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const commentsSectionRef = useRef<any>(null);
-
-    const handleMouseEnter = (index: number) => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        setHoveredCardIndex(index);
-    };
-
-    const handleMouseLeave = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = setTimeout(() => {
-            setHoveredCardIndex(null);
-        }, 100);
-    };
-
-    // Reaction popup
-    const [showReactionPopup, setShowReactionPopup] = useState(false);
-    const [hoveredReaction, setHoveredReaction] = useState<string | null>(null);
-    const reactionLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const reactionEnterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const REACTIONS = [
-        { key: 'like', label: lang === 'ar' ? 'أعجبني' : 'Like', gif: getImageUrl('/uploads/تفاعل البوست/أعجبني.png') },
-        { key: 'love', label: lang === 'ar' ? 'أحببته' : 'Love', gif: getImageUrl('/uploads/تفاعل البوست/أحببتة.png') },
-        { key: 'sad', label: lang === 'ar' ? 'أحزنني' : 'Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحزنني.gif') },
-        { key: 'angry', label: lang === 'ar' ? 'أغضبني' : 'Angry', gif: getImageUrl('/uploads/تفاعل البوست/أغضبني.gif') },
-        { key: 'wow', label: lang === 'ar' ? 'واوو' : 'Wow', gif: getImageUrl('/uploads/تفاعل البوست/واوو.png') },
-        { key: 'haha', label: lang === 'ar' ? 'اضحكني' : 'Haha', gif: getImageUrl('/uploads/تفاعل البوست/اضحكني.png') },
-        { key: 'super_sad', label: lang === 'ar' ? 'أحززنني جداً' : 'So Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحززنني جدا.png') },
-    ];
-
-
-    // Server Ordering Logic
     const [serverPriority, setServerPriority] = useState<string[]>([]);
-    
-    // Load priority from anime data instead of localStorage
     useEffect(() => {
         if (anime?.server_priority) {
-            try {
-                setServerPriority(anime.server_priority.split(','));
-            } catch (e) {
-                console.error("Failed to parse server priority", e);
-            }
+            try { setServerPriority(anime.server_priority.split(',')); }
+            catch (e) { console.error("Failed to parse priority", e); }
         }
     }, [anime]);
 
-    const saveServerPriority = async (newOrder: string[]) => {
-        setServerPriority(newOrder);
-        
-        // Save to database regardless of role
-        if (anime?.id) {
-            try {
-                const priorityString = newOrder.join(',');
-                await api.patch(`/animes/${anime.id}/server-priority`, {
-                    priority: priorityString
-                });
-                // Invalidate anime query so that on next load the new order is fetched
-                queryClient.invalidateQueries({ queryKey: ['anime', id] });
-                toast.success(lang === 'ar' ? 'تم حفظ الترتيب في قاعدة البيانات ✓' : 'Server order saved to database ✓');
-            } catch (err) {
-                console.error('Failed to save server priority:', err);
-                toast.error(lang === 'ar' ? 'فشل حفظ الترتيب في قاعدة البيانات' : 'Failed to save server order to database');
-            }
-        }
-    };
-
-    const handleConfirmSwap = () => {
-        if (selectedServersForSwap.length !== 2) return;
-        
-        const [idx1, idx2] = selectedServersForSwap;
-        if (idx1 === idx2) return;
-
-        // name1 and name2 are names of servers in the CURRENT filtered list
-        const name1 = servers[idx1].name;
-        const name2 = servers[idx2].name;
-
-        // Create copy of global priority list
-        let newPriority = [...serverPriority];
-
-        // Ensure both names exist in priority list to perform the swap
-        if (!newPriority.includes(name1)) newPriority.push(name1);
-        if (!newPriority.includes(name2)) newPriority.push(name2);
-
-        // Find positions in global list and swap
-        const gIdx1 = newPriority.indexOf(name1);
-        const gIdx2 = newPriority.indexOf(name2);
-        
-        [newPriority[gIdx1], newPriority[gIdx2]] = [newPriority[gIdx2], newPriority[gIdx1]];
-
-        saveServerPriority(newPriority);
-        toast.success(lang === 'ar' ? 'تم تبديل الأماكن بنجاح' : 'Positions swapped successfully');
-        
-        setSelectedServersForSwap([]);
-        setIsSwapMode(false);
-    };
-
-
-    const handleServerClick = async (idx: number) => {
-        if (isSwapMode) {
-            setSelectedServersForSwap(prev => {
-                if (prev.includes(idx)) {
-                    return prev.filter(i => i !== idx);
-                }
-                if (prev.length >= 2) {
-                    return [prev[1], idx];
-                }
-                return [...prev, idx];
-            });
-        } else {
-            setIsVideoLoading(true);
-            setSelectedServer(idx);
-            setDynamicVideoUrl(null); // reset
-
-            const chosenServer = servers[idx];
-            if (chosenServer && (chosenServer.name.toLowerCase().includes('anime3rb') || chosenServer.url.includes('anime3rb.com'))) {
-                setIsRefreshingVideo(true);
-                try {
-                    const res = await api.post('/scraper/anime3rb-refresh', {
-                        source_url: currentEpisode.source_url,
-                        episode_id: currentEpisode.id
-                    });
-                    if (res.data?.url) {
-                        setDynamicVideoUrl(res.data.url);
-                    }
-                } catch (e: any) {
-                    console.error("Anime3rb fetch failed", e);
-                    const errMsg = e.response?.data?.error || (lang === 'ar' ? 'فشل جلب رابط السيرفر من المصدر' : 'Failed to fetch server link');
-                    toast.error(errMsg);
-                } finally {
-                    setIsRefreshingVideo(false);
-                }
-            }
-        }
-    };
-
-    const handleLikeMouseEnter = () => {
-        if (reactionLeaveTimer.current) clearTimeout(reactionLeaveTimer.current);
-        reactionEnterTimer.current = setTimeout(() => setShowReactionPopup(true), 100);
-    };
-    const handleLikeMouseLeave = () => {
-        if (reactionEnterTimer.current) clearTimeout(reactionEnterTimer.current);
-        reactionLeaveTimer.current = setTimeout(() => setShowReactionPopup(false), 300);
-    };
-    const handlePopupMouseEnter = () => {
-        if (reactionLeaveTimer.current) clearTimeout(reactionLeaveTimer.current);
-    };
-    const handlePopupMouseLeave = () => {
-        reactionLeaveTimer.current = setTimeout(() => setShowReactionPopup(false), 200);
-    };
-
-    const handleLikeClick = () => {
-        if (window.innerWidth < 768) {
-            setShowReactionPopup(prev => !prev);
-        } else {
-            handleReaction('like');
-        }
-    };
-
-    // Mobile Long Press Handlers
-
-    // Mobile Long Press Handlers
-    const handleTouchStart = () => {
-        if (longPressTimer.current) clearTimeout(longPressTimer.current);
-        longPressTimer.current = setTimeout(() => {
-            setShowReactionPopup(true);
-            if (navigator.vibrate) navigator.vibrate(50); // Feedback
-        }, 500); // 500ms for long press
-    };
-
-    const handleTouchEnd = () => {
-        if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    };
-
-    const handleTouchMove = () => {
-        if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    };
-    const handleReactionClick = (reactionKey: string) => {
-        setShowReactionPopup(false);
-        handleReaction(reactionKey);
-    };
-
-    const keepCardOpen = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    };
-
-
-
-
-    // Fetch current episode
     const { data: episodeData, isLoading: episodeLoading, error: episodeError } = useQuery({
         queryKey: ['episode', anime?.id, episodeNum],
         queryFn: async () => {
             const response = await api.get(`/episodes?anime_id=${anime.id}&episode_number=${episodeNum}`);
-            const episodes = response.data;
-
-            console.log('📦 API Response:', episodes);
-            console.log('🔍 Looking for episode_number:', Number(episodeNum));
-
-            const foundEpisode = episodes.find((ep: any) => ep.episode_number === Number(episodeNum)) || null;
-
-            console.log('✅ Found Episode:', foundEpisode);
-            if (foundEpisode) {
-                console.log('📌 Episode ID:', foundEpisode.id, 'Episode Number:', foundEpisode.episode_number);
-            }
-
-            return foundEpisode;
+            return response.data.find((ep: any) => ep.episode_number === Number(episodeNum)) || null;
         },
         enabled: !!anime?.id && !!episodeNum,
     });
 
-    // Redirection logic for SEO slugs
-    useEffect(() => {
-        if (anime && id && episodeNum) {
-            const animeTitle = lang === 'ar' ? anime.title : (anime.title_en || anime.title);
-            const expectedSlug = slugify(animeTitle);
-
-            if (currentSlug !== expectedSlug) {
-                // Preserve search params and hash during redirect
-                const search = window.location.search;
-                const hash = window.location.hash;
-                navigate(`/${lang}/watch/${id}/${episodeNum}/${expectedSlug}${search}${hash}`, { replace: true });
-            }
-        }
-    }, [id, episodeNum, anime, currentSlug, lang, navigate]);
-
-    // Track Episode View (once per anime+episode combination)
-    const trackedEpisodeRef = useRef<string | null>(null);
-    useEffect(() => {
-        if (episodeData?.id && anime?.id) {
-            // CRITICAL: Always use anime.id as source of truth
-            const actualAnimeId = Number(anime.id);
-
-            console.log('Episode tracking data:', {
-                episodeId: episodeData.id,
-                episodeNumber: episodeData.episode_number,
-                episodeAnimeId: episodeData.anime_id,
-                urlAnimeId: Number(anime.id),
-                finalAnimeId: actualAnimeId,
-                episodeThumbnail: episodeData.thumbnail
-            });
-
-            const trackingKey = `${actualAnimeId}-${episodeData.id}`;
-            if (trackedEpisodeRef.current !== trackingKey) {
-                trackedEpisodeRef.current = trackingKey;
-
-                console.log('🔴 Sending to backend:', {
-                    episode_id: episodeData.id,
-                    anime_id: actualAnimeId,
-                    image: episodeData.thumbnail || episodeData.banner || ''
-                });
-
-                // Track in backend history using the ACTUAL anime_id
-                api.post('/history/track-episode', {
-                    episode_id: episodeData.id, // This is the REAL database ID
-                    anime_id: actualAnimeId,
-                    image: episodeData.thumbnail || episodeData.banner || '' // Send episode image
-                }).catch(err => console.error('Failed to track episode view:', err));
-
-                // Track view count for the new stats system
-                trackEpisodeView(episodeData.id);
-
-                // Fetch episode stats
-                getEpisodeStats(episodeData.id).then(data => {
-                    setStats(data);
-                    setUserReaction(data.user_reaction || null);
-                }).catch(err => console.error('Failed to fetch episode stats:', err));
-            }
-        }
-    }, [episodeData?.id, episodeData?.anime_id, anime?.id]);
-
-    // Fetch Episodes Data (Fallback if not in anime object)
-    const { data: episodesData, isLoading: isEpisodesLoading } = useQuery({
+    const { data: episodesData } = useQuery({
         queryKey: ["episodes", anime?.id],
         queryFn: async () => {
             const response = await api.get(`/episodes?anime_id=${anime.id}`);
@@ -631,97 +299,65 @@ export default function WatchPage() {
         enabled: !!anime?.id,
     });
 
-    // Fetch Global Latest Episodes (for the bottom section)
-    const { data: latestEpisodesData } = useQuery({
-        queryKey: ["latestEpisodes"],
+    const { data: activeEpisodeData, isLoading: isLoadingActiveEpisode } = useQuery({
+        queryKey: ["activeEpisode", id, episodeNum],
         queryFn: async () => {
-            const response = await api.get('/episodes/latest?limit=12');
-            return response.data;
+            const response = await api.get('/episodes', { params: { anime_id: id, episode_number: episodeNum } });
+            return response.data[0];
         },
+        enabled: !!id && !!episodeNum,
     });
 
-    // Fetch Global Servers (for mapping images)
     const { data: globalServers } = useQuery({
         queryKey: ["servers"],
-        queryFn: async () => {
-            const response = await api.get('/servers');
-            return response.data;
-        },
+        queryFn: async () => (await api.get('/servers')).data,
     });
 
-    // Derived Data
-    const episodesList = useMemo(() => {
-        return anime?.episodes || episodesData || [];
-    }, [anime, episodesData]);
+    const { data: commentsData } = useQuery({
+        queryKey: ['comments', episodeData?.id],
+        queryFn: async () => {
+            if (!episodeData?.id) return [];
+            return (await api.get(`/episodes/${episodeData.id}/comments`)).data;
+        },
+        enabled: !!episodeData?.id
+    });
 
+    // ==========================================
+    // 3. DERIVED DATA (MEMOS)
+    // ==========================================
+    const episodesList = useMemo(() => anime?.episodes || episodesData || [], [anime, episodesData]);
+    
     const filteredEpisodes = useMemo(() => {
         if (!anime?.id) return [];
         return episodesList.filter((ep: any) => Number(ep.anime_id) === Number(anime.id) && ep.is_published);
     }, [episodesList, anime?.id]);
 
-    // Fetch specific active episode directly to bypass pagination limits
-    const { data: activeEpisodeData, isLoading: isLoadingActiveEpisode } = useQuery({
-        queryKey: ["activeEpisode", id, episodeNum],
-        queryFn: async () => {
-            const response = await api.get('/episodes', {
-                params: {
-                    anime_id: id,
-                    episode_number: episodeNum
-                }
-            });
-            return response.data[0]; // Backend returns array of 1 for specific match
-        },
-        enabled: !!id && !!episodeNum,
-    });
-
-    // Determine Current Episode
     const currentEpisode = useMemo(() => {
         if (activeEpisodeData) return activeEpisodeData;
         if (!filteredEpisodes.length) return null;
         return filteredEpisodes.find((ep: any) => Number(ep.episode_number) === Number(episodeNum));
     }, [activeEpisodeData, filteredEpisodes, episodeNum]);
 
-    // Define servers and comments count (Fixes build errors)
     const servers = useMemo(() => {
         const allServers = currentEpisode?.servers || episodeData?.servers || [];
-        // Filter servers based on current language
-        // Assume 'sub' or 'dub' might be relevant, or language code 'ar'/'en'
-        // If data doesn't have explicit 'lang' field, we might need to inspect 'type' or similar.
-        // Based on request: "Display servers with language = en for english mode, ar for arabic mode"
-
-        // Let's check available structure. Usually it's in `server.type` or `server.lang`.
-        // If we look at backend, we might see. For now, assuming standard field.
-        // Actually, looking at previous code, `EpisodeServer` struct likely has it.
-        // If not, we might need to rely on `type` if it contains language info.
-
         const filtered = allServers.filter((server: any) => {
-            // If distinct language field exists
-            if (server.language) {
-                return server.language.toLowerCase() === (lang === 'ar' ? 'ar' : 'en');
-            }
-            // Fallback: If no language field, maybe show all (or hide all if strict)?
+            if (server.language) return server.language.toLowerCase() === (lang === 'ar' ? 'ar' : 'en');
             return true;
         });
 
-        // Sort based on priority
         if (serverPriority.length > 0) {
             return [...filtered].sort((a: any, b: any) => {
                 const indexA = serverPriority.indexOf(a.name);
                 const indexB = serverPriority.indexOf(b.name);
-                
-                // If both are in priority list, sort by their position
                 if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                // If only one is in priority list, it goes first
                 if (indexA !== -1) return -1;
                 if (indexB !== -1) return 1;
-                // If neither are in list, keep original order
                 return 0;
             });
         }
         return filtered;
     }, [currentEpisode, episodeData, lang, serverPriority]);
 
-    // Derive qualities for the custom player
     const playerQualities = useMemo(() => {
         const currentServer = servers[selectedServer];
         if (!currentServer || !isVideoFile(currentServer.url)) return [];
@@ -730,7 +366,6 @@ export default function WatchPage() {
         const currentName = currentServer.name;
         const currentUrl = currentServer.url;
 
-        // Try to find quality in name or URL
         const extractQuality = (name: string, url: string) => {
             const nameMatch = name.match(qualityRegex);
             if (nameMatch) return nameMatch[0].toLowerCase();
@@ -740,8 +375,6 @@ export default function WatchPage() {
         };
 
         const currentQualityLabel = extractQuality(currentName, currentUrl);
-
-        // Find all direct servers and try to extract their qualities
         const directServers = servers.filter((s: any) => isVideoFile(s.url));
         
         const qualitiesMap = directServers.map((s: any) => {
@@ -753,372 +386,284 @@ export default function WatchPage() {
             };
         });
 
-        // Dedup by label if needed, or just return all
-        if (qualitiesMap.length > 1) {
-            return qualitiesMap;
-        }
-
+        if (qualitiesMap.length > 1) return qualitiesMap;
         return [{ label: currentQualityLabel || 'Original', url: currentServer.url, serverId: selectedServer }];
     }, [servers, selectedServer]);
 
-    const handleQualityChange = (url: string) => {
-        const quality = playerQualities.find((q: any) => q.url === url);
-        if (quality) {
-            setSelectedServer(quality.serverId);
-        }
-    };
-
-    // Infinite Scroll Logic for Episodes
-    const initialPage = useMemo(() => {
-        if (!episodeNum) return 1;
-        // Calculate which page the current episode number belongs to (25 per page)
-        return Math.max(1, Math.ceil(Number(episodeNum) / 25));
-    }, [episodeNum]);
-
-    const { 
-        data: infiniteEpisodesData, 
-        fetchNextPage, 
-        hasNextPage, 
-        isFetchingNextPage 
-    } = useInfiniteQuery({
+    // ==========================================
+    // 4. INFINITE SCROLL LOGIC
+    // ==========================================
+    const { data: infiniteEpisodesData, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
         queryKey: ["episodes-infinite", anime?.id],
-        queryFn: async ({ pageParam = 1 }) => {
-            const response = await api.get(`/episodes`, { 
-                params: { 
-                    anime_id: anime?.id,
-                    paginate: true,
-                    limit: 25,
-                    page: pageParam
-                } 
-            });
-            return response.data;
-        },
-        getNextPageParam: (lastPage) => {
-            if (lastPage.page < lastPage.last_page) {
-                return lastPage.page + 1;
-            }
-            return undefined;
-        },
+        queryFn: async ({ pageParam = 1 }) => (await api.get(`/episodes`, { params: { anime_id: anime?.id, paginate: true, limit: 25, page: pageParam } })).data,
+        getNextPageParam: (lastPage) => (lastPage.page < lastPage.last_page ? lastPage.page + 1 : undefined),
         enabled: !!anime?.id,
-        initialPageParam: 1, // Start from page 1 and auto-expand to include current episode
-    });
-    const { ref: observerRef, inView } = useInView({
-        threshold: 0.1,
-        rootMargin: '400px',
+        initialPageParam: 1,
     });
 
-    // Trigger next page when sentinel is in view
+    const { ref: observerRef, inView } = useInView({ threshold: 0.1, rootMargin: '400px' });
+    useEffect(() => { if (inView && hasNextPage && !isFetchingNextPage) fetchNextPage(); }, [inView, hasNextPage, isFetchingNextPage]);
+
+    const filteredEpisodesFlattened = useMemo(() => infiniteEpisodesData?.pages.flatMap(p => p.data) || [], [infiniteEpisodesData]);
+
+    const displayedEpisodesView = useMemo(() => filteredEpisodesFlattened, [filteredEpisodesFlattened]);
+
+    // ==========================================
+    // 5. LIFECYCLE & SYNC EFFECTS
+    // ==========================================
+
+    // Helper: Must be defined before effects that call it
+    const refreshAnime3rbLink = useCallback(async (episode: any, serverIdx: number) => {
+        const chosenServer = servers[serverIdx];
+        if (!chosenServer || !episode) return;
+        setIsRefreshingVideo(true);
+        try {
+            const res = await api.post('/scraper/anime3rb-refresh', { source_url: episode.source_url, episode_id: episode.id });
+            if (res.data?.url) {
+                setDynamicVideoUrl(res.data.url);
+                setLastRefreshedId(`${episode.id}-${serverIdx}`);
+            }
+        } catch (e) { toast.error('Refresh failed'); }
+        finally { setIsRefreshingVideo(false); }
+    }, [servers]);
+
     useEffect(() => {
-        if (inView && hasNextPage && !isFetchingNextPage) {
-            fetchNextPage();
-        }
-    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
-    const filteredEpisodesFlattened = useMemo(() => {
-        return infiniteEpisodesData?.pages.flatMap(page => page.data) || [];
-    }, [infiniteEpisodesData]);
-
-    // Sidebar scroll listener - works with the sidebar's own scroll container
     useEffect(() => {
-        const container = sidebarRef.current;
-        if (!container) return;
-
-        const handleScroll = () => {
-            const { scrollTop, scrollHeight, clientHeight } = container;
-            // Trigger when within 200px of bottom
-            if (scrollHeight - scrollTop - clientHeight < 200 && hasNextPage && !isFetchingNextPage) {
-                fetchNextPage();
+        const handleFS = () => {
+            const isFS = !!document.fullscreenElement;
+            setIsBrowserFullscreen(isFS);
+            if (!isFS) {
+                setShowControls(true);
+                if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+            } else {
+                setShowControls(true);
+                if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+                controlsTimerRef.current = setTimeout(() => setShowControls(false), 3000);
             }
         };
+        document.addEventListener('fullscreenchange', handleFS);
+        return () => document.removeEventListener('fullscreenchange', handleFS);
+    }, []);
 
-        container.addEventListener('scroll', handleScroll, { passive: true });
-        return () => container.removeEventListener('scroll', handleScroll);
-    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-    // Auto-expand until active episode is visible (fetch enough pages)
     useEffect(() => {
-        if (episodeNum && hasNextPage && !isFetchingNextPage) {
-            const num = Number(episodeNum);
-            const maxVisible = filteredEpisodesFlattened.length > 0
-                ? Math.max(...filteredEpisodesFlattened.map(e => Number(e.episode_number)))
-                : 0;
-            if (num > maxVisible) {
-                fetchNextPage();
+        if (episodeData?.id && anime?.id) {
+            const key = `${anime.id}-${episodeData.id}`;
+            if (trackedEpisodeRef.current !== key) {
+                trackedEpisodeRef.current = key;
+                api.post('/history/track-episode', { episode_id: episodeData.id, anime_id: Number(anime.id), image: episodeData.thumbnail || '' }).catch(() => {});
+                trackEpisodeView(episodeData.id);
+                getEpisodeStats(episodeData.id).then(data => { setStats(data); setUserReaction(data.user_reaction || null); });
             }
         }
-    }, [episodeNum, filteredEpisodesFlattened.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    }, [episodeData?.id, anime?.id]);
 
-    const displayedEpisodesView = filteredEpisodesFlattened;
-
-    // Reset selected server when language changes or filtered servers change
     useEffect(() => {
-        setSelectedServer(0);
-    }, [lang, servers]);
-
-    // On-demand Server logic has been moved to handleServerClick
-
-    const { data: commentsData } = useQuery({
-        queryKey: ['comments', currentEpisode?.id],
-        queryFn: async () => {
-            if (!currentEpisode?.id) return [];
-            const response = await api.get(`/episodes/${currentEpisode.id}/comments`);
-            return response.data;
-        },
-        enabled: !!currentEpisode?.id
-    });
-
-
-    const handleReaction = async (reactionType: string) => {
-        if (!currentEpisode?.id) return;
-
-        const previousReaction = userReaction;
-        const previousCounts = { ...stats };
-        
-        // Optimistic UI update
-        const newStats = { ...stats } as EpisodeStats;
-        let newUserReaction: string | null = reactionType;
-        
-        if (previousReaction === reactionType) {
-            // Toggling SAME reaction off
-            newUserReaction = null;
-            const col = getReactionColumn(reactionType);
-            if (col && (newStats as any)[col] !== undefined) {
-                (newStats as any)[col] = Math.max(0, (newStats as any)[col] - 1);
-            }
-        } else {
-            // Changing or adding reaction
-            if (previousReaction) {
-                const oldCol = getReactionColumn(previousReaction);
-                if (oldCol && (newStats as any)[oldCol] !== undefined) {
-                    (newStats as any)[oldCol] = Math.max(0, (newStats as any)[oldCol] - 1);
-                }
-            }
-            const newCol = getReactionColumn(reactionType);
-            if (newCol && (newStats as any)[newCol] !== undefined) {
-                (newStats as any)[newCol] = ((newStats as any)[newCol] || 0) + 1;
-            }
+        if (anime && id && episodeNum) {
+            const title = lang === 'ar' ? anime.title : (anime.title_en || anime.title);
+            const slug = slugify(title);
+            if (currentSlug !== slug) navigate(`/${lang}/watch/${id}/${episodeNum}/${slug}${window.location.search}${window.location.hash}`, { replace: true });
         }
-        
-        setUserReaction(newUserReaction);
-        setStats(newStats);
+    }, [id, episodeNum, anime, currentSlug, lang, navigate]);
 
-        try {
-            const updatedStats = await toggleEpisodeReaction(currentEpisode.id, reactionType);
-            setStats(prev => ({ ...prev, ...updatedStats }));
-            setUserReaction(updatedStats.user_reaction || null);
-        } catch (err: any) {
-            console.error('Failed to toggle reaction:', err);
-            const errorMsg = err?.response?.data?.error || err?.message || 'Unknown error';
-            // Revert on error
-            setUserReaction(previousReaction);
-            setStats(previousCounts as any);
-            toast.error(`${lang === 'ar' ? 'فشل التفاعل' : 'Failed to react'}: ${errorMsg}`);
+    useEffect(() => { setSelectedServer(0); setIsPlayerUnlocked(false); }, [lang, servers]);
+    useEffect(() => { setIsPlayerUnlocked(false); }, [selectedServer]);
+    useEffect(() => { setDynamicVideoUrl(null); setLastRefreshedId(null); }, [id, episodeNum]);
+
+    useEffect(() => {
+        // Auto-refresh Anime3rb logic
+        const active = servers[selectedServer];
+        if (active?.name.toLowerCase().includes('anime3rb') && currentEpisode?.source_url && !dynamicVideoUrl && !isRefreshingVideo && lastRefreshedId !== `${currentEpisode?.id}-${selectedServer}`) {
+            refreshAnime3rbLink(currentEpisode, selectedServer);
+        }
+    }, [selectedServer, servers, currentEpisode, dynamicVideoUrl, isRefreshingVideo, lastRefreshedId]);
+
+
+
+    // ==========================================
+    // 6. BUSINESS HANDLERS (Events)
+    // ==========================================
+
+    // Generic modal opener helper
+    const openModal = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+        setter(true);
+    };
+
+    // Quality change handler for CustomVideoPlayer
+    const handleQualityChange = (qualityUrl: string) => {
+        const idx = playerQualities.findIndex((q: any) => q.url === qualityUrl);
+        if (idx !== -1 && playerQualities[idx]?.serverId !== undefined) {
+            setSelectedServer(playerQualities[idx].serverId);
         }
     };
 
-    // Helper to map reaction key to stats column
-    const getReactionColumn = (type: string) => {
-        switch (type) {
-            case 'like': return 'likes_count';
-            case 'love': return 'loves_count';
-            case 'haha': return 'hahas_count';
-            case 'wow': return 'wows_count';
-            case 'sad': return 'sads_count';
-            case 'angry': return 'angrys_count';
-            case 'super_sad': return 'super_sads_count';
-            default: return null;
+    const [showReactionPopup, setShowReactionPopup] = useState(false);
+    const [hoveredReaction, setHoveredReaction] = useState<string | null>(null);
+    const reactionLeaveTimer = useRef<NodeJS.Timeout | null>(null);
+    const reactionEnterTimer = useRef<NodeJS.Timeout | null>(null);
+    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+    const handleLikeMouseEnter = () => { if (reactionLeaveTimer.current) clearTimeout(reactionLeaveTimer.current); reactionEnterTimer.current = setTimeout(() => setShowReactionPopup(true), 100); };
+    const handleLikeMouseLeave = () => { if (reactionEnterTimer.current) clearTimeout(reactionEnterTimer.current); reactionLeaveTimer.current = setTimeout(() => setShowReactionPopup(false), 300); };
+    const handlePopupMouseEnter = () => { if (reactionLeaveTimer.current) clearTimeout(reactionLeaveTimer.current); };
+    const handlePopupMouseLeave = () => { reactionLeaveTimer.current = setTimeout(() => setShowReactionPopup(false), 200); };
+    const handleTouchStart = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); longPressTimer.current = setTimeout(() => { setShowReactionPopup(true); if (navigator.vibrate) navigator.vibrate(50); }, 500); };
+    const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
+    const handleTouchMove = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
+    const handleLikeClick = () => { if (window.innerWidth < 768) setShowReactionPopup(prev => !prev); else handleReaction('like'); };
+
+    const handleReactionClick = (key: string) => {
+        handleReaction(key);
+        setShowReactionPopup(false);
+    };
+
+    const handleReaction = async (type: string) => {
+        if (!currentEpisode?.id) return;
+        const prevReaction = userReaction;
+        const prevStats = stats;
+        
+        // Optimistic Update
+        setUserReaction(userReaction === type ? null : type);
+        try {
+            const updated = await toggleEpisodeReaction(currentEpisode.id, type);
+            setStats(prev => ({ ...prev, ...updated }));
+            setUserReaction(updated.user_reaction || null);
+        } catch (e) {
+            setUserReaction(prevReaction);
+            setStats(prevStats);
+            toast.error(lang === 'ar' ? 'فشل التفاعل' : 'Reaction failed');
         }
     };
 
     const handleShare = (platform: string, url: string, text: string) => {
         let shareUrl = '';
-
         switch (platform) {
-            case 'facebook':
-                shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-                break;
-            case 'whatsapp':
-                shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
-                break;
-            case 'twitter':
-                shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-                break;
-            case 'bluesky':
-                shareUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(text + ' ' + url)}`;
-                break;
-            case 'copy':
-                navigator.clipboard.writeText(url);
-                break;
-            default:
-                return;
+            case 'facebook': shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`; break;
+            case 'whatsapp': shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`; break;
+            case 'twitter': shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`; break;
+            case 'copy': navigator.clipboard.writeText(url); toast.success(lang === 'ar' ? 'تم نسخ الرابط' : 'Link copied'); return;
+            default: return;
         }
-
-        if (platform !== 'copy') {
-            window.open(shareUrl, '_blank');
-        }
-
-        toast.custom((t) => (
-            <div className="flex w-full items-start gap-3 rounded-lg bg-white dark:bg-[#1a1a1a] p-4 shadow-lg border border-gray-100 dark:border-[#333] relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-2">
-                    <button onClick={() => toast.dismiss(t)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-                <div className="relative w-12 h-12 flex-shrink-0 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    {platform === 'copy' ? <Check className="w-6 h-6 text-green-600" /> : <Share2 className="w-6 h-6 text-blue-600" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-gray-900 dark:text-white text-sm mb-1">
-                        {platform === 'copy'
-                            ? (lang === 'ar' ? 'تم نسخ الرابط!' : 'Link Copied!')
-                            : (lang === 'ar' ? 'جاري المشاركة...' : 'Sharing...')}
-                    </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {platform === 'copy'
-                            ? (lang === 'ar' ? 'تم نسخ رابط الحلقة للحافظة.' : 'Episode link copied to clipboard.')
-                            : (lang === 'ar' ? `يتم فتح ${platform} للمشاركة.` : `Opening ${platform} to share.`)}
-                    </p>
-                </div>
-            </div>
-        ), { position: 'top-center', duration: 3000 });
+        window.open(shareUrl, '_blank');
     };
 
     const handleFullscreen = () => {
         const container = document.getElementById('video-container');
         if (!container) return;
-        
         if (!document.fullscreenElement) {
-            if (container.requestFullscreen) {
-                container.requestFullscreen();
-            } else if ((container as any).webkitRequestFullscreen) {
-                (container as any).webkitRequestFullscreen();
-            } else if ((container as any).msRequestFullscreen) {
-                (container as any).msRequestFullscreen();
-            } else {
-                toast.error(lang === 'ar' ? 'المتصفح لا يدعم تكبير الشاشة' : 'Fullscreen not supported by browser');
-            }
+            if (container.requestFullscreen) container.requestFullscreen();
+            else if ((container as any).webkitRequestFullscreen) (container as any).webkitRequestFullscreen();
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if ((document as any).webkitExitFullscreen) {
-                (document as any).webkitExitFullscreen();
-            } else if ((document as any).msExitFullscreen) {
-                (document as any).msExitFullscreen();
-            }
+            if (document.exitFullscreen) document.exitFullscreen();
         }
     };
 
+    const handleServerClick = async (idx: number) => {
+        if (isDeleteMode) {
+            const serverName = servers[idx]?.name;
+            if (!serverName) return;
+            setDeletingServerIdx(idx);
+            try {
+                await api.delete(`/animes/${anime?.id}/servers`, { data: { names: [serverName] } });
+                queryClient.invalidateQueries({ queryKey: ['anime'] });
+                toast.success('Deleted');
+            } catch(e) { toast.error('Failed to delete'); }
+            finally { setDeletingServerIdx(null); }
+            return;
+        }
+        if (isSwapMode) {
+            setSelectedServersForSwap(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : prev.length >= 2 ? [prev[1], idx] : [...prev, idx]);
+        } else {
+            setIsVideoLoading(true);
+            setSelectedServer(idx);
+            setDynamicVideoUrl(null);
+            const chosenServer = servers[idx];
+            if (chosenServer?.name.toLowerCase().includes('anime3rb')) refreshAnime3rbLink(currentEpisode, idx);
+        }
+    };
+
+    const handleConfirmSwap = async () => {
+        if (selectedServersForSwap.length !== 2) return;
+        const name1 = servers[selectedServersForSwap[0]].name;
+        const name2 = servers[selectedServersForSwap[1]].name;
+        let newPriority = [...serverPriority];
+        if (!newPriority.includes(name1)) newPriority.push(name1);
+        if (!newPriority.includes(name2)) newPriority.push(name2);
+        const i1 = newPriority.indexOf(name1);
+        const i2 = newPriority.indexOf(name2);
+        [newPriority[i1], newPriority[i2]] = [newPriority[i2], newPriority[i1]];
+        
+        setServerPriority(newPriority);
+        if (anime?.id) {
+            try {
+                await api.patch(`/animes/${anime.id}/server-priority`, { priority: newPriority.join(',') });
+                queryClient.invalidateQueries({ queryKey: ['anime', id] });
+                toast.success(lang === 'ar' ? 'تم حفظ الترتيب' : 'Order saved');
+            } catch (err) { toast.error('Failed to save order'); }
+        }
+        setSelectedServersForSwap([]);
+        setIsSwapMode(false);
+    };
+
+
+
+    // ==========================================
+    // 7. UI CONSTS & SEO HELPERS
+    // ==========================================
     const formatNumber = (num: number): string => {
         if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
         if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
         return num.toString();
     };
 
-    const isLoading = isQueryLoading || episodeLoading;
-
-    // Derived Data
     const animeTitle = (lang === 'ar' ? anime?.title : (anime?.title_en || anime?.title)) || "";
-    const epTitle = (lang === 'ar' ? (episodeData?.title || episodeData?.title_en) : (episodeData?.title_en || episodeData?.title)) || "";
-    const animeDesc = (lang === 'ar' ? (anime?.description || anime?.description_en) : (anime?.description_en || anime?.description)) || "";
-    const epDesc = (lang === 'ar' ? (episodeData?.description || episodeData?.description_en) : (episodeData?.description_en || episodeData?.description)) || "";
-
-    // Explicit requested title format with robust fallback
-    // We prioritize episodeData title, ensuring we get the specific episode title if available
-    const rawEpTitle = lang === 'ar' ? (episodeData?.title || currentEpisode?.title) : (episodeData?.title_en || currentEpisode?.title_en || episodeData?.title || currentEpisode?.title);
-
-    // If the episode title is just "Episode X" or empty, we might want to keep it simple
-    // But usually we want "Anime Name - Episode Title" or "Anime Name - Episode X"
-    const displayEpTitle = rawEpTitle || (lang === 'ar' ? `حلقة ${episodeNum}` : `Episode ${episodeNum}`);
-
-    const pageTitle = `${animeTitle} - ${displayEpTitle}`;
-    const finalDescription = animeDesc || epDesc || (lang === 'ar' ? 'لا يوجد وصف متاح.' : 'No description available.');
-
-    const metaImage = getImageUrl(episodeData?.thumbnail || episodeData?.banner || anime?.banner || anime?.cover || "");
+    const epTitle = (lang === 'ar' ? (episodeData?.title || `حلقة ${episodeNum}`) : (episodeData?.title_en || `Episode ${episodeNum}`)) || "";
+    const pageTitle = `${animeTitle} - ${epTitle}`;
+    const finalDescription = (lang === 'ar' ? anime?.description : anime?.description_en) || anime?.description || "";
+    const metaImage = getImageUrl(episodeData?.thumbnail || anime?.cover || "");
     const canonicalUrl = `${window.location.origin}${window.location.pathname}`;
+    const keywords = [animeTitle, epTitle, anime?.studio?.name].filter(Boolean).join(', ');
+    const animeReleaseDate = anime?.release_date ? new Date(anime.release_date).toISOString() : null;
 
-    const genres = anime?.categories?.map((c: any) => lang === 'ar' ? c?.title : (c?.title_en || c?.title)).filter(Boolean).join(', ') || '';
-    const studioName = anime?.studio?.name || anime?.studio_name || "";
-
-    const keywords = [animeTitle, epTitle, genres, studioName].filter(Boolean).join(', ');
-
-    // Breadcrumb Data
     const breadcrumbData = {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         "itemListElement": [
-            {
-                "@type": "ListItem",
-                "position": 1,
-                "name": lang === 'ar' ? "الرئيسية" : "Home",
-                "item": `${window.location.origin}/${lang}`
-            },
-            {
-                "@type": "ListItem",
-                "position": 2,
-                "name": lang === 'ar' ? "الأنمي" : "Anime",
-                "item": `${window.location.origin}/${lang}/animes`
-            },
-            {
-                "@type": "ListItem",
-                "position": 3,
-                "name": animeTitle,
-                "item": `${window.location.origin}/${lang}/watch/${anime?.id}`
-            },
-            {
-                "@type": "ListItem",
-                "position": 4,
-                "name": epTitle || `${lang === 'ar' ? 'حلقة' : 'Ep'} ${episodeNum}`,
-                "item": canonicalUrl
-            }
+            { "@type": "ListItem", "position": 1, "name": lang === 'ar' ? "الرئيسية" : "Home", "item": `${window.location.origin}/${lang}` },
+            { "@type": "ListItem", "position": 2, "name": lang === 'ar' ? "الأنمي" : "Anime", "item": `${window.location.origin}/${lang}/animes` },
+            { "@type": "ListItem", "position": 3, "name": animeTitle, "item": `${window.location.origin}/${lang}/watch/${anime?.id}` },
+            { "@type": "ListItem", "position": 4, "name": epTitle, "item": canonicalUrl }
         ]
     };
 
-    // JSON-LD Schema for TVEpisode
     const schemaData = {
         "@context": "https://schema.org",
         "@type": "TVEpisode",
-        "name": epTitle || `${animeTitle} Episode ${episodeNum}`,
+        "name": pageTitle,
         "description": finalDescription,
         "episodeNumber": String(episodeNum),
         "image": metaImage,
-        "partOfSeries": {
-            "@type": "TVSeries",
-            "name": animeTitle,
-            "description": animeDesc,
-            "genre": anime?.categories?.map((c: any) => lang === 'ar' ? c?.title : (c?.title_en || c?.title)).filter(Boolean) || [],
-            "productionCompany": {
-                "@type": "Organization",
-                "name": studioName
-            }
-        },
-        "video": {
-            "@type": "VideoObject",
-            "name": pageTitle,
-            "description": finalDescription,
-            "thumbnailUrl": metaImage,
-            "uploadDate": episodeData?.created_at || new Date().toISOString(),
-            "duration": `PT${anime?.duration || 24}M`
-        }
+        "partOfSeries": { "@type": "TVSeries", "name": animeTitle }
     };
 
-    // Safe Date for SEO
-    const safeIsoDate = (dateStr: any) => {
-        if (!dateStr) return null;
-        try {
-            const d = new Date(dateStr);
-            return isNaN(d.getTime()) ? null : d.toISOString();
-        } catch (e) {
-            return null;
-        }
-    };
+    const isLoading = isQueryLoading || episodeLoading || isLoadingActiveEpisode;
+    const videoUrl = dynamicVideoUrl || servers[selectedServer]?.url || "";
+    const shouldIndex = !!(anime && currentEpisode && !episodeError);
 
-    const animeReleaseDate = safeIsoDate(anime?.release_date);
-
-    let videoUrl = dynamicVideoUrl || servers[selectedServer]?.url || "";
-    // Allow the server's default play behavior without forcing autoplay constraints that freeze cross-origin iframes
-
-    // Determine Robots status outside JSX
-    const shouldIndex = !((!anime && !isQueryLoading) || !!episodeError || (!currentEpisode && !episodeData));
+    const REACTIONS = [
+        { key: 'like', label: lang === 'ar' ? 'أعجبني' : 'Like', gif: getImageUrl('/uploads/تفاعل البوست/أعجبني.png') },
+        { key: 'love', label: lang === 'ar' ? 'أحببته' : 'Love', gif: getImageUrl('/uploads/تفاعل البوست/أحببتة.png') },
+        { key: 'sad', label: lang === 'ar' ? 'أحزنني' : 'Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحزنني.gif') },
+        { key: 'angry', label: lang === 'ar' ? 'أغضبني' : 'Angry', gif: getImageUrl('/uploads/تفاعل البوست/أغضبني.gif') },
+        { key: 'wow', label: lang === 'ar' ? 'واوو' : 'Wow', gif: getImageUrl('/uploads/تفاعل البوست/واوو.png') },
+        { key: 'haha', label: lang === 'ar' ? 'اضحكني' : 'Haha', gif: getImageUrl('/uploads/تفاعل البوست/اضحكني.png') },
+        { key: 'super_sad', label: lang === 'ar' ? 'أحززنني جداً' : 'So Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحززنني جدا.png') },
+    ];
 
     return (
         <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white transition-colors duration-300">
@@ -1204,6 +749,69 @@ export default function WatchPage() {
                                                 id="video-container" 
                                                 className="w-full aspect-video bg-black relative group md:rounded-t-xl overflow-visible"
                                             >
+                                                {!isPlayerUnlocked && (
+                                                    <button 
+                                                        type="button"
+                                                        className="absolute inset-0 z-40 flex items-center justify-center group/gate overflow-hidden cursor-pointer"
+                                                        style={{ 
+                                                            backgroundColor: 'black',
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            border: 'none',
+                                                            padding: 0,
+                                                            margin: 0,
+                                                            display: 'flex',
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            
+                                                            const adUrl = 'https://www.profitablecpmratenetwork.com/f0u9ij8um1?key=17c19d88db706037ed0f39cbce40ebcc';
+                                                            
+                                                            // Most reliable way to open popup in a click handler
+                                                            const win = window.open(adUrl, '_blank');
+                                                            if (win) {
+                                                                win.focus();
+                                                            } else {
+                                                                // Fallback for some browsers
+                                                                const link = document.createElement('a');
+                                                                link.href = adUrl;
+                                                                link.target = '_blank';
+                                                                link.rel = 'noopener noreferrer';
+                                                                link.click();
+                                                            }
+
+                                                            // Delay to ensure the browser registers the window.open before removing the element
+                                                            setTimeout(() => {
+                                                                setIsPlayerUnlocked(true);
+                                                            }, 400);
+                                                        }}
+                                                    >
+                                                        {/* Background Episode Image */}
+                                                        <div 
+                                                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover/gate:scale-105 pointer-events-none"
+                                                            style={{ backgroundImage: `url(${metaImage})`, pointerEvents: 'none' }}
+                                                        >
+                                                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+                                                        </div>
+
+                                                        {/* Large White Triangle (Play Button) */}
+                                                        <div className="relative z-10 transition-all duration-300 transform group-hover/gate:scale-110 group-active/gate:scale-95 pointer-events-none">
+                                                            <div className="w-24 h-24 md:w-32 md:h-32 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/50 shadow-2xl">
+                                                                <Play className="w-12 h-12 md:w-16 md:h-16 text-white fill-white ml-2" />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Hint Text */}
+                                                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white font-bold text-sm md:text-base opacity-80 group-hover/gate:opacity-100 transition-opacity whitespace-nowrap bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm pointer-events-none">
+                                                            {lang === 'ar' ? 'اضغط للتشغيل' : 'Click to Play'}
+                                                        </div>
+                                                    </button>
+                                                )}
+
                                                 {videoUrl ? (
                                                     <>
                                                         {isVideoFile(videoUrl) ? (
@@ -1213,6 +821,7 @@ export default function WatchPage() {
                                                                 qualities={playerQualities}
                                                                 onQualityChange={handleQualityChange}
                                                                 currentQuality={playerQualities.find((q: any) => q.url === videoUrl)?.label}
+                                                                autoPlay={isPlayerUnlocked}
                                                             />
                                                         ) : (
                                                             <iframe 
@@ -1354,13 +963,21 @@ export default function WatchPage() {
                                                         )}
 
                                                         <button 
-                                                            onClick={() => setIsBulkDeleteModalOpen(true)}
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-all border border-red-500/20"
-                                                            title={lang === 'ar' ? 'تحديد حذف السيرفر' : 'Bulk Delete Servers'}
+                                                            onClick={() => {
+                                                                setIsDeleteMode(!isDeleteMode);
+                                                                setIsSwapMode(false);
+                                                            }}
+                                                            className={cn(
+                                                                "flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border",
+                                                                isDeleteMode 
+                                                                    ? "bg-red-500 text-white border-red-600 shadow-md"
+                                                                    : "bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/20"
+                                                            )}
+                                                            title={lang === 'ar' ? 'وضع الحذف' : 'Delete Mode'}
                                                         >
-                                                            <Trash2 className="w-4 h-4" />
+                                                            <Trash2 className={cn("w-4 h-4", isDeleteMode && "animate-pulse")} />
                                                             <span className="text-xs font-bold whitespace-nowrap">
-                                                                {lang === 'ar' ? 'تحديد حذف السيرفر' : 'Bulk Delete'}
+                                                                {isDeleteMode ? (lang === 'ar' ? 'وضع الحذف نشط' : 'Delete Mode Active') : (lang === 'ar' ? 'تحديد حذف السيرفر' : 'Bulk Delete')}
                                                             </span>
                                                         </button>
                                                     </div>
@@ -1389,37 +1006,52 @@ export default function WatchPage() {
                                                             >
                                                                 <button
                                                                     onClick={() => handleServerClick(idx)}
-                                                                    disabled={isRefreshingVideo && isSelected}
+                                                                    disabled={(isRefreshingVideo && isSelected) || deletingServerIdx === idx}
                                                                     className={cn(
                                                                         "relative flex items-center justify-center h-8 rounded-lg overflow-hidden transition-all duration-300",
                                                                         hasImage ? "w-20 bg-white dark:bg-[#1a1a1a] p-1" : "px-4 bg-transparent",
-                                                                        isSelected
+                                                                        isSelected && !isDeleteMode
                                                                             ? hasImage
                                                                                 ? "bg-gray-200 dark:bg-white text-black dark:text-black font-black shadow-md scale-105"
                                                                                 : "bg-black dark:bg-white text-white dark:text-black font-bold font-sans text-sm shadow-md scale-105"
                                                                             : "bg-gray-100 dark:bg-[#222] text-gray-500 dark:text-gray-400 opacity-70 hover:opacity-100",
                                                                         isSelectedForSwap && "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-[#1a1a1a] scale-110 !opacity-100 !bg-blue-500/10",
-                                                                        isSwapMode ? "cursor-pointer" : "cursor-pointer",
-                                                                        (isRefreshingVideo && isSelected) ? "opacity-50 cursor-wait" : ""
+                                                                        isDeleteMode && "ring-2 ring-red-500 ring-offset-2 dark:ring-offset-[#1a1a1a] hover:bg-red-500/20 !opacity-100",
+                                                                        (isSwapMode || isDeleteMode) ? "cursor-pointer" : "cursor-pointer",
+                                                                        (isRefreshingVideo && isSelected) ? "opacity-50 cursor-wait" : "",
+                                                                        (deletingServerIdx === idx) && "opacity-50 cursor-wait bg-red-500/50 grayscale"
                                                                     )}
                                                                 >
-                                                                    {hasImage ? (
-                                                                        <img 
-                                                                            src={getImageUrl(matchedServer.image)} 
-                                                                            alt={server.name} 
-                                                                            className={cn(
-                                                                                "w-full h-full object-contain object-center transition-transform pointer-events-none",
-                                                                                (isSelected || isSelectedForSwap) ? "scale-110" : "scale-100",
-                                                                                "mix-blend-multiply dark:mix-blend-normal"
-                                                                            )} 
-                                                                        />
-                                                                    ) : (
-                                                                        <span className="text-xs font-bold uppercase tracking-wider pointer-events-none">{server.name}</span>
-                                                                    )}
+                                                                    {deletingServerIdx === idx ? (
+                                                                        <Loader2 className="w-5 h-5 text-red-500 animate-spin absolute" />
+                                                                    ) : null}
                                                                     
-                                                                    {isSelectedForSwap && (
-                                                                        <div className="absolute top-0 right-0 bg-blue-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg">
-                                                                            <span className="text-[10px]">{selectedServersForSwap.indexOf(idx) + 1}</span>
+                                                                    <div className={cn("flex w-full h-full justify-center items-center", deletingServerIdx === idx && "opacity-0")}>
+                                                                        {hasImage ? (
+                                                                            <img 
+                                                                                src={getImageUrl(matchedServer.image)} 
+                                                                                alt={server.name} 
+                                                                                className={cn(
+                                                                                    "w-full h-full object-contain object-center transition-transform pointer-events-none",
+                                                                                    (isSelected || isSelectedForSwap) ? "scale-110" : "scale-100",
+                                                                                    "mix-blend-multiply dark:mix-blend-normal"
+                                                                                )} 
+                                                                            />
+                                                                        ) : (
+                                                                            <span className="text-xs font-bold uppercase tracking-wider pointer-events-none">{server.name}</span>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    {(isSelectedForSwap || isDeleteMode) && deletingServerIdx !== idx && (
+                                                                        <div className={cn(
+                                                                            "absolute top-0 right-0 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg",
+                                                                            isDeleteMode ? "bg-red-500" : "bg-blue-500"
+                                                                        )}>
+                                                                            {isDeleteMode ? (
+                                                                                <Trash2 className="w-2 h-2" />
+                                                                            ) : (
+                                                                                <span className="text-[10px]">{selectedServersForSwap.indexOf(idx) + 1}</span>
+                                                                            )}
                                                                         </div>
                                                                     )}
                                                                 </button>
@@ -1575,15 +1207,12 @@ export default function WatchPage() {
                                                     )}
                                                 </div>
 
+                                                {/* Desktop: Comment Button (Part of Grid) */}
                                                 <button
-                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[14px] md:text-[15px] text-black dark:text-white hover:bg-white dark:hover:bg-[#2a2a2a] border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
+                                                    className="hidden md:flex flex-1 items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[14px] md:text-[15px] text-black dark:text-white hover:bg-white dark:hover:bg-[#2a2a2a] border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
                                                     onClick={() => {
-                                                        if (isMobile) {
-                                                            commentsSectionRef.current?.openAddCommentModal();
-                                                        } else {
-                                                            const commentsEl = document.getElementById('comments-section');
-                                                            if (commentsEl) commentsEl.scrollIntoView({ behavior: 'smooth' });
-                                                        }
+                                                        const commentsEl = document.getElementById('comments-section');
+                                                        if (commentsEl) commentsEl.scrollIntoView({ behavior: 'smooth' });
                                                     }}
                                                 >
                                                     <MessageCircle className="w-5 h-5 text-black dark:text-white" />
@@ -1612,7 +1241,40 @@ export default function WatchPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-white dark:bg-black/20 pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
+                                            {/* Mobile: Prominent Comments & Episodes Buttons (Full Width Rows) */}
+                                            <div className="md:hidden px-4 pb-4 space-y-3">
+                                                <button
+                                                    onClick={() => setIsMobileCommentsOpen(true)}
+                                                    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-black dark:text-white transition-all active:scale-[0.98] shadow-sm"
+                                                >
+                                                    <MessageCircle className="w-6 h-6 stroke-[2.5px]" />
+                                                    <div className="flex flex-col items-start leading-tight">
+                                                        <span className="text-[16px] font-black uppercase tracking-tight">
+                                                            {lang === 'ar' ? 'التعليقات' : 'Comments'}
+                                                        </span>
+                                                        <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                                                            {formatNumber(commentsData?.length || 0)} {lang === 'ar' ? 'تعليق' : 'Comments'}
+                                                        </span>
+                                                    </div>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setIsEpisodesModalOpen(true)}
+                                                    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-black dark:text-white transition-all active:scale-[0.98] shadow-sm"
+                                                >
+                                                    <Library className="w-6 h-6 stroke-[2.5px]" />
+                                                    <div className="flex flex-col items-start leading-tight">
+                                                        <span className="text-[16px] font-black uppercase tracking-tight">
+                                                            {lang === 'ar' ? 'حلقات المسلسل' : 'Anime Episodes'}
+                                                        </span>
+                                                        <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                                                            {filteredEpisodesFlattened.length} {lang === 'ar' ? 'حلقة' : 'Episodes'}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            </div>
+
+                                            <div className="hidden md:block border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-white dark:bg-black/20 pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
                                                
                                                 <div className="min-h-[100px]">
                                                     <CommentsSection 
@@ -1635,13 +1297,13 @@ export default function WatchPage() {
                                         </h3>
                                         <button
                                             onClick={() => openModal(setIsEpisodesModalOpen)}
-                                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
+                                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-black dark:text-white transition-colors flex items-center gap-1.5"
                                             title={lang === 'ar' ? 'بحث وفلترة' : 'Search & Filter'}
                                         >
-                                            <span className="text-xs font-bold hidden sm:inline">
+                                            <span className="text-xs font-black hidden sm:inline uppercase tracking-tighter">
                                                 {lang === 'ar' ? 'فلترة' : 'Filter'}
                                             </span>
-                                            <Filter className="w-4 h-4" />
+                                            <Filter className="w-4 h-4 stroke-[3px] text-gray-900 dark:text-gray-100" />
                                         </button>
                                     </div>
                                     <div className="border border-gray-100 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-sm">
@@ -1666,8 +1328,8 @@ export default function WatchPage() {
                                                         >
                                                             {/* Left: Indicator */}
                                                             <div className={cn(
-                                                                "w-8 flex-shrink-0 text-[11px] font-bold text-center transition-colors",
-                                                                isActive ? "text-blue-500" : "text-gray-400"
+                                                                "w-10 flex-shrink-0 text-sm font-black text-center transition-colors",
+                                                                isActive ? "text-blue-500" : "text-gray-900 dark:text-gray-100"
                                                             )}>
                                                                 #{ep.episode_number}
                                                             </div>
@@ -1824,18 +1486,6 @@ export default function WatchPage() {
                     />
                 )}
 
-                {anime && (
-                    <BulkDeleteServersModal
-                        isOpen={isBulkDeleteModalOpen}
-                        onClose={() => setIsBulkDeleteModalOpen(false)}
-                        animeId={anime.id}
-                        animeTitle={animeTitle}
-                        onSuccess={() => {
-                            // Optionally refetch current servers/episodes if needed
-                            window.location.reload(); 
-                        }}
-                    />
-                )}
             </div>
         </div>
     );

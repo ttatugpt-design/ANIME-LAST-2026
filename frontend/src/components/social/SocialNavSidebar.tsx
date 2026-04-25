@@ -23,12 +23,14 @@ export const SocialNavSidebar: React.FC = () => {
             icon: Sparkles,
             activeMatch: '/animes'
         },
+        /*
         {
             label: isAr ? 'المانجا' : 'Manga',
             href: `/${lang}/mangas`,
             icon: BookOpen,
             activeMatch: '/mangas'
         }
+        */
     ];
 
     const isActive = (link: any) => {

@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
-import { Search, Play, Plus, Share2, Star, Filter, ArrowUpDown, LayoutGrid, ChevronLeft, Loader2, Bookmark, BookmarkCheck } from "lucide-react";
+import { Search, Play, Plus, Share2, Star, Filter, ArrowUpDown, LayoutGrid, ChevronLeft, Loader2, Bookmark, BookmarkCheck, X } from "lucide-react";
 import api from "@/lib/api";
 import { renderEmojiContent } from "@/utils/render-content";
 import CrunchyrollSkeleton from "@/components/skeleton/CrunchyrollSkeleton";
@@ -47,6 +47,7 @@ export default function AnimeDetailsPage() {
     const { isAuthenticated } = useAuthStore();
     const [isWatchLaterLoading, setIsWatchLaterLoading] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isInitialButtonLoading, setIsInitialButtonLoading] = useState(true);
 
     const handleMouseEnter = (index: number) => {
         if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -94,6 +95,7 @@ export default function AnimeDetailsPage() {
                     search: searchQuery || undefined,
                     // If selectedNumber is a specific episode number prefix, we can pass it as search or handle uniquely.
                     // For now, let's treat selectedNumber as part of the search if it's set.
+                    // For now, let's treat selectedNumber as part of the search if it's set.
                 } 
             });
             return response.data; // { data: [], total, page, last_page }
@@ -112,6 +114,8 @@ export default function AnimeDetailsPage() {
     const episodesData = useMemo(() => {
         return infiniteEpisodesData?.pages.flatMap(page => page.data) || [];
     }, [infiniteEpisodesData]);
+
+    const isLoading = isQueryLoading;
 
     // Track Anime View (once per anime)
     const trackedAnimeRef = useRef<number | null>(null);
@@ -145,17 +149,38 @@ export default function AnimeDetailsPage() {
     }, [anime, id, currentSlug, lang, navigate]);
 
     useEffect(() => {
+        if (!isLoading) {
+            const timer = setTimeout(() => {
+                setIsInitialButtonLoading(false);
+            }, 1200); // Premium delay to show the high-quality spinner
+            return () => clearTimeout(timer);
+        }
+    }, [isLoading]);
+
+    useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'instant' });
     }, [id]);
 
-    const isLoading = isQueryLoading;
-
-    // Combine episodes from anime object or separate fetch and strictly filter
     const episodesList = useMemo(() => {
-        const list = anime?.episodes || episodesData || [];
+        // Prefer server-side paginated data, but fall back to initial anime.episodes if query hasn't run yet
+        const list = episodesData.length > 0 ? episodesData : (anime?.episodes || []);
         if (!anime?.id) return list;
-        return list.filter((ep: any) => Number(ep.anime_id) === Number(anime.id) && ep.is_published);
-    }, [anime, episodesData]);
+
+        // Ensure we only show episodes for the current anime and respect search/filters
+        return list.filter((ep: any) => {
+            const matchesAnime = Number(ep.anime_id) === Number(anime.id);
+            const matchesSearch = searchQuery 
+                ? (ep.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                   ep.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                   String(ep.episode_number).includes(searchQuery))
+                : true;
+            const matchesNumber = selectedNumber
+                ? String(ep.episode_number).startsWith(selectedNumber)
+                : true;
+            
+            return matchesAnime && ep.is_published && matchesSearch && matchesNumber;
+        });
+    }, [anime, episodesData, searchQuery, selectedNumber]);
 
     // Derived Data
     const backgroundUrl = useMemo(() => {
@@ -181,7 +206,7 @@ export default function AnimeDetailsPage() {
     
     const { ref: loadMoreRef, inView } = useInView({
         threshold: 0.1,
-        rootMargin: '200px',
+        rootMargin: '400px', // Fetch earlier for smoother experience
     });
 
     useEffect(() => {
@@ -207,7 +232,12 @@ export default function AnimeDetailsPage() {
         setIsWatchLaterLoading(false);
 
         if (added) {
-            toast.success(lang === 'ar' ? 'تمت الإضافة إلى القائمة!' : 'Added to Watch Later!');
+            toast.success(lang === 'ar' ? 'تمت الإضافة إلى القائمة!' : 'Added to Watch Later!', { position: 'top-center' });
+        } else {
+            toast.success(lang === 'ar' ? 'تمت الإزالة من القائمة' : 'Removed from list', { 
+                position: 'top-center',
+                icon: <X className="w-4 h-4 text-red-500" />
+            });
         }
     };
 
@@ -248,86 +278,55 @@ export default function AnimeDetailsPage() {
             {
                 "@type": "ListItem",
                 "position": 3,
-                "name": animeTitle,
+                "name": pageTitle,
                 "item": canonicalUrl
             }
         ]
     };
 
-    // JSON-LD Schema for TVSeries or Movie
+    // ─── Structured Data (JSON-LD) ───────────────────────────────────────────
     const schemaData = anime ? {
         "@context": "https://schema.org",
-        "@type": anime.type === 'MOVIE' ? "Movie" : "TVSeries",
+        "@type": "TVSeries",
         "name": animeTitle,
         "description": animeDescription,
         "image": animeImage,
-        "genre": anime?.categories?.map((c: any) => lang === 'ar' ? c.title : c.title_en).filter(Boolean) || [],
-        "startDate": anime.release_date,
-        "productionCompany": {
+        "genre": genres,
+        "author": {
             "@type": "Organization",
             "name": studioName
         },
-        "status": anime.status,
-        "numberOfEpisodes": String(episodesList?.length || 0),
+        "datePublished": anime.release_date,
         "aggregateRating": {
             "@type": "AggregateRating",
-            "ratingValue": anime.rating || "0",
+            "ratingValue": anime.rating || "N/A",
             "bestRating": "10",
-            "worstRating": "1",
-            "ratingCount": anime.rating_count || "100"
+            "worstRating": "1"
         }
     } : null;
 
-    // Safe Date for SEO
-    const safeIsoDate = (dateStr: any) => {
-        if (!dateStr) return null;
-        try {
-            const d = new Date(dateStr);
-            return isNaN(d.getTime()) ? null : d.toISOString();
-        } catch (e) {
-            return null;
-        }
-    };
-
-    const isoDate = safeIsoDate(anime?.release_date);
-
     return (
-        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white font-sans transition-colors duration-300">
-            <Helmet htmlAttributes={{ lang: lang }}>
-                {/* 5. Prevent problems/Duplicate: Noindex on error or empty data */}
-                {(!anime && !isLoading) || error ? (
-                    <meta name="robots" content="noindex, nofollow" />
-                ) : (
-                    <meta name="robots" content="index, follow" />
-                )}
-
-                {/* 1. Helmet SEO tags */}
+        <div className="bg-white dark:bg-black overflow-x-hidden">
+            {/* 1. SEO Helmet - Critical for Performance & Ranking */}
+            <Helmet>
                 <title>{pageTitle}</title>
-                <meta name="title" content={pageTitle} />
                 <meta name="description" content={animeDescription?.slice(0, 160)} />
                 <meta name="keywords" content={keywords} />
-                <meta name="author" content="AnimeLast" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <link rel="canonical" href={canonicalUrl} />
-                <meta name="theme-color" content="#000000" />
 
-                {/* Open Graph */}
-                <meta property="og:type" content={anime?.type === 'MOVIE' ? 'video.movie' : 'video.tv_show'} />
-                <meta property="og:site_name" content="AnimeLast" />
+                {/* Open Graph / Facebook */}
+                <meta property="og:type" content="video.tv_show" />
                 <meta property="og:url" content={canonicalUrl} />
                 <meta property="og:title" content={pageTitle} />
                 <meta property="og:description" content={animeDescription?.slice(0, 160)} />
                 <meta property="og:image" content={animeImage} />
-                <meta property="og:image:width" content="1200" />
-                <meta property="og:image:height" content="630" />
-                <meta property="og:locale" content={lang === 'ar' ? 'ar_AR' : 'en_US'} />
-                <meta property="og:locale:alternate" content={lang === 'ar' ? 'en_US' : 'ar_AR'} />
 
                 {/* Twitter */}
-                <meta name="twitter:card" content="summary_large_image" />
-                <meta name="twitter:title" content={pageTitle} />
-                <meta name="twitter:description" content={animeDescription?.slice(0, 160)} />
-                <meta name="twitter:image" content={animeImage} />
+                <meta property="twitter:card" content="summary_large_image" />
+                <meta property="twitter:url" content={canonicalUrl} />
+                <meta property="twitter:title" content={pageTitle} />
+                <meta property="twitter:description" content={animeDescription?.slice(0, 160)} />
+                <meta property="twitter:image" content={animeImage} />
 
                 {/* ItemProp */}
                 <meta itemProp="name" content={pageTitle} />
@@ -426,13 +425,17 @@ export default function AnimeDetailsPage() {
                                                         </div>
 
                                                         {/* Actions Buttons */}
-                                                        <div className="flex flex-wrap items-center gap-4 pt-4">
-                                                            {firstEpisodeId ? (
+                                                        <div className="flex flex-wrap items-center gap-4 pt-4 min-h-[64px]">
+                                                            {isInitialButtonLoading ? (
+                                                                <div className="px-8 py-3 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
+                                                                    <CentralSpinner size="small" />
+                                                                </div>
+                                                            ) : firstEpisodeId ? (
                                                                 <Link
                                                                     to={`/${lang}/watch/${anime?.id}/${firstEpisodeId.episode_number}/${slugify(animeTitle)}`}
-                                                                    className="flex items-center gap-3 px-8 py-4 bg-white hover:bg-neutral-200 text-black font-bold uppercase tracking-wide transition-transform hover:scale-105 skew-x-[-10deg]"
+                                                                    className="flex items-center gap-3 px-8 py-4 bg-white hover:bg-neutral-200 text-black font-bold uppercase tracking-wide transition-all hover:scale-105 rounded-full animate-in fade-in zoom-in duration-500"
                                                                 >
-                                                                    <span className="skew-x-[10deg] flex items-center gap-2">
+                                                                    <span className="flex items-center gap-2">
                                                                         <Play className="w-5 h-5 fill-current" />
                                                                         {lang === 'ar' ? `بدء الحلقة ${firstEpisodeId.episode_number}` : `Start Ep ${firstEpisodeId.episode_number}`}
                                                                     </span>
@@ -449,35 +452,41 @@ export default function AnimeDetailsPage() {
                                                                 onClick={handleWatchLaterToggle}
                                                                 disabled={isWatchLaterLoading}
                                                                 className={cn(
-                                                                    "p-4 skew-x-[-10deg] transition-all duration-300 shadow-lg border-2",
+                                                                    "flex items-center justify-center p-4 rounded-full transition-all duration-300 shadow-sm border group",
                                                                     isSaved(Number(anime?.id), null)
-                                                                        ? "bg-black border-black text-white hover:bg-neutral-900"
-                                                                        : "bg-white border-white text-black hover:bg-neutral-100"
+                                                                        ? "bg-black border-black text-white dark:bg-black dark:border-black dark:text-white"
+                                                                        : "bg-white border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 hover:shadow-sm"
                                                                 )}
+                                                                title={lang === 'ar' ? 'أضف لقائمة المشاهدة' : 'Watch Later'}
                                                             >
-                                                                <div className="skew-x-[10deg]">
-                                                                    {isWatchLaterLoading ? (
-                                                                        <Loader2 className={cn("w-6 h-6 animate-spin", isSaved(Number(anime?.id), null) ? "text-white" : "text-black")} />
-                                                                    ) : isSaved(Number(anime?.id), null) ? (
-                                                                        <BookmarkCheck className="w-6 h-6 fill-current" />
-                                                                    ) : (
-                                                                        <Plus className="w-6 h-6" />
-                                                                    )}
-                                                                </div>
+                                                                {isWatchLaterLoading ? (
+                                                                    <Loader2 className="w-7 h-7 animate-spin" />
+                                                                ) : isSaved(Number(anime?.id), null) ? (
+                                                                    <BookmarkCheck className="w-7 h-7 fill-current" />
+                                                                ) : (
+                                                                    <Bookmark className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                                                                )}
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => setIsShareModalOpen(true)}
+                                                                className="flex items-center justify-center p-4 rounded-full bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
+                                                            >
+                                                                <Share2 className="w-7 h-7 group-hover:scale-110 transition-transform" />
                                                             </button>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* DESKTOP INFO SECTION */}
-                                            <div className="hidden lg:flex flex-col w-full p-8 gap-8">
-                                                <div className="flex w-full gap-10 items-start">
-                                                    {/* Anime Poster (aspect-[3/4]) - Smaller Size */}
-                                                    <div className="w-[200px] shrink-0">
-                                                        <div className="aspect-[3/4] rounded-none overflow-hidden shadow-2xl border border-gray-100 dark:border-[#2a2a2a] relative bg-gray-100 dark:bg-[#1c1c1c]">
+                                            {/* DESKTOP HERO SECTION - Clean, centered, premium */}
+                                            <div className="hidden lg:block relative w-full pt-10 pb-16 px-4 md:px-12 bg-gray-50 dark:bg-[#0a0a0a] border-b border-gray-100 dark:border-[#1a1a1a]">
+                                                <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
+                                                    {/* Poster/Image Column */}
+                                                    <div className="w-full md:w-[280px] flex-shrink-0">
+                                                        <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group">
                                                             <SpinnerImage
-                                                                src={getImageUrl(anime?.cover || anime?.image)}
+                                                                src={getImageUrl(anime?.image || anime?.cover)}
                                                                 alt={animeTitle}
                                                                 className="w-full h-full"
                                                                 imageClassName="object-cover"
@@ -514,11 +523,15 @@ export default function AnimeDetailsPage() {
                                                         </div>
 
                                                         {/* Actions Buttons */}
-                                                        <div className="flex flex-wrap items-center gap-4 mt-auto">
-                                                            {firstEpisodeId ? (
+                                                        <div className="flex flex-wrap items-center gap-4 mt-auto min-h-[64px]">
+                                                            {isInitialButtonLoading ? (
+                                                                <div className="px-10 py-3 bg-gray-50 dark:bg-white/5 rounded-full border border-gray-100 dark:border-white/10">
+                                                                    <CentralSpinner size="small" />
+                                                                </div>
+                                                            ) : firstEpisodeId ? (
                                                                 <Link
                                                                     to={`/${lang}/watch/${anime?.id}/${firstEpisodeId.episode_number}/${slugify(animeTitle)}`}
-                                                                    className="flex items-center gap-3 px-10 py-4 bg-white dark:bg-white text-black dark:text-black font-black uppercase tracking-widest transition-transform hover:-translate-y-1 hover:shadow-xl rounded-none shadow-md border border-gray-200 dark:border-gray-200"
+                                                                    className="flex items-center gap-3 px-10 py-4 bg-white dark:bg-white text-black dark:text-black font-black uppercase tracking-widest transition-all hover:-translate-y-1 hover:shadow-xl rounded-full shadow-md animate-in fade-in zoom-in duration-500"
                                                                 >
                                                                     <Play className="w-6 h-6 fill-current" />
                                                                     {lang === 'ar' ? `ابدأ المشاهدة` : `Start Watching`}
@@ -533,7 +546,7 @@ export default function AnimeDetailsPage() {
                                                                 onClick={handleWatchLaterToggle}
                                                                 disabled={isWatchLaterLoading}
                                                                 className={cn(
-                                                                    "flex items-center justify-center p-4 rounded-none transition-all duration-300 shadow-sm border group",
+                                                                    "flex items-center justify-center p-4 rounded-full transition-all duration-300 shadow-sm border group",
                                                                     isSaved(Number(anime?.id), null)
                                                                         ? "bg-black border-black text-white dark:bg-black dark:border-black dark:text-white"
                                                                         : "bg-white border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 hover:shadow-sm"
@@ -548,10 +561,10 @@ export default function AnimeDetailsPage() {
                                                                     <Bookmark className="w-7 h-7 group-hover:scale-110 transition-transform" />
                                                                 )}
                                                             </button>
- 
+
                                                             <button
                                                                 onClick={() => setIsShareModalOpen(true)}
-                                                                className="flex items-center justify-center p-4 rounded-none bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
+                                                                className="flex items-center justify-center p-4 rounded-full bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
                                                             >
                                                                 <Share2 className="w-7 h-7 group-hover:scale-110 transition-transform" />
                                                             </button>
@@ -574,99 +587,66 @@ export default function AnimeDetailsPage() {
                                                     <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-4">
                                                         {/* Controls */}
                                                         <div className="flex items-center gap-6 text-base font-bold">
-                                                            <button className="flex items-center gap-2 text-gray-900 dark:text-white hover:text-black dark:hover:text-white transition-colors">
-                                                                <Filter className="w-5 h-5" />
-                                                                <span>{lang === 'ar' ? 'فلتر' : 'Filter'}</span>
+                                                            <button className="flex items-center gap-2 text-black dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                                                                <Filter className="w-5 h-5 stroke-[2.5px]" />
+                                                                <span className="font-black">{lang === 'ar' ? 'فلتر' : 'Filter'}</span>
                                                             </button>
                                                             <button className="flex items-center gap-2 text-gray-900 dark:text-white hover:text-black dark:hover:text-white transition-colors">
-                                                                <ArrowUpDown className="w-5 h-5" />
-                                                                <span>{lang === 'ar' ? 'أبجدي' : 'Alphabetical'}</span>
+                                                                <ArrowUpDown className="w-5 h-5 stroke-[2.5px]" />
+                                                                <span className="font-black">{lang === 'ar' ? 'ترتيب' : 'Sort'}</span>
                                                             </button>
-                                                            <div className="relative hidden md:block">
-                                                                <Search className={`absolute w-4 h-4 text-gray-400 -translate-y-1/2 top-1/2 ${lang === 'ar' ? 'right-3' : 'left-3'}`} />
-                                                                <input
-                                                                    value={searchQuery}
-                                                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                                                    className={`bg-white dark:bg-neutral-900 border border-gray-200 dark:border-white/10 py-1.5 pl-10 pr-4 rounded-full text-xs outline-none focus:ring-1 focus:ring-black dark:focus:ring-white w-48 shadow-sm ${lang === 'ar' ? 'pr-10 pl-4' : ''}`}
-                                                                    placeholder={lang === 'ar' ? 'بحث...' : 'Search...'}
-                                                                />
-                                                            </div>
                                                         </div>
-                                                        {/* Page Title */}
-                                                        <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
-                                                            {lang === 'ar' ? 'حلقات الأنمي' : 'Anime Episodes'}
-                                                            <span className="text-gray-500 text-lg font-normal mx-2">({episodesList?.length || 0})</span>
-                                                        </h3>
+
+                                                        {/* Search Bar - Full width on mobile */}
+                                                        <div className="w-full md:w-80 relative group">
+                                                            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                                                <Search className="w-5 h-5 text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors" />
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                placeholder={lang === 'ar' ? 'بحث عن حلقة...' : 'Search episodes...'}
+                                                                className="w-full pl-12 pr-6 py-3 bg-gray-50 dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-full text-sm font-bold text-gray-900 dark:text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 transition-all"
+                                                                value={searchQuery}
+                                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Numeric Filter Bar */}
-                                                <div className="w-full border-b border-gray-200 dark:border-neutral-800 py-4 flex justify-center sticky top-[60px] z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md mb-8">
-                                                    <div className="flex flex-wrap items-center justify-center gap-3 text-sm md:text-base font-bold text-gray-500 dark:text-gray-500">
-                                                        <button
-                                                            onClick={() => setSelectedNumber(null)}
-                                                            className={cn("hover:text-black dark:hover:text-white transition-colors", selectedNumber === null ? "text-black dark:text-white" : "")}
-                                                        >
-                                                            #
-                                                        </button>
-                                                        {['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-                                                            <button
-                                                                key={num}
-                                                                onClick={() => setSelectedNumber(num)}
-                                                                className={cn("hover:text-black dark:hover:text-white transition-colors", selectedNumber === num ? "text-black dark:text-white" : "")}
-                                                            >
-                                                                {num}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* Episodes List View */}
-                                                <div className="flex flex-col gap-6">
+                                                <div className="flex flex-col gap-10">
                                                     {filteredEpisodes.length > 0 ? (
                                                         <>
-                                                            {displayedEpisodes.map((episode: any, index: number) => (
-                                                                <div
-                                                                    key={episode.id}
-                                                                    className="relative group"
-                                                                    onMouseEnter={() => handleMouseEnter(index)}
-                                                                    onMouseLeave={handleMouseLeave}
-                                                                >
-                                                                    <EpisodeListItem episode={episode} lang={lang} animeTitle={animeTitle} />
-
-                                                                    {hoveredCardIndex === index && (
-                                                                        <div className="absolute -inset-x-2 -inset-y-1 z-20 h-auto min-h-full left-0 right-0 w-[calc(100%+16px)]">
-                                                                            <AnimeListHoverCard
-                                                                                data={episode}
-                                                                                lang={lang}
-                                                                                onMouseEnter={keepCardOpen}
-                                                                                onMouseLeave={handleMouseLeave}
-                                                                                className="w-full h-full"
-                                                                            />
-                                                                        </div>
-                                                                    )}
+                                                            {filteredEpisodes.map((episode) => (
+                                                                <div key={episode.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                                                    <EpisodeListItem
+                                                                        episode={episode}
+                                                                        lang={lang}
+                                                                        animeTitle={animeTitle}
+                                                                        animeId={Number(anime.id)}
+                                                                    />
                                                                 </div>
                                                             ))}
 
-                                                            {hasNextPage && (
-                                                                <div ref={loadMoreRef} className="flex justify-center mt-12 py-4">
-                                                                    <div className="flex items-center gap-3 text-gray-500">
-                                                                        <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-700 border-t-black dark:border-t-white rounded-full animate-spin"></div>
-                                                                        <span className="text-sm font-bold uppercase tracking-widest">
-                                                                            {lang === 'ar' ? 'جاري تحميل المزيد من قاعدة البيانات...' : 'Loading more from database...'}
-                                                                        </span>
-                                                                    </div>
+                                                            {(hasNextPage || isFetchingNextPage) && (
+                                                                <div className="flex flex-col justify-center items-center mt-10 py-10 gap-4">
+                                                                    <style>{`
+                                                                        @keyframes ep-spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+                                                                        @keyframes ep-spinBack { 0%{transform:rotate(0deg)} 100%{transform:rotate(-360deg)} }
+                                                                        .ep-loader { width:64px;height:64px;border-radius:50%;display:inline-block;position:relative;border:4px solid;border-color:#888 #888 transparent transparent;box-sizing:border-box;animation:ep-spin 1s linear infinite; }
+                                                                        .ep-loader::after,.ep-loader::before { content:'';box-sizing:border-box;position:absolute;left:0;right:0;top:0;bottom:0;margin:auto;border:4px solid;border-radius:50%; }
+                                                                        .ep-loader::after { border-color:transparent transparent #FF3D00 #FF3D00;width:50px;height:50px;animation:ep-spinBack 0.6s linear infinite; }
+                                                                        .ep-loader::before { border-color:#888 #888 transparent transparent;width:36px;height:36px;animation:ep-spin 1.2s linear infinite; }
+                                                                    `}</style>
+                                                                    <span className="ep-loader" />
+                                                                    <span className="text-xs font-black text-gray-500 uppercase tracking-widest animate-pulse">
+                                                                        {lang === 'ar' ? 'جاري تحميل المزيد...' : 'Loading More...'}
+                                                                    </span>
                                                                 </div>
                                                             )}
+                                                            <div ref={loadMoreRef} className="h-4 w-full" />
                                                         </>
                                                     ) : (
-                                                        <div className="py-20 text-center relative">
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-neutral-900/80 z-20">
-                                                                <Loader2 className="w-8 h-8 animate-spin text-black dark:text-white" />
-                                                            </div>
-                                                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white dark:bg-neutral-900 mb-4 border border-gray-100 dark:border-white/5 shadow-sm">
-                                                                <Search className="w-8 h-8 text-gray-500" />
-                                                            </div>
+                                                        <div className="py-20 text-center">
                                                             <p className="text-gray-500">
                                                                 {lang === 'ar' ? 'لا توجد حلقات مطابقة.' : 'No episodes found.'}
                                                             </p>
@@ -686,13 +666,13 @@ export default function AnimeDetailsPage() {
                                         {lang === 'ar' ? 'حلقات الأنمي' : 'Anime Episodes'}
                                     </h3>
                                     <button
-                                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
+                                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-black dark:text-white transition-colors flex items-center gap-1.5"
                                         title={lang === 'ar' ? 'بحث وفلترة' : 'Search & Filter'}
                                     >
-                                        <span className="text-xs font-bold hidden sm:inline">
+                                        <span className="text-xs font-black hidden sm:inline uppercase tracking-tighter">
                                             {lang === 'ar' ? 'فلترة' : 'Filter'}
                                         </span>
-                                        <Filter className="w-4 h-4" />
+                                        <Filter className="w-4 h-4 stroke-[3px] text-gray-900 dark:text-gray-100" />
                                     </button>
                                 </div>
                                 <div className="border border-gray-100 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-sm">
@@ -711,7 +691,7 @@ export default function AnimeDetailsPage() {
                                                         className="flex-1 flex items-center min-w-0"
                                                     >
                                                         {/* Left: Indicator */}
-                                                        <div className="w-8 flex-shrink-0 text-[11px] font-bold text-gray-400 text-center">
+                                                        <div className="w-10 flex-shrink-0 text-sm font-black text-gray-900 dark:text-gray-100 text-center">
                                                             #{ep.episode_number}
                                                         </div>
 
@@ -764,37 +744,16 @@ export default function AnimeDetailsPage() {
                                         </p>
                                     )}
                                     <AnimatePresence>
-                                        {(isFetchingNextPage || hasNextPage) && (
-                                            <motion.div 
-                                                ref={loadMoreRef} 
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="py-4 flex flex-col items-center justify-center gap-2 border-t border-gray-50 dark:border-white/5 bg-gray-50/30 dark:bg-white/5 backdrop-blur-sm overflow-hidden"
-                                            >
-                                                <div className="flex gap-1.5">
-                                                    {[0, 1, 2].map((i) => (
-                                                        <motion.div
-                                                            key={i}
-                                                            animate={{
-                                                                scale: [1, 1.4, 1],
-                                                                opacity: [0.3, 1, 0.3],
-                                                            }}
-                                                            transition={{
-                                                                duration: 0.8,
-                                                                repeat: Infinity,
-                                                                delay: i * 0.15,
-                                                            }}
-                                                            className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                                                        />
-                                                    ))}
-                                                </div>
-                                                <span className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] animate-pulse">
-                                                    {lang === 'ar' ? 'جاري جلب الحلقات' : 'Fetching Episodes'}
-                                                </span>
-                                            </motion.div>
-                                        )}
+                                    {(isFetchingNextPage || hasNextPage) && (
+                                        <div className="py-8 flex flex-col items-center justify-center gap-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/20 dark:bg-white/5">
+                                            <span className="ep-loader scale-75" />
+                                            <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">
+                                                {lang === 'ar' ? 'جاري الجلب' : 'Fetching'}
+                                            </span>
+                                        </div>
+                                    )}
                                     </AnimatePresence>
+                                    <div ref={loadMoreRef} className="h-2 w-full" />
                                 </div>
                             </div>
                         </>
@@ -812,68 +771,147 @@ export default function AnimeDetailsPage() {
     );
 }
 
-function EpisodeListItem({ episode, lang, animeTitle }: { episode: any; lang: string; animeTitle: string }) {
+// ─── Reaction helpers ────────────────────────────────────────────────────────
+const REACTION_EMOJIS_D: Record<string, string> = {
+    like:      '/uploads/تفاعل البوست/أعجبني.png',
+    love:      '/uploads/تفاعل البوست/أحببتة.png',
+    haha:      '/uploads/تفاعل البوست/اضحكني.png',
+    wow:       '/uploads/تفاعل البوست/واوو.png',
+    sad:       '/uploads/تفاعل البوست/أحزنني.gif',
+    angry:     '/uploads/تفاعل البوست/أغضبني.gif',
+    super_sad: '/uploads/تفاعل البوست/أحززنني جدا.png',
+};
+const REACTION_KEYS_D = [
+    { key: 'like', col: 'likes_count' },
+    { key: 'love', col: 'loves_count' },
+    { key: 'haha', col: 'hahas_count' },
+    { key: 'wow',  col: 'wows_count' },
+    { key: 'sad',  col: 'sads_count' },
+    { key: 'angry', col: 'angrys_count' },
+    { key: 'super_sad', col: 'super_sads_count' },
+];
+function getTopReactionsD(item: any, maxShown = 3) {
+    return REACTION_KEYS_D
+        .map(({ key, col }) => ({ key, count: Number(item[col] || 0) }))
+        .filter(r => r.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, maxShown);
+}
+function fmtCountD(n: number) {
+    return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
+
+function EpisodeListItem({ episode, lang, animeTitle, animeId }: { episode: any; lang: string; animeTitle: string; animeId: number }) {
     const isRtl = lang === 'ar';
     const title = isRtl ? (episode.title || `حلقة ${episode.episode_number}`) : (episode.title_en || `Episode ${episode.episode_number}`);
     const description = isRtl
         ? (episode.description || 'لا يوجد وصف متاح للا هذه الحلقة.')
         : (episode.description_en || 'No description available for this episode.');
     const image = episode.thumbnail || episode.banner;
+    const topReactions = getTopReactionsD(episode);
 
     return (
-        <Link
-            to={`/${lang}/watch/${episode.anime_id}/${episode.episode_number}/${slugify(animeTitle)}`}
-            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-white dark:hover:bg-neutral-900/40 transition-all duration-200 relative z-10 p-0 md:p-2 border border-transparent hover:border-gray-100 dark:hover:border-transparent hover:shadow-md rounded-lg"
-        >
-            {/* Image Section */}
-            <div className="w-[140px] md:w-[260px] h-[80px] md:h-[145px] flex-shrink-0 relative overflow-hidden shadow-sm">
-                <img
-                    src={getImageUrl(image)}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                    <Play className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity fill-current translate-y-2 group-hover:translate-y-0 duration-300" />
-                </div>
-                <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-black px-1.5 py-0.5 rounded border border-white/10 uppercase">
-                    {isRtl ? 'حلقة' : 'EP'} {episode.episode_number}
-                </div>
-            </div>
+        <div className="group relative">
+            <Link
+                to={`/${lang}/watch/${episode.anime_id}/${episode.episode_number}/${slugify(animeTitle)}`}
+                className="flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-white dark:hover:bg-neutral-900/40 transition-all duration-200 relative z-10 p-0 md:p-2 border border-transparent hover:border-gray-100 dark:hover:border-transparent hover:shadow-md rounded-lg"
+            >
+                {/* Image Section — rounded, clear image, thumbnail popup on hover (Desktop Only) */}
+                <div className="w-[140px] md:w-[260px] h-[80px] md:h-[145px] flex-shrink-0 relative overflow-hidden shadow-sm rounded-xl">
+                    <img
+                        src={getImageUrl(image)}
+                        alt={title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                    />
+                    {/* Hover overlay with play button */}
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center rounded-xl">
+                        <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-75 group-hover:scale-100">
+                            <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                        </div>
+                    </div>
+                    <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-black px-1.5 py-0.5 rounded border border-white/10 uppercase">
+                        {isRtl ? 'حلقة' : 'EP'} {episode.episode_number}
+                    </div>
 
-            {/* Content Section */}
-            <div className={`flex-1 flex flex-col items-start py-0 md:py-2 ${isRtl ? 'text-right' : 'text-left'} w-full min-w-0`}>
-                <h3 className="text-sm md:text-xl font-bold text-gray-900 dark:text-white mb-1 md:mb-3 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-2">
-                    {title}
-                </h3>
-                <div className="hidden md:block w-full">
-                    <p className="text-[12.5px] md:text-base text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3 mb-1 md:mb-2 font-normal">
-                        {description}
-                    </p>
-                </div>
-                <div className="mt-auto flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-6 w-full pt-1">
-                    <p className="text-lg md:text-xl font-black text-gray-900 dark:text-white">
-                        {isRtl ? `الحلقة ${episode.episode_number}` : `Episode ${episode.episode_number}`}
-                    </p>
-
-                    <div className="hidden md:flex items-center gap-6">
-                        <span className="text-[10px] md:text-sm font-black text-black dark:text-white uppercase tracking-tighter">
-                            {isRtl ? 'مشاهدة الآن' : 'Watch Now'}
-                        </span>
-                        {episode.rating && (
-                            <div className="flex items-center gap-1.5 text-[10px] md:text-sm text-gray-500 font-bold">
-                                <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
-                                <span>{episode.rating}</span>
+                    {/* Thumbnail popup on hover — hidden on mobile */}
+                    {episode.thumbnail && (
+                        <div className="hidden md:block absolute -top-[100px] left-0 right-0 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                            <div className="mx-auto w-full rounded-xl overflow-hidden shadow-2xl border border-white/10 aspect-video">
+                                <img
+                                    src={getImageUrl(episode.thumbnail)}
+                                    alt={title}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                />
                             </div>
-                        )}
-                        <div className={`hidden md:block flex-1 ${isRtl ? 'text-left' : 'text-right'}`}>
-                            <span className="text-xs text-gray-400 font-mono">
-                                {episode.duration ? `${episode.duration} MIN` : '24 MIN'}
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Section */}
+                <div className={`flex-1 flex flex-col items-start py-0 md:py-2 ${isRtl ? 'text-right' : 'text-left'} w-full min-w-0`}>
+                    <h3 className="text-sm md:text-xl font-bold text-gray-900 dark:text-white mb-1 md:mb-2 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-2">
+                        {title}
+                    </h3>
+                    <div className="hidden md:block w-full">
+                        <p className="text-[12.5px] md:text-base text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3 mb-1 md:mb-2 font-normal">
+                            {description}
+                        </p>
+                    </div>
+
+                    {/* Reactions row */}
+                    {topReactions.length > 0 && (
+                        <div className="flex items-center gap-2 mb-1">
+                            {topReactions.map(r => (
+                                <div key={r.key} className="flex items-center gap-0.5">
+                                    <img
+                                        src={getImageUrl(REACTION_EMOJIS_D[r.key])}
+                                        alt={r.key}
+                                        className="w-5 h-5 object-contain"
+                                        loading="lazy"
+                                    />
+                                    <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                                        {fmtCountD(r.count)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="mt-auto flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-6 w-full pt-1">
+                        <p className="text-lg md:text-xl font-black text-gray-900 dark:text-white">
+                            {isRtl ? `الحلقة ${episode.episode_number}` : `Episode ${episode.episode_number}`}
+                        </p>
+
+                        <div className="hidden md:flex items-center gap-6">
+                            <span className="text-[10px] md:text-sm font-black text-black dark:text-white uppercase tracking-tighter">
+                                {isRtl ? 'مشاهدة الآن' : 'Watch Now'}
                             </span>
+                            {episode.rating && (
+                                <div className="flex items-center gap-1.5 text-[10px] md:text-sm text-gray-500 font-bold">
+                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
+                                    <span>{episode.rating}</span>
+                                </div>
+                            )}
+                            <div className={`hidden md:block flex-1 ${isRtl ? 'text-left' : 'text-right'}`}>
+                                <span className="text-xs text-gray-400 font-mono">
+                                    {episode.duration ? `${episode.duration} MIN` : '24 MIN'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </Link>
+
+            {/* Mobile Watch Later Button — Floating in the corner of the card area or next to content */}
+            <div className={`md:hidden absolute bottom-1.5 ${isRtl ? 'left-1.5' : 'right-1.5'} z-30 scale-90 origin-bottom`}>
+                <WatchLaterButton 
+                    animeId={animeId} 
+                    episodeId={Number(episode.id)}
+                    className="p-2 bg-white/95 dark:bg-black/90 backdrop-blur-md rounded-full shadow-lg border border-gray-100 dark:border-white/10"
+                />
             </div>
-        </Link>
+        </div>
     );
 }

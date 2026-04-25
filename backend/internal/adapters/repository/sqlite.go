@@ -745,7 +745,56 @@ func (r *SQLiteRepository) UpdateAnime(anime *domain.Anime) error {
 }
 
 func (r *SQLiteRepository) DeleteAnime(id uint) error {
-	return r.db.Delete(&domain.Anime{}, id).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Delete many-to-many associations with categories
+		if err := tx.Exec("DELETE FROM anime_categories WHERE anime_id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// 2. Delete chapters
+		if err := tx.Where("anime_id = ?", id).Delete(&domain.Chapter{}).Error; err != nil {
+			return err
+		}
+
+		// 3. Delete WatchLater and History entries
+		if err := tx.Where("anime_id = ?", id).Delete(&domain.WatchLater{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("anime_id = ?", id).Delete(&domain.History{}).Error; err != nil {
+			return err
+		}
+
+		// 4. Delete Episodes and their dependencies (Servers, Likes, Comments)
+		var episodeIDs []uint
+		if err := tx.Model(&domain.Episode{}).Where("anime_id = ?", id).Pluck("id", &episodeIDs).Error; err != nil {
+			return err
+		}
+
+		for _, epID := range episodeIDs {
+			// Delete servers
+			if err := tx.Where("episode_id = ?", epID).Delete(&domain.EpisodeServer{}).Error; err != nil {
+				return err
+			}
+			// Delete likes
+			if err := tx.Where("episode_id = ?", epID).Delete(&domain.EpisodeLike{}).Error; err != nil {
+				return err
+			}
+			// Delete comments
+			var commIDs []uint
+			if err := tx.Model(&domain.Comment{}).Where("episode_id = ?", epID).Pluck("id", &commIDs).Error; err == nil && len(commIDs) > 0 {
+				tx.Where("comment_id IN ?", commIDs).Delete(&domain.CommentLike{})
+				tx.Where("comment_id IN ?", commIDs).Delete(&domain.Notification{})
+				tx.Where("episode_id = ?", epID).Delete(&domain.Comment{})
+			}
+			// Delete episode itself
+			if err := tx.Delete(&domain.Episode{}, epID).Error; err != nil {
+				return err
+			}
+		}
+
+		// 5. Finally delete the anime
+		return tx.Delete(&domain.Anime{}, id).Error
+	})
 }
 
 func (r *SQLiteRepository) GetLatestAnimes(limit int) ([]domain.Anime, error) {

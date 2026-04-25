@@ -160,8 +160,8 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             </div>
 
             {/* Premium/Trial Banner */}
-            <div className="px-2 mb-2">
-                <div className="bg-black dark:bg-white rounded-none p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors text-white dark:text-black">
+            <div className="px-4 mb-2">
+                <div className="bg-black dark:bg-white rounded-xl p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors text-white dark:text-black shadow-lg">
                     <Crown className="w-5 h-5 fill-current" />
                     <span className="text-base font-black uppercase tracking-wide">تجربة مجانية لـ 7 يومًا</span>
                 </div>
@@ -174,7 +174,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 {/* Profile Link (New) */}
                 <button
                     onClick={() => handleNavigation(`/u/${user?.id}/profile`)}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">الصفحة الشخصية</span>
                     <UserIcon className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -182,7 +182,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
 
                 <button
                     onClick={() => handleNavigation(`/u/${user?.id}/dashboard`)}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تغيير الملف الشخصي</span>
                     <ArrowRightLeft className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -192,7 +192,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 {/* Admin Dashboard Link */}
                 <button
                     onClick={() => handleNavigation('/dashboard')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">لوحة التحكم الأدمن</span>
                     <LayoutDashboard className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -201,7 +201,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 {/* Personal User Dashboard Link */}
                 <button
                     onClick={() => handleNavigation(`/u/${user?.id}/dashboard`)}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">لوحة التحكم</span>
                     <LayoutDashboard className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -212,7 +212,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                         openMessagingModal();
                         if (onClose) onClose();
                     }}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {stats.messages_count > 0 && (
@@ -226,7 +226,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
 
                 <button
                     onClick={() => handleNavigation(`/u/${user?.id}/dashboard/settings`)}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">إعدادات</span>
                     <Settings className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -237,7 +237,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 <div className="relative">
                     <button
                         onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                        className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                        className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                     >
                         <div className="flex items-center gap-2">
                             <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showLanguageMenu && "rotate-90")} />
@@ -276,7 +276,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             <div className="py-1">
                 <button
                     onClick={() => handleNavigation('/history')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {stats.history_count > 0 && (
@@ -289,7 +289,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
 
                 <button
                     onClick={() => handleNavigation('/watchlist')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {stats.watch_later_count > 0 && (
@@ -302,7 +302,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
 
                 <button
                     onClick={() => handleNavigation('/library')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قوائم كرانشي</span>
                     <List className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
@@ -315,7 +315,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             <div className="py-1">
                 <button
                     onClick={() => handleNavigation('/notifications')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {unreadCount > 0 && (
@@ -356,7 +356,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             {/* Logout */}
             <button
                 onClick={handleLogout}
-                className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none mb-1 flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors"
+                className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl mb-1 flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
             >
                 <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تسجيل الخروج</span>
                 <LogOut className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
