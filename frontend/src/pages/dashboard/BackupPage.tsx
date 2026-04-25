@@ -27,7 +27,7 @@ const BackupPage: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Function to get token manually
-    const getAuthHeader = () => {
+    const getAuthHeader = (): Record<string, string> => {
         const token = useAuthStore.getState().accessToken;
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };

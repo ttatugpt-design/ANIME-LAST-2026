@@ -520,7 +520,7 @@ const Anime3rbDirectLinksPage: React.FC = () => {
                                             <div className="min-w-0">
                                                 <p className="text-xs font-bold truncate">{acc.name}</p>
                                                 <p className="text-[10px] text-gray-500 font-mono truncate">
-                                                    {activeTab === 'streamtape' ? (acc as TapeAccount).login : acc.apiKey.substring(0, 10)}***
+                                                    {activeTab === 'streamtape' ? (acc as TapeAccount).login : (acc as DoodAccount).apiKey.substring(0, 10)}***
                                                 </p>
                                             </div>
                                             <button 

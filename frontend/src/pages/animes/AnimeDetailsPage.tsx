@@ -616,7 +616,7 @@ export default function AnimeDetailsPage() {
                                                 <div className="flex flex-col gap-10">
                                                     {filteredEpisodes.length > 0 ? (
                                                         <>
-                                                            {filteredEpisodes.map((episode) => (
+                                                            {filteredEpisodes.map((episode: any) => (
                                                                 <div key={episode.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                                                                     <EpisodeListItem
                                                                         episode={episode}

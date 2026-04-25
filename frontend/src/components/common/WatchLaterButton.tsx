@@ -73,7 +73,7 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
             ), { position: 'top-center', duration: 3000 });
         } else {
             // Toast for removal
-            toast.success(lang === 'ar' ? 'تمت الإزالة من القائمة' : 'Removed from list', {
+            toast.success('تمت الإزالة من القائمة', {
                 position: 'top-center',
                 duration: 2000,
                 icon: <X className="w-4 h-4 text-red-500" />
