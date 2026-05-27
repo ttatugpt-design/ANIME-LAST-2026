@@ -166,6 +166,139 @@ func (h *VPSDownloaderHandler) ListFiles(c *gin.Context) {
 	})
 }
 
+func (h *VPSDownloaderHandler) DeleteFile(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+
+	remotePath := c.Query("path")
+	if strings.TrimSpace(remotePath) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "path parameter is required"})
+		return
+	}
+
+	if err := h.vpsService.DeleteFile(remotePath); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "تم الحذف بنجاح", "path": remotePath})
+}
+
+func (h *VPSDownloaderHandler) RenameFile(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+	var req struct {
+		OldPath string `json:"old_path"`
+		NewPath string `json:"new_path"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.OldPath) == "" || strings.TrimSpace(req.NewPath) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "old_path and new_path are required"})
+		return
+	}
+	if err := h.vpsService.RenameFile(req.OldPath, req.NewPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "تمت إعادة التسمية بنجاح"})
+}
+
+func (h *VPSDownloaderHandler) MoveFiles(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+	var req struct {
+		Sources []string `json:"sources"`
+		DestDir string   `json:"dest_dir"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.Sources) == 0 || strings.TrimSpace(req.DestDir) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sources and dest_dir are required"})
+		return
+	}
+	if err := h.vpsService.MoveFiles(req.Sources, req.DestDir); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("تم نقل %d عنصر بنجاح", len(req.Sources))})
+}
+
+func (h *VPSDownloaderHandler) DiskUsage(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+	info, err := h.vpsService.GetDiskUsage()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, info)
+}
+
+func (h *VPSDownloaderHandler) MakeDir(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Path) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+		return
+	}
+	if err := h.vpsService.MakeDirectory(req.Path); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "تم إنشاء المجلد بنجاح", "path": req.Path})
+}
+
+func (h *VPSDownloaderHandler) Extract(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+	var req struct {
+		ArchivePath string `json:"archive_path"`
+		DestPath    string `json:"dest_path"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.ArchivePath) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "archive_path is required"})
+		return
+	}
+	if err := h.vpsService.ExtractArchive(req.ArchivePath, req.DestPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "تم فك الضغط بنجاح", "archive": req.ArchivePath})
+}
+
+func (h *VPSDownloaderHandler) DownloadURL(c *gin.Context) {
+	if h.vpsService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})
+		return
+	}
+	var req struct {
+		URL      string `json:"url"`
+		DestDir  string `json:"dest_dir"`
+		Filename string `json:"filename"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.URL) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+		return
+	}
+	if err := h.vpsService.DownloadFromURL(req.URL, req.DestDir, req.Filename); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "تم التحميل بنجاح", "dest": req.DestDir})
+}
+
 func (h *VPSDownloaderHandler) UploadToPCloud(c *gin.Context) {
 	if h.vpsService == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "VPS Service not initialized"})

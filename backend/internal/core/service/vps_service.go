@@ -148,6 +148,248 @@ func (s *VPSService) ListDirectory(remotePath string) ([]VPSFileEntry, error) {
 	return entries, nil
 }
 
+// DeleteFile removes a file or directory on the VPS via SSH
+func (s *VPSService) DeleteFile(remotePath string) error {
+	if remotePath == "" || remotePath == "/" || remotePath == "/root" || remotePath == "/etc" || remotePath == "/bin" || remotePath == "/usr" {
+		return fmt.Errorf("حذف هذا المسار غير مسموح")
+	}
+	escaped := shellEscape(remotePath)
+	return s.runSSHCommand(fmt.Sprintf("rm -rf %s", escaped))
+}
+
+// RenameFile renames/moves a single file on the VPS
+func (s *VPSService) RenameFile(oldPath, newPath string) error {
+	if oldPath == "" || newPath == "" {
+		return fmt.Errorf("المسار القديم والجديد مطلوبان")
+	}
+	
+	cmd := fmt.Sprintf("mv %s %s 2>&1", shellEscape(oldPath), shellEscape(newPath))
+	client, err := s.dial()
+	if err != nil { return fmt.Errorf("SSH dial failed: %v", err) }
+	defer client.Close()
+	session, err := client.NewSession()
+	if err != nil { return fmt.Errorf("SSH session failed: %v", err) }
+	defer session.Close()
+
+	output, err := session.CombinedOutput(cmd)
+	if err != nil {
+		out := strings.TrimSpace(string(output))
+		if out != "" { return fmt.Errorf("%s", out) }
+		return fmt.Errorf("فشل إعادة التسمية: %v", err)
+	}
+	return nil
+}
+
+// MoveFiles moves one or more files/directories into a destination directory
+func (s *VPSService) MoveFiles(sourcePaths []string, destDir string) error {
+	if len(sourcePaths) == 0 || destDir == "" {
+		return fmt.Errorf("المصادر والمسار المستهدف مطلوبان")
+	}
+	parts := []string{fmt.Sprintf("mkdir -p %s", shellEscape(destDir))}
+	for _, src := range sourcePaths {
+		if src != "" {
+			parts = append(parts, fmt.Sprintf("mv %s %s/", shellEscape(src), shellEscape(destDir)))
+		}
+	}
+	
+	cmd := strings.Join(parts, " && ") + " 2>&1"
+	client, err := s.dial()
+	if err != nil { return fmt.Errorf("SSH dial failed: %v", err) }
+	defer client.Close()
+	session, err := client.NewSession()
+	if err != nil { return fmt.Errorf("SSH session failed: %v", err) }
+	defer session.Close()
+
+	output, err := session.CombinedOutput(cmd)
+	if err != nil {
+		out := strings.TrimSpace(string(output))
+		if out != "" { return fmt.Errorf("%s", out) }
+		return fmt.Errorf("فشل النقل: %v", err)
+	}
+	return nil
+}
+
+// DiskUsageInfo holds disk usage stats for the VPS
+type DiskUsageInfo struct {
+	Total     string `json:"total"`
+	Used      string `json:"used"`
+	Available string `json:"available"`
+	UsePercent string `json:"use_percent"`
+	MountPoint string `json:"mount_point"`
+}
+
+// GetDiskUsage returns disk usage info for the VPS root filesystem
+func (s *VPSService) GetDiskUsage() (*DiskUsageInfo, error) {
+	client, err := s.dial()
+	if err != nil {
+		return nil, fmt.Errorf("SSH connection failed: %v", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("SSH session failed: %v", err)
+	}
+	defer session.Close()
+
+	// df -h / gives: Filesystem Size Used Avail Use% Mounted on
+	output, err := session.Output("df -h / | tail -1")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get disk usage: %v", err)
+	}
+
+	fields := strings.Fields(strings.TrimSpace(string(output)))
+	if len(fields) < 6 {
+		return nil, fmt.Errorf("unexpected df output: %s", string(output))
+	}
+
+	return &DiskUsageInfo{
+		Total:      fields[1],
+		Used:       fields[2],
+		Available:  fields[3],
+		UsePercent: fields[4],
+		MountPoint: fields[5],
+	}, nil
+}
+
+// MakeDirectory creates a directory (and parents) on the VPS
+func (s *VPSService) MakeDirectory(remotePath string) error {
+	remotePath = strings.TrimSpace(remotePath)
+	if remotePath == "" || remotePath == "/" {
+		return fmt.Errorf("invalid path")
+	}
+	escaped := shellEscape(remotePath)
+	return s.runSSHCommand(fmt.Sprintf("mkdir -p %s", escaped))
+}
+
+// ExtractArchive extracts a compressed archive on the VPS into the given destination directory
+func (s *VPSService) ExtractArchive(archivePath, destPath string) error {
+	archivePath = strings.TrimSpace(archivePath)
+	destPath = strings.TrimSpace(destPath)
+	if archivePath == "" {
+		return fmt.Errorf("archive path is required")
+	}
+	if destPath == "" {
+		idx := strings.LastIndex(archivePath, "/")
+		if idx > 0 {
+			destPath = archivePath[:idx]
+		} else {
+			destPath = "/root/animes"
+		}
+	}
+
+	escapedArchive := shellEscape(archivePath)
+	escapedDest := shellEscape(destPath)
+	lower := strings.ToLower(archivePath)
+
+	var cmd string
+	switch {
+	// tar variants — tar is always available
+	case strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz"):
+		cmd = fmt.Sprintf("mkdir -p %s && tar -xzf %s -C %s 2>&1", escapedDest, escapedArchive, escapedDest)
+
+	case strings.HasSuffix(lower, ".tar.bz2") || strings.HasSuffix(lower, ".tbz2"):
+		cmd = fmt.Sprintf("mkdir -p %s && tar -xjf %s -C %s 2>&1", escapedDest, escapedArchive, escapedDest)
+
+	case strings.HasSuffix(lower, ".tar.xz") || strings.HasSuffix(lower, ".txz"):
+		cmd = fmt.Sprintf("mkdir -p %s && tar -xJf %s -C %s 2>&1", escapedDest, escapedArchive, escapedDest)
+
+	case strings.HasSuffix(lower, ".tar"):
+		cmd = fmt.Sprintf("mkdir -p %s && tar -xf %s -C %s 2>&1", escapedDest, escapedArchive, escapedDest)
+
+	// .gz (single file, not tarball)
+	case strings.HasSuffix(lower, ".gz"):
+		cmd = fmt.Sprintf("mkdir -p %s && cp %s %s/ && cd %s && gunzip -f $(basename %s) 2>&1",
+			escapedDest, escapedArchive, escapedDest, escapedDest, escapedArchive)
+
+	// .zip — try unzip, fallback to python3
+	case strings.HasSuffix(lower, ".zip"):
+		cmd = fmt.Sprintf(
+			"mkdir -p %s && (command -v unzip >/dev/null 2>&1 && unzip -o %s -d %s"+
+				" || (apt-get install -y unzip -qq 2>/dev/null && unzip -o %s -d %s)"+
+				" || python3 -m zipfile -e %s %s) 2>&1",
+			escapedDest,
+			escapedArchive, escapedDest,
+			escapedArchive, escapedDest,
+			escapedArchive, escapedDest,
+		)
+
+	// .rar — try unrar, fallback to bsdtar
+	case strings.HasSuffix(lower, ".rar"):
+		cmd = fmt.Sprintf(
+			"mkdir -p %s && (command -v unrar >/dev/null 2>&1 && unrar x -o+ %s %s"+
+				" || (apt-get install -y unrar -qq 2>/dev/null && unrar x -o+ %s %s)"+
+				" || bsdtar -xf %s -C %s) 2>&1",
+			escapedDest,
+			escapedArchive, escapedDest,
+			escapedArchive, escapedDest,
+			escapedArchive, escapedDest,
+		)
+
+	// .7z — try 7z, fallback to p7zip install
+	case strings.HasSuffix(lower, ".7z"):
+		cmd = fmt.Sprintf(
+			"mkdir -p %s && (command -v 7z >/dev/null 2>&1 && 7z x %s -o%s -y"+
+				" || (apt-get install -y p7zip-full -qq 2>/dev/null && 7z x %s -o%s -y)) 2>&1",
+			escapedDest,
+			escapedArchive, escapedDest,
+			escapedArchive, escapedDest,
+		)
+
+	default:
+		return fmt.Errorf("نوع الأرشيف غير مدعوم. الأنواع المدعومة: .zip .tar .tar.gz .tar.bz2 .tar.xz .gz .rar .7z")
+	}
+
+	// Run and capture output to provide meaningful errors
+	client, err := s.dial()
+	if err != nil {
+		return fmt.Errorf("SSH dial failed: %v", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("SSH session failed: %v", err)
+	}
+	defer session.Close()
+
+	output, err := session.CombinedOutput(cmd)
+	if err != nil {
+		out := strings.TrimSpace(string(output))
+		if out != "" {
+			return fmt.Errorf("فشل فك الضغط: %s", out)
+		}
+		return fmt.Errorf("فشل فك الضغط: %v", err)
+	}
+	return nil
+}
+
+
+// DownloadFromURL downloads a file from a URL to the VPS using wget
+func (s *VPSService) DownloadFromURL(url, destDir, filename string) error {
+	url = strings.TrimSpace(url)
+	destDir = strings.TrimSpace(destDir)
+	if url == "" {
+		return fmt.Errorf("URL is required")
+	}
+	if destDir == "" {
+		destDir = "/root/animes"
+	}
+
+	escapedDest := shellEscape(destDir)
+	escapedURL := shellEscape(url)
+
+	var cmd string
+	if filename != "" {
+		escapedName := shellEscape(filename)
+		cmd = fmt.Sprintf("mkdir -p %s && wget -q --show-progress -O %s/%s %s 2>&1", escapedDest, escapedDest, escapedName, escapedURL)
+	} else {
+		cmd = fmt.Sprintf("mkdir -p %s && wget -q --show-progress -P %s %s 2>&1", escapedDest, escapedDest, escapedURL)
+	}
+
+	return s.runSSHCommand(cmd)
+}
+
 func (s *VPSService) AddTask(animeName string, links []string, taskType string) error {
 	linksJSON, _ := json.Marshal(links)
 	task := domain.VPSTask{

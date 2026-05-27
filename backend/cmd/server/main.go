@@ -135,9 +135,12 @@ func main() {
 	// VPS Service (SSH)
 	vpsIP := os.Getenv("VPS_IP")
 	if vpsIP == "" {
-		vpsIP = "165.22.203.23"
+		vpsIP = "209.209.9.219"
 	}
 	vpsPassword := os.Getenv("VPS_PASSWORD")
+	if vpsPassword == "" {
+		vpsPassword = "847641088"
+	}
 	vpsKeyPath := absPath("backend", "vps_key.pem")
 	vpsService, err := service.NewVPSService(repo.DB(), vpsIP, "root", vpsKeyPath, vpsPassword)
 	if err != nil {
@@ -212,7 +215,11 @@ func main() {
 	r := gin.Default()
 
 	// Enable Gzip Compression (Optimizes payload size significantly)
-	r.Use(gzip.Gzip(gzip.DefaultCompression))
+	// EXCLUDE video/image extensions so HTTP Range requests (seeking) work correctly!
+	r.Use(gzip.Gzip(gzip.DefaultCompression, 
+		gzip.WithExcludedExtensions([]string{".mp4", ".webm", ".mkv", ".avi", ".mov", ".png", ".jpg", ".jpeg", ".webp", ".gif"}),
+		gzip.WithExcludedPaths([]string{"/uploads/", "/assets/"}),
+	))
 
 	// Enable Security and Performance Headers
 	r.Use(middleware.SecurityHeadersMiddleware())
@@ -460,8 +467,15 @@ func main() {
 				optionalAuth.GET("/posts/comments/:id/replies", postHandler.GetPostCommentReplies)
 			}
 
-			// VPS Files Listing (Temporary Test Endpoint - For now public)
+			// VPS Files Listing & Management (Public for dashboard use)
 			public.GET("/dashboard/vps-downloader/files", vpsDownloaderHandler.ListFiles)
+			public.DELETE("/dashboard/vps-downloader/file", vpsDownloaderHandler.DeleteFile)
+			public.POST("/dashboard/vps-downloader/mkdir", vpsDownloaderHandler.MakeDir)
+			public.POST("/dashboard/vps-downloader/extract", vpsDownloaderHandler.Extract)
+			public.POST("/dashboard/vps-downloader/download-url", vpsDownloaderHandler.DownloadURL)
+			public.POST("/dashboard/vps-downloader/rename", vpsDownloaderHandler.RenameFile)
+			public.POST("/dashboard/vps-downloader/move", vpsDownloaderHandler.MoveFiles)
+			public.GET("/dashboard/vps-downloader/disk-usage", vpsDownloaderHandler.DiskUsage)
 		}
 
 		// --- Protected Routes (Auth Required) ---
