@@ -37,14 +37,14 @@ import { ReportModal } from '@/components/episodes/ReportModal';
 import Footer from '@/components/common/Footer';
 
 import { ShareModal } from '@/components/episodes/ShareModal';
-import { MobileCommentsModal } from '@/components/comments/MobileCommentsModal';
 import { trackEpisodeView, toggleEpisodeReaction, getEpisodeStats, EpisodeStats } from '@/lib/episode-stats-api';
-import { NewsTicker } from '@/components/common/NewsTicker';
-import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
+
+import { DashboardSidebar } from '@/components/social/DashboardSidebar';
 
 import { getImageUrl } from '@/utils/image-utils';
 import { useAuthStore } from '@/stores/auth-store';
 import CustomVideoPlayer from '@/components/episodes/CustomVideoPlayer';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 
 
@@ -100,7 +100,7 @@ const WatchPageSkeleton = ({ lang }: { lang: string }) => {
                     </div>
 
                     {/* Player Card Skeleton */}
-                    <div className="bg-white dark:bg-[#1a1a1a] rounded-none md:rounded-xl shadow-sm border-y md:border border-gray-100 dark:border-[#2a2a2a] overflow-hidden">
+                    <div className="bg-white dark:bg-black rounded-xl shadow-sm overflow-hidden">
                         {/* 1. Player Area */}
                         <div className="w-full aspect-video bg-neutral-900 animate-pulse flex items-center justify-center">
                             <Skeleton className="w-16 h-16 rounded-full opacity-20" />
@@ -227,10 +227,16 @@ export default function WatchPage() {
     const [activeTab, setActiveTab] = useState<'episodes' | 'comments'>('episodes');
     const [selectedServer, setSelectedServer] = useState<number>(0);
     const [isEpisodesModalOpen, setIsEpisodesModalOpen] = useState(false);
-    const [isMobileCommentsOpen, setIsMobileCommentsOpen] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [isEpisodeInfoOpen, setIsEpisodeInfoOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [episodeToShare, setEpisodeToShare] = useState<any>(null);
+
+    // Close any open modal when the user presses the device back button
+    useModalBackButton(isEpisodesModalOpen, () => setIsEpisodesModalOpen(false), 'episodes');
+    useModalBackButton(isReportModalOpen, () => setIsReportModalOpen(false), 'report');
+    useModalBackButton(isEpisodeInfoOpen, () => setIsEpisodeInfoOpen(false), 'info');
+    useModalBackButton(isShareModalOpen, () => setIsShareModalOpen(false), 'share');
     const [isDeleteMode, setIsDeleteMode] = useState(false);
     const [deletingServerIdx, setDeletingServerIdx] = useState<number | null>(null);
     const [isSwapMode, setIsSwapMode] = useState(false);
@@ -436,7 +442,11 @@ export default function WatchPage() {
 
     useEffect(() => {
         const handleFS = () => {
-            const isFS = !!document.fullscreenElement;
+            const isFS = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement
+            );
             setIsBrowserFullscreen(isFS);
             if (!isFS) {
                 setShowControls(true);
@@ -448,7 +458,13 @@ export default function WatchPage() {
             }
         };
         document.addEventListener('fullscreenchange', handleFS);
-        return () => document.removeEventListener('fullscreenchange', handleFS);
+        document.addEventListener('webkitfullscreenchange', handleFS);
+        document.addEventListener('mozfullscreenchange', handleFS);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFS);
+            document.removeEventListener('webkitfullscreenchange', handleFS);
+            document.removeEventListener('mozfullscreenchange', handleFS);
+        };
     }, []);
 
     useEffect(() => {
@@ -552,14 +568,51 @@ export default function WatchPage() {
         window.open(shareUrl, '_blank');
     };
 
-    const handleFullscreen = () => {
+    const handleFullscreen = async () => {
         const container = document.getElementById('video-container');
         if (!container) return;
-        if (!document.fullscreenElement) {
-            if (container.requestFullscreen) container.requestFullscreen();
-            else if ((container as any).webkitRequestFullscreen) (container as any).webkitRequestFullscreen();
+
+        const isFullscreen = !!(
+            document.fullscreenElement ||
+            (document as any).webkitFullscreenElement ||
+            (document as any).mozFullScreenElement
+        );
+
+        if (!isFullscreen) {
+            try {
+                if (container.requestFullscreen) {
+                    await container.requestFullscreen();
+                } else if ((container as any).webkitRequestFullscreen) {
+                    await (container as any).webkitRequestFullscreen();
+                } else if ((container as any).mozRequestFullScreen) {
+                    await (container as any).mozRequestFullScreen();
+                }
+
+                // Lock to landscape on mobile for proper widescreen experience
+                if (isMobile && (screen as any).orientation?.lock) {
+                    try {
+                        await (screen as any).orientation.lock('landscape');
+                    } catch {
+                        // Some browsers don't support orientation lock — ignore silently
+                    }
+                }
+            } catch (err) {
+                console.warn('Fullscreen error:', err);
+            }
         } else {
-            if (document.exitFullscreen) document.exitFullscreen();
+            try {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if ((document as any).webkitExitFullscreen) {
+                    (document as any).webkitExitFullscreen();
+                } else if ((document as any).mozCancelFullScreen) {
+                    (document as any).mozCancelFullScreen();
+                }
+            } catch {}
+            // Restore orientation
+            if (isMobile && (screen as any).orientation?.unlock) {
+                try { (screen as any).orientation.unlock(); } catch {}
+            }
         }
     };
 
@@ -716,38 +769,36 @@ export default function WatchPage() {
             </Helmet>
 
             <div className="animate-fade-in w-full">
-                {/* Sticky NewsTicker at top below header (60px) */}
-                <div className="sticky top-[60px] z-[40] bg-white dark:bg-black w-full border-b border-gray-100 dark:border-white/5">
-                    <NewsTicker />
-                </div>
 
                 {/* === MAIN LAYOUT GRID === */}
                 <div className="w-full min-h-screen">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible min-h-screen">
+                    <div className="flex flex-col lg:flex-row overflow-visible min-h-screen">
 
-                        {/* Left Sidebar - ALWAYS VISIBLE */}
-                        <div className="hidden lg:block lg:col-span-2 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30">
-                            <SocialNavSidebar />
-                        </div>
+                        {/* Left Sidebar - Dashboard Style */}
+                        <aside className="hidden xl:block w-64 flex-shrink-0 border-l border-gray-100 dark:border-white/10 bg-white dark:bg-black">
+                            <div className="sticky top-[60px] h-[calc(100vh-60px)] shadow-sm">
+                                <DashboardSidebar />
+                            </div>
+                        </aside>
 
                         {/* Dynamic Main Content & Right Sidebar */}
                         {(!anime || !currentEpisode || isLoading || isLoadingActiveEpisode) ? (
-                            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white/40 dark:bg-black/40 backdrop-blur-[3px] animate-fade-in">
+                            <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-60px)]">
                                 <CentralSpinner />
                             </div>
                         ) : (
                             <>
-                                {/* Main Content - col-span-7 */}
-                                <div className="col-span-1 lg:col-span-7 px-0 md:px-0 lg:px-6 pb-6 space-y-4">
-                                    <div className="max-w-[900px] mx-auto space-y-4">
+                                {/* Main Content */}
+                                <div className="flex-1 min-w-0 px-0 md:px-0 lg:px-6 pb-6 space-y-4">
+                                    <div className="max-w-[630px] w-full mx-auto space-y-4">
 
                                         {/* Video Player Post Container (Matches Community PostCard exactly) */}
-                                        <div className="bg-white dark:bg-[#1a1a1a] rounded-none md:rounded-xl shadow-sm border-y md:border border-gray-100 dark:border-[#2a2a2a] overflow-hidden mt-0 md:mt-4">
+                                        <div className="bg-white dark:bg-black rounded-b-xl md:rounded-xl shadow-sm overflow-hidden mt-0 md:mt-12">
                                             
                                             {/* 1. Player - Now at the Top */}
                                             <div 
                                                 id="video-container" 
-                                                className="w-full aspect-video bg-black relative group md:rounded-t-xl overflow-visible"
+                                                className="w-full aspect-video bg-black relative group overflow-visible"
                                             >
                                                 {!isPlayerUnlocked && (
                                                     <button 
@@ -835,7 +886,7 @@ export default function WatchPage() {
                                                                 mozallowfullscreen="true"
                                                                 // @ts-ignore
                                                                 msallowfullscreen="true"
-                                                                allow="autoplay; fullscreen; picture-in-picture"
+                                                                allow="autoplay; fullscreen; picture-in-picture; screen-wake-lock; gyroscope; accelerometer; screen-orientation"
                                                                 referrerPolicy="no-referrer"
                                                                 onLoad={() => setIsVideoLoading(false)} 
                                                             />
@@ -908,21 +959,32 @@ export default function WatchPage() {
                                                             </div>
                                                         </Link>
                                                         <div className="flex-1 min-w-0">
-                                                            <Link to={`/${lang}/animes/${lang === 'ar' ? (anime?.slug || anime?.id) : (anime?.slug_en || anime?.slug || anime?.id)}`} className="font-bold text-gray-900 dark:text-white hover:underline block leading-tight truncate">
+                                                            <Link to={`/${lang}/animes/${lang === 'ar' ? (anime?.slug || anime?.id) : (anime?.slug_en || anime?.slug || anime?.id)}`} className="font-black text-lg text-gray-900 dark:text-white hover:underline block leading-tight truncate">
                                                                 {renderEmojiContent(animeTitle)}
                                                             </Link>
-                                                            <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mt-1">
-                                                                <span className="text-[11px] font-medium">
+                                                            
+                                                            <div className="mt-1 flex flex-col gap-1.5 w-full">
+                                                                {/* Episode Title */}
+                                                                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 truncate">
                                                                     {(lang === 'ar' ? currentEpisode?.title : currentEpisode?.title_en) || `${lang === 'ar' ? 'الحلقة' : 'Episode'} ${currentEpisode?.episode_number}`}
-                                                                </span>
-                                                                <span>•</span>
-                                                                <span className="text-[11px] font-bold text-black dark:text-white">
-                                                                    {lang === 'ar' ? `الحلقة ${currentEpisode?.episode_number}` : `Episode ${currentEpisode?.episode_number}`}
-                                                                </span>
-                                                                <span>•</span>
-                                                                <span className="text-[11px]">{currentEpisode?.duration}m</span>
-                                                                <span>•</span>
-                                                                <Globe className="w-3 h-3" />
+                                                                </h3>
+                                                                
+                                                                {/* Episode Number & Views (Opposite sides) */}
+                                                                <div className="flex items-center justify-between w-full mt-1 gap-2">
+                                                                    <span className="text-xl md:text-2xl font-black text-gray-900 dark:text-white shrink-0">
+                                                                        {lang === 'ar' ? `الحلقة ${currentEpisode?.episode_number}` : `Episode ${currentEpisode?.episode_number}`}
+                                                                    </span>
+                                                                    
+                                                                    {stats?.views_count !== undefined && (
+                                                                        <span className="flex items-center gap-1.5 text-lg md:text-xl font-black text-gray-900 dark:text-white shrink-0">
+                                                                            <span className="text-sm md:text-base text-gray-500">
+                                                                                {lang === 'ar' ? 'مشاهدة' : 'Views'}
+                                                                            </span>
+                                                                            {formatNumber(stats.views_count)}
+                                                                            <Eye className="w-4 h-4 md:w-5 md:h-5 text-gray-900 dark:text-white" />
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -931,7 +993,7 @@ export default function WatchPage() {
                                                     </button>
                                                 </div>
 
-                                                {(user?.role?.name?.toLowerCase() === 'admin' || user?.role?.name?.toLowerCase() === 'super_admin' || true) && (
+                                                {(user?.role?.name?.toLowerCase() === 'admin' || user?.role?.name?.toLowerCase() === 'super_admin') && (
                                                     <div className="flex items-center gap-1.5 px-11 -mt-1 flex-wrap">
                                                         <button 
                                                             onClick={() => {
@@ -986,7 +1048,7 @@ export default function WatchPage() {
 
                                              {/* 3. Servers block - Under Header */}
                                             {servers.length > 0 && (
-                                                <div className="px-3 pb-3 flex flex-wrap items-center gap-2.5 border-b border-gray-50 dark:border-white/5 relative">
+                                                <div className="px-3 pb-3 flex flex-wrap items-center gap-2.5 relative">
                                                     {servers.map((server: any, idx: number) => {
                                                         const matchedServer = globalServers?.find((gs: any) =>
                                                             gs.name_en === server.name ||
@@ -1062,7 +1124,7 @@ export default function WatchPage() {
                                             )}
 
                                             {/* Stats Row matches Community Exact spacing and styles */}
-                                            <div className="px-3 py-1.5 border-b border-gray-100 dark:border-[#2a2a2a] flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                            <div className="px-3 py-1.5 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                                                 <div className="flex items-center gap-1 cursor-pointer hover:underline" onClick={() => handleReaction('like')}>
                                                     {(() => {
                                                         const counts = stats as any || {};
@@ -1134,8 +1196,8 @@ export default function WatchPage() {
                                                                     userReaction
                                                                         ? (userReaction === 'like' ? "text-blue-500" : 
                                                                            userReaction === 'love' ? "text-red-500" : 
-                                                                           "text-yellow-500") + " hover:bg-white dark:hover:bg-[#2a2a2a] shadow-sm border border-gray-100 dark:border-transparent"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-[#2a2a2a] hover:shadow-sm border border-transparent hover:border-gray-100 dark:hover:border-transparent"
+                                                                           "text-yellow-500") + " hover:bg-white dark:hover:bg-black shadow-sm border border-gray-100 dark:border-transparent"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-black hover:shadow-sm border border-transparent hover:border-gray-100 dark:hover:border-transparent"
                                                                 )}
                                                             >
                                                                 {activeReaction ? (
@@ -1162,10 +1224,10 @@ export default function WatchPage() {
                                                         >
                                                             {/* Arrow pointer */}
                                                             <div className={cn(
-                                                                "absolute -bottom-1.5 w-3 h-3 rotate-45 bg-white dark:bg-[#2a2a2a] border-r border-b border-gray-100 dark:border-[#444]",
+                                                                "absolute -bottom-1.5 w-3 h-3 rotate-45 bg-white dark:bg-[#1a1a1a] border-r border-b border-gray-100 dark:border-[#333]",
                                                                 lang === 'ar' ? "right-6" : "left-6"
                                                             )} />
-                                                            <div className="relative flex items-center justify-center gap-0.5 md:gap-1 bg-white dark:bg-[#2a2a2a] rounded-full shadow-[0_4px_25px_rgba(0,0,0,0.22)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.7)] border border-gray-100 dark:border-[#444] px-1.5 py-1 md:px-2.5 md:py-2 w-max min-w-max overflow-visible">
+                                                            <div className="relative flex items-center justify-center gap-0.5 md:gap-1 bg-white dark:bg-[#1a1a1a] rounded-full shadow-[0_4px_25px_rgba(0,0,0,0.22)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.7)] border border-gray-100 dark:border-[#333] px-1.5 py-1 md:px-2.5 md:py-2 w-max min-w-max overflow-visible">
                                                                 {REACTIONS.map((r, idx) => (
                                                                     <div
                                                                         key={r.key}
@@ -1207,24 +1269,33 @@ export default function WatchPage() {
                                                     )}
                                                 </div>
 
-                                                {/* Desktop: Comment Button (Part of Grid) */}
+                                                {/* Comment Button */}
                                                 <button
-                                                    className="hidden md:flex flex-1 items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[14px] md:text-[15px] text-black dark:text-white hover:bg-white dark:hover:bg-[#2a2a2a] border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
+                                                    className="flex flex-1 items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[13px] md:text-[15px] text-black dark:text-white hover:bg-white dark:hover:bg-black border-0 shadow-sm"
                                                     onClick={() => {
                                                         const commentsEl = document.getElementById('comments-section');
                                                         if (commentsEl) commentsEl.scrollIntoView({ behavior: 'smooth' });
                                                     }}
                                                 >
                                                     <MessageCircle className="w-5 h-5 text-black dark:text-white" />
-                                                    <span className="text-black dark:text-white">{lang === 'ar' ? 'تعليق' : 'Comment'} {commentsData?.length ? `(${formatNumber(commentsData.length)})` : ''}</span>
+                                                    <span className="text-black dark:text-white">{lang === 'ar' ? 'تعليق' : 'Comment'}</span>
                                                 </button>
 
                                                 <button
-                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-[#2a2a2a] border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
-                                                    onClick={() => openModal(setIsShareModalOpen)}
+                                                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-black border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
+                                                    onClick={() => { setEpisodeToShare(currentEpisode); setIsShareModalOpen(true); }}
                                                 >
                                                     <Share2 className="w-5 h-5" />
                                                     <span>{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
+                                                </button>
+
+                                                {/* Mobile Episodes Button */}
+                                                <button
+                                                    className="md:hidden flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-[13px] text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-black border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
+                                                    onClick={() => setIsEpisodesModalOpen(true)}
+                                                >
+                                                    <Library className="w-5 h-5" />
+                                                    <span>{lang === 'ar' ? 'الحلقات' : 'Episodes'}</span>
                                                 </button>
 
                                                 <div className="flex-1 flex items-center justify-center font-bold text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400">
@@ -1235,46 +1306,13 @@ export default function WatchPage() {
                                                         episodeNumber={currentEpisode?.episode_number}
                                                         episodeImage={getImageUrl(currentEpisode?.thumbnail)}
                                                         variant="default"
-                                                        className="w-full flex items-center justify-center gap-2 py-2 h-auto rounded-lg hover:bg-white dark:hover:bg-[#2a2a2a] text-gray-500 dark:text-gray-400 px-0 [&_svg]:w-5 [&_svg]:h-5 bg-transparent border-0 font-bold hover:shadow-sm hover:border hover:border-gray-100 dark:hover:border-transparent"
+                                                        className="w-full flex items-center justify-center gap-2 py-2 h-auto rounded-lg hover:bg-white dark:hover:bg-black text-gray-500 dark:text-gray-400 px-0 [&_svg]:w-5 [&_svg]:h-5 bg-transparent border-0 font-bold hover:shadow-sm hover:border hover:border-gray-100 dark:hover:border-transparent"
                                                         showLabel={true}
                                                     />
                                                 </div>
                                             </div>
 
-                                            {/* Mobile: Prominent Comments & Episodes Buttons (Full Width Rows) */}
-                                            <div className="md:hidden px-4 pb-4 space-y-3">
-                                                <button
-                                                    onClick={() => setIsMobileCommentsOpen(true)}
-                                                    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-black dark:text-white transition-all active:scale-[0.98] shadow-sm"
-                                                >
-                                                    <MessageCircle className="w-6 h-6 stroke-[2.5px]" />
-                                                    <div className="flex flex-col items-start leading-tight">
-                                                        <span className="text-[16px] font-black uppercase tracking-tight">
-                                                            {lang === 'ar' ? 'التعليقات' : 'Comments'}
-                                                        </span>
-                                                        <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
-                                                            {formatNumber(commentsData?.length || 0)} {lang === 'ar' ? 'تعليق' : 'Comments'}
-                                                        </span>
-                                                    </div>
-                                                </button>
-
-                                                <button
-                                                    onClick={() => setIsEpisodesModalOpen(true)}
-                                                    className="w-full flex items-center justify-center gap-3 py-4 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-black dark:text-white transition-all active:scale-[0.98] shadow-sm"
-                                                >
-                                                    <Library className="w-6 h-6 stroke-[2.5px]" />
-                                                    <div className="flex flex-col items-start leading-tight">
-                                                        <span className="text-[16px] font-black uppercase tracking-tight">
-                                                            {lang === 'ar' ? 'حلقات المسلسل' : 'Anime Episodes'}
-                                                        </span>
-                                                        <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
-                                                            {filteredEpisodesFlattened.length} {lang === 'ar' ? 'حلقة' : 'Episodes'}
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            </div>
-
-                                            <div className="hidden md:block border-t border-gray-100 dark:border-[#2a2a2a] p-4 bg-white dark:bg-black/20 pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
+                                            <div className="p-4 bg-white dark:bg-black pb-20 lg:pb-4 max-md:[&_.text-lg]:text-[15px] max-md:[&_p_img.inline-block]:!w-[22px] max-md:[&_p_img.inline-block]:!h-[22px] max-md:[&_.w-10]:w-8 max-md:[&_.w-10]:h-8" id="comments-section">
                                                
                                                 <div className="min-h-[100px]">
                                                     <CommentsSection 
@@ -1290,8 +1328,8 @@ export default function WatchPage() {
                                 </div>
 
                                 {/* Right Sidebar - Episodes List */}
-                                <div ref={sidebarRef} className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30 px-2 pt-2 md:pt-4 pb-4">
-                                    <div className="flex items-center justify-between px-2 border-b border-gray-200 dark:border-[#333] pb-2 mb-2">
+                                <div ref={sidebarRef} className="hidden lg:block w-[340px] flex-shrink-0 sticky top-[75px] h-[calc(100vh-75px)] overflow-y-auto custom-scrollbar bg-transparent z-30 px-2 pt-2 md:pt-4 pb-4">
+                                    <div className="flex items-center justify-between px-2 pb-2 mb-2">
                                         <h3 className="font-black text-gray-900 dark:text-gray-400 text-base md:text-lg">
                                             {lang === 'ar' ? 'حلقات الأنمي' : 'Anime Episodes'}
                                         </h3>
@@ -1318,103 +1356,83 @@ export default function WatchPage() {
                                                         <div
                                                             key={ep.id}
                                                             className={cn(
-                                                                "group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all",
-                                                                isActive ? "bg-gray-100 dark:bg-neutral-800" : "hover:bg-white dark:hover:bg-[#222] hover:shadow-sm border border-transparent hover:border-gray-100 dark:hover:border-transparent"
+                                                                "group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all hover:shadow-sm",
+                                                                isActive ? "bg-gray-100 dark:bg-[#222]" : "hover:bg-white dark:hover:bg-[#222]"
                                                             )}
                                                         >
                                                             <Link
                                                                 to={epUrl}
-                                                            className="flex-1 flex items-center min-w-0"
-                                                        >
-                                                            {/* Left: Indicator */}
-                                                            <div className={cn(
-                                                                "w-10 flex-shrink-0 text-sm font-black text-center transition-colors",
-                                                                isActive ? "text-blue-500" : "text-gray-900 dark:text-gray-100"
-                                                            )}>
-                                                                #{ep.episode_number}
-                                                            </div>
-
-                                                            {/* Center: Title */}
-                                                            <div className="flex-1 min-w-0 px-2">
-                                                                <h4 className={cn(
-                                                                    "text-[13px] transition-colors truncate",
-                                                                    isActive ? "text-blue-600 dark:text-blue-400 font-bold" : "font-medium text-gray-700 dark:text-gray-300"
+                                                                className="flex-1 flex items-center min-w-0"
+                                                            >
+                                                                {/* Left: Indicator */}
+                                                                <div className={cn(
+                                                                    "w-10 flex-shrink-0 text-sm font-black text-center",
+                                                                    isActive ? "text-primary" : "text-gray-900 dark:text-gray-100"
                                                                 )}>
-                                                                    {epItemTitle}
-                                                                </h4>
-                                                            </div>
-                                                        </Link>
+                                                                    #{ep.episode_number}
+                                                                </div>
 
-                                                        {/* Right: Actions or Duration */}
-                                                        <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end">
-                                                            {/* Default: Duration - Hidden on hover or if active (to show actions consistently if needed) */}
-                                                            <span className={cn(
-                                                                "text-[11px] transition-colors",
-                                                                isActive ? "text-blue-500 font-bold group-hover:hidden" : "text-gray-400 group-hover:hidden"
-                                                            )}>
-                                                                {ep.duration ? `${ep.duration}m` : '24m'}
-                                                            </span>
+                                                                {/* Center: Title */}
+                                                                <div className="flex-1 min-w-0 px-2">
+                                                                    <h4 className={cn(
+                                                                        "text-[13px] font-medium truncate",
+                                                                        isActive ? "text-primary font-bold" : "text-gray-700 dark:text-gray-300"
+                                                                    )}>
+                                                                        {epItemTitle}
+                                                                    </h4>
+                                                                </div>
+                                                            </Link>
 
-                                                            {/* Hover Actions - Visible only on hover */}
-                                                            <div className="hidden group-hover:flex items-center gap-0.5">
-                                                                <WatchLaterButton
-                                                                    animeId={Number(anime?.id)}
-                                                                    episodeId={Number(ep.id)}
-                                                                    episodeTitle={epItemTitle}
-                                                                    episodeNumber={ep.episode_number}
-                                                                    episodeImage={getImageUrl(ep.thumbnail || ep.banner || anime?.cover)}
-                                                                    variant="default"
-                                                                    className="p-1 h-7 w-7 rounded-sm hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0"
-                                                                    showLabel={false}
-                                                                />
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.preventDefault();
-                                                                        e.stopPropagation();
-                                                                        setIsShareModalOpen(true);
-                                                                    }}
-                                                                    className="p-1 h-7 w-7 rounded-sm hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-colors px-0 py-0 border-0 bg-transparent shadow-none"
-                                                                    title={lang === 'ar' ? 'مشاركة' : 'Share'}
-                                                                >
-                                                                    <Share2 className="w-3.5 h-3.5" />
-                                                                </button>
+                                                            {/* Right: Actions or Duration */}
+                                                            <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end">
+                                                                {/* Default: Duration - Hidden on hover */}
+                                                                <span className={cn(
+                                                                    "text-[11px] group-hover:hidden",
+                                                                    isActive ? "text-primary" : "text-gray-400"
+                                                                )}>
+                                                                    {ep.duration ? `${ep.duration}m` : '24m'}
+                                                                </span>
+
+                                                                {/* Hover Actions - Visible only on hover */}
+                                                                <div className="hidden group-hover:flex items-center gap-0.5">
+                                                                    <WatchLaterButton
+                                                                        animeId={Number(anime?.id)}
+                                                                        episodeId={Number(ep.id)}
+                                                                        episodeTitle={epItemTitle}
+                                                                        episodeNumber={ep.episode_number}
+                                                                        episodeImage={getImageUrl(ep.thumbnail || ep.banner || anime?.cover)}
+                                                                        variant="default"
+                                                                        className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all shadow-sm"
+                                                                        showLabel={false}
+                                                                    />
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            setEpisodeToShare(ep);
+                                                                            setIsShareModalOpen(true);
+                                                                        }}
+                                                                        className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
+                                                                        title={lang === 'ar' ? 'مشاركة' : 'Share'}
+                                                                    >
+                                                                        <Share2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                            <AnimatePresence>
+                                                    );
+                                                })}
+                                                <AnimatePresence>
                                                 {(isFetchingNextPage || hasNextPage) && (
-                                                    <motion.div 
-                                                        ref={observerRef} 
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        exit={{ opacity: 0, height: 0 }}
-                                                        className="py-4 flex flex-col items-center justify-center gap-2 border-t border-gray-50 dark:border-white/5 bg-gray-50/30 dark:bg-white/5 backdrop-blur-sm overflow-hidden"
-                                                    >
-                                                        <div className="flex gap-1.5">
-                                                            {[0, 1, 2].map((i) => (
-                                                                <motion.div
-                                                                    key={i}
-                                                                    animate={{
-                                                                        scale: [1, 1.4, 1],
-                                                                        opacity: [0.3, 1, 0.3],
-                                                                    }}
-                                                                    transition={{
-                                                                        duration: 0.8,
-                                                                        repeat: Infinity,
-                                                                        delay: i * 0.15,
-                                                                    }}
-                                                                    className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                        <span className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] animate-pulse">
-                                                            {lang === 'ar' ? 'جاري جلب الحلقات' : 'Fetching Episodes'}
+                                                    <div className="py-8 flex flex-col items-center justify-center gap-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/20 dark:bg-white/5">
+                                                        <CentralSpinner size="small" className="min-h-0 !w-auto !h-auto scale-75" color="#FF3D00" />
+                                                        <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">
+                                                            {lang === 'ar' ? 'جاري الجلب' : 'Fetching'}
                                                         </span>
-                                                    </motion.div>
+                                                    </div>
                                                 )}
-                                            </AnimatePresence>
+                                                </AnimatePresence>
+                                                <div ref={observerRef} className="h-2 w-full" />
                                             </>
                                         ) : (
                                             <p className="text-center text-gray-500 py-6 text-sm">
@@ -1446,18 +1464,16 @@ export default function WatchPage() {
                     isFetchingNextPage={isFetchingNextPage}
                 />
 
-                <MobileCommentsModal
-                    isOpen={isMobileCommentsOpen}
-                    onClose={() => setIsMobileCommentsOpen(false)}
-                    episodeId={Number(currentEpisode?.id)}
-                />
 
-                {currentEpisode && (
+                {(episodeToShare || currentEpisode) && (
                     <ShareModal
-                        episode={currentEpisode}
+                        episode={episodeToShare || currentEpisode}
                         anime={anime}
                         isOpen={isShareModalOpen}
-                        onClose={() => setIsShareModalOpen(false)}
+                        onClose={() => {
+                            setIsShareModalOpen(false);
+                            setTimeout(() => setEpisodeToShare(null), 300);
+                        }}
                     />
                 )}
 
@@ -1467,7 +1483,7 @@ export default function WatchPage() {
                         anime={anime}
                         onDownload={() => console.log('Download clicked')}
                         onReport={() => openModal(setIsReportModalOpen)}
-                        onShare={() => openModal(setIsShareModalOpen)}
+                        onShare={() => { setEpisodeToShare(currentEpisode); setIsShareModalOpen(true); }}
                         isOpen={isEpisodeInfoOpen}
                         onClose={() => setIsEpisodeInfoOpen(false)}
                     />

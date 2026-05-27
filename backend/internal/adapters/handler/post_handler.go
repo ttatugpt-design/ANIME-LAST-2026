@@ -21,14 +21,16 @@ type PostHandler struct {
 	userRepo    port.UserRepository
 	notifRepo   port.NotificationRepository
 	hub         *ws.Hub
+	baseDir     string
 }
 
-func NewPostHandler(postService port.PostService, userRepo port.UserRepository, notifRepo port.NotificationRepository, hub *ws.Hub) *PostHandler {
+func NewPostHandler(postService port.PostService, userRepo port.UserRepository, notifRepo port.NotificationRepository, hub *ws.Hub, baseDir string) *PostHandler {
 	return &PostHandler{
 		postService: postService,
 		userRepo:    userRepo,
 		notifRepo:   notifRepo,
 		hub:         hub,
+		baseDir:     baseDir,
 	}
 }
 
@@ -66,7 +68,23 @@ func (h *PostHandler) GetFeed(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-	posts, err := h.postService.GetFeedPaginated(limit, offset)
+	userIDQuery := c.Query("userId")
+	var posts []domain.Post
+	var err error
+
+	if userIDQuery != "" {
+		targetUserID, errParse := strconv.ParseUint(userIDQuery, 10, 32)
+		if errParse == nil {
+			posts, err = h.postService.GetUserPostsPaginated(uint(targetUserID), limit, offset)
+		} else {
+			// If userId is provided but invalid (e.g. NaN), return empty or error
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userId parameter"})
+			return
+		}
+	} else {
+		posts, err = h.postService.GetFeedPaginated(limit, offset)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch feed"})
 		return
@@ -80,8 +98,6 @@ func (h *PostHandler) GetFeed(c *gin.Context) {
 	}
 
 	for i := range posts {
-		// Assuming we will need to augment with user_interaction logic later
-		// For now, returning the raw posts works if default includes like counts
 		h.formatPostResponse(&posts[i], currentUserID)
 	}
 
@@ -99,7 +115,8 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	content := c.PostForm("content")
 
 	// Handle multiple media files
-	form, _ := c.MultipartForm()
+	form, err := c.MultipartForm()
+	fmt.Println("MultipartForm err:", err)
 	var media []domain.PostMedia
 
 	if form != nil {
@@ -108,6 +125,8 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 			// Backwards compatibility for now if needed, but "media[]" is preferred
 			files = form.File["images[]"]
 		}
+		
+		fmt.Println("Found files:", len(files))
 
 		for _, file := range files {
 			ext := strings.ToLower(filepath.Ext(file.Filename))
@@ -124,12 +143,12 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 
 			// Save file
 			filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
-			dir := filepath.Join("uploads", "posts")
+			dir := filepath.Join(h.baseDir, "backend", "uploads", "posts")
 			os.MkdirAll(dir, os.ModePerm)
 			path := filepath.Join(dir, filename)
 
 			if err := c.SaveUploadedFile(file, path); err == nil {
-				webPath := "/" + strings.ReplaceAll(path, "\\", "/")
+				webPath := "/uploads/posts/" + filename
 				media = append(media, domain.PostMedia{
 					MediaType: mediaType,
 					MediaURL:  webPath,
@@ -198,12 +217,12 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 			}
 
 			filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
-			dir := filepath.Join("uploads", "posts")
+			dir := filepath.Join(h.baseDir, "backend", "uploads", "posts")
 			os.MkdirAll(dir, os.ModePerm)
 			path := filepath.Join(dir, filename)
 
 			if err := c.SaveUploadedFile(file, path); err == nil {
-				webPath := "/" + strings.ReplaceAll(path, "\\", "/")
+				webPath := "/uploads/posts/" + filename
 				newMedia = append(newMedia, domain.PostMedia{
 					MediaType: mediaType,
 					MediaURL:  webPath,

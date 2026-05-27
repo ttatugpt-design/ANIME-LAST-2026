@@ -264,9 +264,10 @@ const Anime3rbDirectLinksPage: React.FC = () => {
                                  );
                 const dlUrl = directLink?.downloadUrl || directLink?.embedUrl;
                 const formattedNum = ep.episodeNum.toString().padStart(2, '0');
+                const fullTitle = `${selectedQualitySHG} - EP ${ep.episodeNum}`;
 
                 if (dlUrl) {
-                    return { url: dlUrl, title: formattedNum, episodeNum: ep.episodeNum };
+                    return { url: dlUrl, title: fullTitle, episodeNum: ep.episodeNum };
                 }
                 return null;
             }).filter(f => f !== null) as { url: string; title: string; episodeNum: number }[];

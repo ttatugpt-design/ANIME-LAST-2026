@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
     LogOut,
@@ -109,14 +109,19 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
         if (onClose) onClose();
     };
 
+    const getPath = (path: string) => {
+        const lang = i18n.language || 'en';
+        return path.startsWith('/') ? `/${lang}${path}` : `/${lang}/${path}`;
+    };
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center w-full h-[300px] gap-4">
                 <div className="relative w-16 h-16">
                     <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 border-4 rounded-full border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
                 </div>
-                <p className="text-sm text-gray-400 font-medium">جاري التحميل...</p>
+                <p className="text-sm font-medium text-gray-400">جاري التحميل...</p>
             </div>
         );
     }
@@ -127,12 +132,13 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             <div className="p-4 font-normal">
                 <div className="flex items-center justify-between">
                     {/* Edit Profile Icon (Left) */}
-                    <button
-                        onClick={() => handleNavigation(`/u/${user?.id}/dashboard/edit`)}
-                        className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
+                    <Link
+                        to={getPath(`/u/${user?.id}/dashboard/edit`)}
+                        onClick={() => { if (onClose) setTimeout(onClose, 50); }}
+                        className="inline-block p-2 text-gray-400 transition-colors rounded-full hover:text-white hover:bg-gray-800"
                     >
                         <Pen className="w-5 h-5" />
-                    </button>
+                    </Link>
 
 
                     {/* User Info (Center/Right) */}
@@ -150,7 +156,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                                     className="object-cover w-full h-full"
                                 />
                             ) : (
-                                <div className="flex items-center justify-center w-full h-full bg-black dark:bg-white text-white dark:text-black font-bold text-xl">
+                                <div className="flex items-center justify-center w-full h-full text-xl font-bold text-white bg-black dark:bg-white dark:text-black">
                                     {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
                                 </div>
                             )}
@@ -161,9 +167,9 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
 
             {/* Premium/Trial Banner */}
             <div className="px-4 mb-2">
-                <div className="bg-black dark:bg-white rounded-xl p-3 flex items-center justify-center gap-3 cursor-pointer hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors text-white dark:text-black shadow-lg">
+                <div className="flex items-center justify-center gap-3 p-3 text-white transition-colors bg-black shadow-lg cursor-pointer dark:bg-white rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 dark:text-black">
                     <Crown className="w-5 h-5 fill-current" />
-                    <span className="text-base font-black uppercase tracking-wide">تجربة مجانية لـ 7 يومًا</span>
+                    <span className="text-base font-black tracking-wide uppercase">تجربة مجانية لـ 7 يومًا</span>
                 </div>
             </div>
 
@@ -172,45 +178,51 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             {/* Menu Group 1: Profile, Admin, Settings, Language */}
             <div className="py-1">
                 {/* Profile Link (New) */}
-                <button
-                    onClick={() => handleNavigation(`/u/${user?.id}/profile`)}
+                    <Link
+                    to={getPath(`/u/${user?.id}/profile`)}
+                    onClick={() => { if (onClose) setTimeout(onClose, 50); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">الصفحة الشخصية</span>
-                    <UserIcon className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">الصفحة الشخصية</span>
+                    <UserIcon className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
 
-                <button
-                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard`)}
+                <Link
+                    to={getPath(`/u/${user?.id}/dashboard`)}
+                    onClick={() => { if (onClose) setTimeout(onClose, 50); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تغيير الملف الشخصي</span>
-                    <ArrowRightLeft className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">تغيير الملف الشخصي</span>
+                    <ArrowRightLeft className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
 
 
                 {/* Admin Dashboard Link */}
-                <button
-                    onClick={() => handleNavigation('/dashboard')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
-                >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">لوحة التحكم الأدمن</span>
-                    <LayoutDashboard className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                {(user?.role?.name?.toLowerCase() === 'admin' || user?.role?.name?.toLowerCase() === 'super_admin') && (
+                    <Link
+                        to={getPath('/dashboard')}
+                        onClick={() => { if(onClose) onClose(); }}
+                        className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
+                    >
+                        <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">لوحة التحكم الأدمن</span>
+                        <LayoutDashboard className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                    </Link>
+                )}
 
                 {/* Personal User Dashboard Link */}
-                <button
-                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard`)}
+                <Link
+                    to={getPath(`/u/${user?.id}/dashboard`)}
+                    onClick={() => { if(onClose) onClose(); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">لوحة التحكم</span>
-                    <LayoutDashboard className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">لوحة التحكم</span>
+                    <LayoutDashboard className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
 
                 <button
                     onClick={() => {
                         openMessagingModal();
-                        if (onClose) onClose();
+                        if (onClose) setTimeout(onClose, 50);
                     }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
@@ -218,19 +230,20 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                         {stats.messages_count > 0 && (
                             <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{stats.messages_count}</span>
                         )}
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">{i18n.language === 'ar' ? 'المراسلات' : 'Messages'}</span>
+                        <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">{i18n.language === 'ar' ? 'المراسلات' : 'Messages'}</span>
                     </div>
-                    <MessageCircle className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                    <MessageCircle className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
                 </button>
 
 
-                <button
-                    onClick={() => handleNavigation(`/u/${user?.id}/dashboard/settings`)}
+                <Link
+                    to={getPath(`/u/${user?.id}/dashboard/settings`)}
+                    onClick={() => { if (onClose) setTimeout(onClose, 50); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">إعدادات</span>
-                    <Settings className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">إعدادات</span>
+                    <Settings className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
 
 
                 {/* Language Switcher */}
@@ -241,24 +254,24 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                     >
                         <div className="flex items-center gap-2">
                             <ChevronRight className={cn("w-4 h-4 text-gray-400 transition-transform", showLanguageMenu && "rotate-90")} />
-                            <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
+                            <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">
                                 {i18n.language === 'ar' ? 'اللغة' : 'Language'}
                             </span>
                         </div>
-                        <Languages className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                        <Languages className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
                     </button>
 
                     {showLanguageMenu && (
                         <div className="bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-[#333]">
                             <button
-                                onClick={() => handleLanguageSwitch('ar')}
+                                onClick={() => { handleLanguageSwitch('ar'); if (onClose) setTimeout(onClose, 50); }}
                                 className="flex items-center justify-between w-full px-8 py-2 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors cursor-pointer"
                             >
                                 <span className="font-medium text-gray-700 dark:text-gray-200">العربية</span>
                                 {i18n.language === 'ar' && <Check className="w-4 h-4 text-black dark:text-white" />}
                             </button>
                             <button
-                                onClick={() => handleLanguageSwitch('en')}
+                                onClick={() => { handleLanguageSwitch('en'); if (onClose) setTimeout(onClose, 50); }}
                                 className="flex items-center justify-between w-full px-8 py-2 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors cursor-pointer"
                             >
                                 <span className="font-medium text-gray-700 dark:text-gray-200">English</span>
@@ -274,57 +287,54 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
 
             {/* Menu Group 2 */}
             <div className="py-1">
-                <button
-                    onClick={() => handleNavigation('/history')}
+                <Link
+                    to={getPath('/history')}
+                    onClick={() => { if (onClose) setTimeout(onClose, 50); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {stats.history_count > 0 && (
                             <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{stats.history_count}</span>
                         )}
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">السجل</span>
+                        <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">السجل</span>
                     </div>
-                    <History className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <History className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
 
-                <button
-                    onClick={() => handleNavigation('/watchlist')}
+                <Link
+                    to={getPath('/watchlist')}
+                    onClick={() => { if (onClose) setTimeout(onClose, 50); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {stats.watch_later_count > 0 && (
                             <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{stats.watch_later_count}</span>
                         )}
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قائمة المشاهدة</span>
+                        <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">قائمة المشاهدة</span>
                     </div>
-                    <Bookmark className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <Bookmark className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
 
-                <button
-                    onClick={() => handleNavigation('/library')}
-                    className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
-                >
-                    <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">قوائم كرانشي</span>
-                    <List className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+            
             </div>
 
             <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
 
             {/* Menu Group 3 */}
             <div className="py-1">
-                <button
-                    onClick={() => handleNavigation('/notifications')}
+                <Link
+                    to={getPath('/notifications')}
+                    onClick={() => { if (onClose) setTimeout(onClose, 50); }}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
                 >
                     <div className="flex items-center gap-2">
                         {unreadCount > 0 && (
                             <span className="min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full flex items-center justify-center px-1">{unreadCount}</span>
                         )}
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">إشعارات</span>
+                        <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">إشعارات</span>
                     </div>
-                    <Bell className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                </button>
+                    <Bell className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
+                </Link>
             </div>
 
             <div className="h-[1px] bg-gray-200 dark:bg-[#333] mx-1 my-1" />
@@ -344,7 +354,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
+                        <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">
                             {theme === 'dark' ? 'الوضع الليلي' : 'الوضع النهاري'}
                         </span>
                     </div>
@@ -358,8 +368,8 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
                 onClick={handleLogout}
                 className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl mb-1 flex items-center justify-end w-full px-5 py-2.5 gap-4 group hover:bg-gray-100 dark:hover:bg-[#1a1a1a] transition-colors mx-2 w-[calc(100%-16px)]"
             >
-                <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">تسجيل الخروج</span>
-                <LogOut className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
+                <span className="text-base font-medium text-gray-700 transition-colors dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">تسجيل الخروج</span>
+                <LogOut className="w-5 h-5 text-gray-500 transition-colors group-hover:text-black dark:group-hover:text-white" />
             </button>
         </div>
     );

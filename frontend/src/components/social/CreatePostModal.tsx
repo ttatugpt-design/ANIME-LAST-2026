@@ -70,15 +70,23 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         if (files.length === 0) return;
 
         // Limit to 10 files
-        const newFiles = [...mediaFiles, ...files].slice(0, 10);
+        const addedFiles = files.slice(0, 10 - mediaFiles.length);
+        if (addedFiles.length === 0) return;
+
+        const newFiles = [...mediaFiles, ...addedFiles];
         setMediaFiles(newFiles);
 
-        // Generate previews
-        const newPreviews = newFiles.map(file => ({
+        // Generate previews only for added files
+        const addedPreviews = addedFiles.map(file => ({
             url: URL.createObjectURL(file),
             type: file.type.startsWith('video/') ? 'video' as const : 'image' as const
         }));
-        setPreviews(newPreviews);
+        setPreviews(prev => [...prev, ...addedPreviews]);
+        
+        // Reset file input so the same files can be selected again
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const removeMedia = (index: number) => {
@@ -102,16 +110,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         });
 
         try {
-            const res = await api.post('/posts', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            const res = await api.post('/posts', formData);
+            console.log('Post created successfully:', res.data);
             toast.success(isAr ? 'تم نشر المنشور بنجاح' : 'Post published successfully');
             if (onSuccess) onSuccess(res.data);
             onClose();
         } catch (error: any) {
-            console.error("Failed to create post", error);
+            console.error("Failed to create post", error.response?.data || error);
             toast.error(isAr ? 'فشل نشر المنشور' : 'Failed to publish post');
         } finally {
             setIsSubmitting(false);

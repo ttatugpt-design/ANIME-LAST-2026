@@ -73,9 +73,9 @@ export const CustomEmojiPicker: React.FC<CustomEmojiPickerProps> = ({ onEmojiCli
         <div
             ref={mainRef}
             onMouseDown={(e) => e.preventDefault()}
-            className={`w-[260px] sm:w-[320px] max-w-[85vw] bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#333] rounded-none shadow-xl z-50 overflow-hidden transition-opacity duration-200 ${isMeasured ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-[260px] sm:w-[320px] max-w-[85vw] bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-none shadow-xl z-50 overflow-hidden transition-opacity duration-200 ${isMeasured ? 'opacity-100' : 'opacity-0'}`}
         >
-            <div className="p-3 border-b border-gray-200 dark:border-[#333] flex items-center justify-between gap-1">
+            <div className="p-3 flex items-center justify-between gap-1">
                 <div className="flex items-center gap-1 sm:gap-2">
                     <button
                         onClick={() => { setActiveTab('custom'); setScrollTop(0); if (containerRef.current) containerRef.current.scrollTop = 0; }}
@@ -105,6 +105,8 @@ export const CustomEmojiPicker: React.FC<CustomEmojiPickerProps> = ({ onEmojiCli
                 ref={containerRef}
                 className="h-60 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-neutral-700"
                 onScroll={handleScroll}
+                onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
                 style={{ overflowY: 'scroll', WebkitOverflowScrolling: 'touch' }}
             >
                 <div style={{ height: totalHeight, position: 'relative' }}>

@@ -100,8 +100,26 @@ func (h *DoodstreamHandler) ListFilesByKey(c *gin.Context) {
 		return
 	}
 
-	apiUrl := fmt.Sprintf("https://doodapi.co/api/file/list?key=%s&fld_id=%s", apiKey, fldID)
-	resp, err := http.Get(apiUrl)
+	// 1. Fetch Folders
+	folderApiUrl := fmt.Sprintf("https://doodapi.co/api/folder/list?key=%s&fld_id=%s", apiKey, fldID)
+	fResp, err := http.Get(folderApiUrl)
+	var folders []interface{}
+	if err == nil {
+		defer fResp.Body.Close()
+		var res DoodResponse
+		if json.NewDecoder(fResp.Body).Decode(&res) == nil && res.Status == 200 {
+			resMap, ok := res.Result.(map[string]interface{})
+			if ok {
+				if fList, ok := resMap["folders"].([]interface{}); ok {
+					folders = fList
+				}
+			}
+		}
+	}
+
+	// 2. Fetch Files
+	fileApiUrl := fmt.Sprintf("https://doodapi.co/api/file/list?key=%s&fld_id=%s", apiKey, fldID)
+	resp, err := http.Get(fileApiUrl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -113,7 +131,28 @@ func (h *DoodstreamHandler) ListFilesByKey(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse DoodStream response"})
 		return
 	}
-	c.JSON(http.StatusOK, res)
+
+	// 3. Merge and return in a format the frontend expects
+	finalResult := gin.H{
+		"folders": folders,
+		"files":   []interface{}{},
+	}
+
+	if res.Status == 200 {
+		if resMap, ok := res.Result.(map[string]interface{}); ok {
+			if fList, ok := resMap["files"].([]interface{}); ok {
+				finalResult["files"] = fList
+			}
+		} else if fList, ok := res.Result.([]interface{}); ok {
+			finalResult["files"] = fList
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": 200,
+		"msg":    "OK",
+		"result": finalResult,
+	})
 }
 
 func (h *DoodstreamHandler) DeleteFilesByKey(c *gin.Context) {
@@ -349,7 +388,7 @@ func (h *DoodstreamHandler) HandleUpload(c *gin.Context) {
 	}
 
 	// Use myvidplay.com as requested
-	embedLink := fmt.Sprintf("https://myvidplay.com/e/%s", fileCode)
+	embedLink := fmt.Sprintf("https://dood.li/e/%s", fileCode)
 	newServer := domain.EpisodeServer{
 		EpisodeID: uint(episodeID),
 		Language:  "ar",
@@ -516,7 +555,7 @@ func (h *DoodstreamHandler) PushMergedFile(c *gin.Context) {
 			return
 		}
 
-		embedLink := fmt.Sprintf("https://myvidplay.com/e/%s", fileCode)
+		embedLink := fmt.Sprintf("https://dood.li/e/%s", fileCode)
 		newServer := domain.EpisodeServer{
 			EpisodeID: uint(episodeID),
 			Language:  "ar",

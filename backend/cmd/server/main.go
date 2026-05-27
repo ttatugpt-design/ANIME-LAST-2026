@@ -69,7 +69,7 @@ func main() {
 	}
 
 	// Auto-migrate
-	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{}, &domain.MessageReaction{}, &domain.EmbedAccount{})
+	repo.DB().AutoMigrate(&domain.Settings{}, &domain.Message{}, &domain.MessageReaction{}, &domain.EmbedAccount{}, &domain.VPSTask{})
 
 	// Repositories (Special cases that need DB)
 	notifRepo := repository.NewNotificationRepository(repo.DB())
@@ -78,7 +78,7 @@ func main() {
 	wsHub := ws.NewHub()
 	go wsHub.Run()
 
-	// Determine root directory robustly. 
+	// Determine root directory robustly.
 	// In production (Railway/Docker), we assume the app runs in the project root.
 	// In dev, we might be in backend/cmd/server/.
 	cwd, _ := os.Getwd()
@@ -126,14 +126,29 @@ func main() {
 	quickNewsService := service.NewQuickNewsService(repo)
 	countryService := service.NewCountryService(repo)
 	serverService := service.NewServerService(repo)
+	animeCollectionService := service.NewAnimeCollectionService(repo)
 
 	exportService := service.NewExportService(cfg.BlenderPath, cfg.ExportDir, cfg.ExportTimeout)
 	watchLaterService := service.NewWatchLaterService(repo)
 	historyService := service.NewHistoryService(repo)
 
+	// VPS Service (SSH)
+	vpsIP := os.Getenv("VPS_IP")
+	if vpsIP == "" {
+		vpsIP = "165.22.203.23"
+	}
+	vpsPassword := os.Getenv("VPS_PASSWORD")
+	vpsKeyPath := absPath("backend", "vps_key.pem")
+	vpsService, err := service.NewVPSService(repo.DB(), vpsIP, "root", vpsKeyPath, vpsPassword)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize VPSService: %v", err)
+	} else {
+		vpsService.StartWorker()
+	}
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
-	userHandler := handler.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService, baseDir)
 	roleHandler := handler.NewRoleHandler(roleService)
 	permHandler := handler.NewPermissionHandler(permService)
 	typeHandler := handler.NewTypeHandler(typeService)
@@ -157,6 +172,7 @@ func main() {
 	exportHandler := handler.NewExportHandler(exportService)
 	uploadHandler := handler.NewUploadHandler(baseDir)
 	pcloudHandler := handler.NewPCloudHandler()
+	vpsDownloaderHandler := handler.NewVPSDownloaderHandler(vpsService, baseDir)
 	streamhgHandler := handler.NewStreamHGHandler()
 	searchHandler := handler.NewSearchHandler(repo, repo, repo)
 	watchLaterHandler := handler.NewWatchLaterHandler(watchLaterService)
@@ -166,7 +182,7 @@ func main() {
 	// Community Posts Services & Handlers
 	// Note: We use repo for port.PostRepository and uploadHandler/nil for file service depending on how uploads are handled
 	postService := service.NewPostService(repo)
-	postHandler := handler.NewPostHandler(postService, repo, notifRepo, wsHub) // Assuming file service logic will be integrated or ignored for MVP
+	postHandler := handler.NewPostHandler(postService, repo, notifRepo, wsHub, baseDir) // Assuming file service logic will be integrated or ignored for MVP
 
 	// Comments & Notifications Handlers
 	commentHandler := handler.NewCommentHandler(commentRepo, notifRepo, repo, historyService, wsHub)
@@ -175,9 +191,10 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(repo)
 	settingsHandler := handler.NewSettingsHandler(repo.DB())
-	quickNewsHandler := handler.NewQuickNewsHandler(quickNewsService)
+	quickNewsHandler := handler.NewQuickNewsHandler(quickNewsService, baseDir)
 	countryHandler := handler.NewCountryHandler(countryService)
 	serverHandler := handler.NewServerHandler(serverService)
+	animeCollectionHandler := handler.NewAnimeCollectionHandler(animeCollectionService)
 	sitemapHandler := handler.NewSitemapHandler(repo.DB())
 
 	messageService := service.NewMessageService(messageRepo, notifRepo, repo, wsHub)
@@ -193,10 +210,10 @@ func main() {
 	streamtapeHandler := handler.NewStreamtapeHandler()
 
 	r := gin.Default()
-	
+
 	// Enable Gzip Compression (Optimizes payload size significantly)
 	r.Use(gzip.Gzip(gzip.DefaultCompression))
-	
+
 	// Enable Security and Performance Headers
 	r.Use(middleware.SecurityHeadersMiddleware())
 
@@ -261,6 +278,27 @@ func main() {
 	// Optional: Start Node server automatically (or rely on external process)
 	ssrHandler.StartNodeServer()
 
+	// Temporary internal test endpoint (NO AUTH) to validate VPS ListDirectory
+	r.GET("/internal/test-vps-files", func(c *gin.Context) {
+		if vpsService == nil {
+			c.JSON(500, gin.H{"error": "vps service not initialized"})
+			return
+		}
+
+		p := c.Query("path")
+		if strings.TrimSpace(p) == "" {
+			p = "/"
+		}
+
+		files, err := vpsService.ListDirectory(p)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(200, gin.H{"path": p, "files": files})
+	})
+
 	// SSR Handler: Serve SSR for unknown routes (except /api and static folders)
 	r.NoRoute(func(c *gin.Context) {
 		p := c.Request.URL.Path
@@ -297,7 +335,7 @@ func main() {
 
 		// Root Health Check for Railway (Fast response)
 		r.GET("/", func(c *gin.Context) {
-			// If it's a browser requesting HTML, maybe they want SSR, 
+			// If it's a browser requesting HTML, maybe they want SSR,
 			// but for health checks, we want a 200 OK.
 			// Let's check headers or just return 200 if they don't explicitly want HTML.
 			if strings.Contains(c.GetHeader("Accept"), "text/html") {
@@ -330,6 +368,7 @@ func main() {
 			automation := public.Group("/automation")
 			{
 				automation.POST("/sync", automationHandler.SyncEpisodes)
+				automation.POST("/assign-sequential", automationHandler.AssignLinksSequentially)
 			}
 
 			// Anime Public (Read-Only)
@@ -381,6 +420,7 @@ func main() {
 			// Public Comments (Read-only)
 			public.GET("/episodes/:id/comments", commentHandler.GetAllByEpisode)
 			public.GET("/chapters/:id/comments", commentHandler.GetAllByChapter)
+			public.GET("/animes/:id/comments", commentHandler.GetAllByAnime)
 			public.GET("/comments/:id/reactions", commentHandler.GetReactions)
 
 			// Report Issue
@@ -391,7 +431,10 @@ func main() {
 			public.GET("/quick-news", quickNewsHandler.GetAll)
 			public.GET("/countries", countryHandler.GetAll)
 			public.GET("/servers", serverHandler.GetAll)
-			
+			public.GET("/anime-collections", animeCollectionHandler.GetAll)
+			public.GET("/anime-collections/:id", animeCollectionHandler.GetByID)
+			public.GET("/anime-collections/anime/:animeId", animeCollectionHandler.GetByAnimeID)
+
 			// Public Scraper endpoints for viewing links
 			public.POST("/scraper/anime3rb-refresh", scraperHandler.RefreshAnime3rbVideo)
 
@@ -400,6 +443,9 @@ func main() {
 			public.GET("/users/:id", userHandler.GetByID)
 			public.GET("/comments", commentHandler.GetAllComments)
 			public.GET("/comments/:id", commentHandler.GetByID)
+
+			// Temporary public test endpoint for VPS file listing
+			public.GET("/internal/vps-files", vpsDownloaderHandler.ListFiles)
 
 			// Community Posts (Read-Only but auth-aware)
 			optionalAuth := public.Group("/")
@@ -413,6 +459,9 @@ func main() {
 				optionalAuth.GET("/posts/comments/:id/reactions", postHandler.GetCommentReactions)
 				optionalAuth.GET("/posts/comments/:id/replies", postHandler.GetPostCommentReplies)
 			}
+
+			// VPS Files Listing (Temporary Test Endpoint - For now public)
+			public.GET("/dashboard/vps-downloader/files", vpsDownloaderHandler.ListFiles)
 		}
 
 		// --- Protected Routes (Auth Required) ---
@@ -429,6 +478,7 @@ func main() {
 			protected.POST("/user/profile/update", userHandler.UpdateProfile)
 			protected.GET("/user/stats", userHandler.GetStats)
 			protected.GET("/user/interactions", userHandler.GetInteractions)
+			protected.PUT("/users/:id/favorites", userHandler.UpdateFavoriteAnimes)
 
 			// Friendship Routes
 			friends := protected.Group("/friends")
@@ -464,7 +514,7 @@ func main() {
 				dashboard.GET("/comments", commentHandler.GetAllComments)
 				dashboard.GET("/analytics/stats", analyticsHandler.GetGlobalStats)
 				dashboard.GET("/analytics/top", analyticsHandler.GetTopContent)
-				
+
 				// Backup Management
 				dashboard.GET("/backups", backupHandler.ListBackups)
 				dashboard.GET("/backup-stats", backupHandler.GetBackupStats)
@@ -472,12 +522,24 @@ func main() {
 				dashboard.GET("/backups/create-new", backupHandler.CreateBackup) // GET Fallback
 				dashboard.GET("/backups/download/:filename", backupHandler.DownloadBackup)
 				dashboard.DELETE("/backups/:filename", backupHandler.DeleteBackup)
-				dashboard.POST("/backups/delete/:filename", backupHandler.DeleteBackup) 
+				dashboard.POST("/backups/delete/:filename", backupHandler.DeleteBackup)
 				dashboard.GET("/backups/delete-now/:filename", backupHandler.DeleteBackup) // GET Fallback for Delete
 				dashboard.POST("/backups/restore/:filename", backupHandler.RestoreBackup)
 				dashboard.POST("/backups/upload", backupHandler.UploadAndRestore)
 				dashboard.POST("/backups/upload/chunk", backupHandler.UploadChunk)
 				dashboard.POST("/backups/upload/finalize", backupHandler.UploadFinalize)
+
+				// VPS Downloader
+				vps := dashboard.Group("/vps-downloader")
+				{
+					vps.POST("/download", vpsDownloaderHandler.Download)
+					vps.POST("/upload", vpsDownloaderHandler.UploadToPCloud)
+					vps.POST("/deep-scrape", vpsDownloaderHandler.DeepScrape)
+					vps.GET("/status", vpsDownloaderHandler.GetStatus)
+					// Temporarily removed the protected files route to allow public testing
+					// vps.GET("/files", vpsDownloaderHandler.ListFiles)
+					vps.DELETE("/link", vpsDownloaderHandler.DeleteLink)
+				}
 			}
 
 			// Settings Update
@@ -536,6 +598,7 @@ func main() {
 			// Comment Write Operations
 			protected.POST("/episodes/:id/comments", commentHandler.Create)
 			protected.POST("/chapters/:id/comments", commentHandler.Create)
+			protected.POST("/animes/:id/comments", commentHandler.Create)
 			protected.POST("/comments/:id/like", commentHandler.ToggleLike)
 			protected.PUT("/comments/:id", commentHandler.Update)
 			protected.DELETE("/comments/:id", commentHandler.Delete)
@@ -545,12 +608,6 @@ func main() {
 			protected.PUT("/posts/:id", postHandler.UpdatePost)
 			protected.DELETE("/posts/:id", postHandler.DeletePost)
 			protected.POST("/posts/:id/like", postHandler.TogglePostLike)
-
-			// Community Posts Comment Write Operations
-			protected.POST("/posts/:id/comments", postHandler.CreatePostComment)
-			protected.PUT("/posts/comments/:id", postHandler.UpdatePostComment)
-			protected.DELETE("/posts/comments/:id", postHandler.DeletePostComment)
-			protected.POST("/posts/comments/:id/like", postHandler.ToggleCommentLike)
 
 			// Notification Routes (Personal)
 			protected.GET("/notifications", notifHandler.GetUserNotifications)
@@ -575,6 +632,12 @@ func main() {
 			protected.POST("/doodstream/file/rename", doodstreamHandler.RenameFile)
 			protected.DELETE("/doodstream/file/delete", doodstreamHandler.DeleteFile)
 
+			// New by-key routes for PCloudBrowserPage
+			protected.GET("/doodstream/files-by-key", doodstreamHandler.ListFilesByKey)
+			protected.POST("/doodstream/files-delete-by-key", doodstreamHandler.DeleteFilesByKey)
+			protected.POST("/doodstream/files-rename-by-key", doodstreamHandler.RenameFileByKey)
+			protected.POST("/doodstream/folder/create", doodstreamHandler.CreateFolderByKey)
+
 			// Mirrored.to Routes
 			protected.POST("/mirrored/push/:episode_id", mirroredHandler.PushMergedFile)
 
@@ -595,6 +658,9 @@ func main() {
 			protected.POST("/scraper/ristoanime", scraperHandler.FetchRistoAnime)
 			protected.POST("/scraper/ristoanime-batch", scraperHandler.FetchRistoAnimeBatch)
 			protected.POST("/scraper/animerco-batch", scraperHandler.FetchAnimercoBatch)
+			protected.POST("/scraper/animerco/info", scraperHandler.FetchAnimercoInfo)
+			protected.POST("/scraper/animerco/season-details", scraperHandler.FetchAnimercoSeasonDetails)
+			protected.POST("/scraper/animerco/import-full", scraperHandler.ImportAnimercoFull)
 			protected.POST("/scraper/witanime-batch", scraperHandler.FetchWitAnimeBatch)
 			protected.POST("/scraper/anime3rb-batch", scraperHandler.FetchAnime3rbBatch)
 			protected.POST("/scraper/images", scraperHandler.FetchPageImages)
@@ -616,6 +682,9 @@ func main() {
 			// Server Admin Operations
 			protected.Group("/servers").POST("", serverHandler.Create).PUT("/:id", serverHandler.Update).DELETE("/:id", serverHandler.Delete)
 
+			// Anime Collection Admin Operations
+			protected.Group("/anime-collections").POST("", animeCollectionHandler.Create).PUT("/:id", animeCollectionHandler.Update).DELETE("/:id", animeCollectionHandler.Delete)
+
 			// StreamHG Backend Operations
 			streamhg := protected.Group("/streamhg")
 			{
@@ -625,6 +694,12 @@ func main() {
 				streamhg.POST("/rename", streamhgHandler.RenameFile)
 				streamhg.DELETE("/delete", streamhgHandler.DeleteFiles)
 				streamhg.POST("/create-folder", streamhgHandler.CreateFolder)
+
+				// New by-key routes for PCloudBrowserPage
+				streamhg.GET("/files-by-key", streamhgHandler.ListFiles)
+				streamhg.POST("/files-delete-by-key", streamhgHandler.DeleteFiles)
+				streamhg.POST("/files-rename-by-key", streamhgHandler.RenameFile)
+				streamhg.POST("/folder/create", streamhgHandler.CreateFolder)
 			}
 
 			// Streamtape Backend Operations
@@ -636,16 +711,20 @@ func main() {
 		}
 	}
 
-
 	srv := &http.Server{
-		Addr:        ":" + cfg.Port,
+		Addr:        cfg.Host + ":" + cfg.Port,
 		Handler:     r,
 		ReadTimeout: 0, WriteTimeout: 0, IdleTimeout: 0,
 	}
 
-	log.Printf("Server configuration complete. Listening on port %s", cfg.Port)
-	log.Printf("Healthcheck path: /api/health (ready)")
-	
+	// Debug: print registered routes to verify test endpoints
+	for _, ri := range r.Routes() {
+		log.Printf("[ROUTE] %s %s", ri.Method, ri.Path)
+	}
+
+	log.Printf("Server configuration complete. Listening on %s:%s", cfg.Host, cfg.Port)
+	log.Printf("Healthcheck path: http://%s:%s/api/health (ready)", cfg.Host, cfg.Port)
+
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}

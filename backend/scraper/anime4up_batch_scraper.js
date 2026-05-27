@@ -284,7 +284,7 @@ const scrapeEpisode = async (browser, episodeUrl) => {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process'
+                
             ]
         });
         

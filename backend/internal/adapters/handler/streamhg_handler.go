@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -71,8 +72,8 @@ func (h *StreamHGHandler) RemoteUpload(c *gin.Context) {
 	// 2. Trigger Remote Upload and Rename for each file
 	successCount := 0
 	for _, file := range input.Files {
-		// A. Trigger Remote Upload
-		remoteUrl := fmt.Sprintf("https://streamhgapi.com/api/upload/url?key=%s&url=%s&fld_id=%s", input.ApiKey, url.QueryEscape(file.URL), fldID)
+		// A. Trigger Remote Upload with file_title included for better reliability
+		remoteUrl := fmt.Sprintf("https://streamhgapi.com/api/upload/url?key=%s&url=%s&fld_id=%s&file_title=%s", input.ApiKey, url.QueryEscape(file.URL), fldID, url.QueryEscape(file.Title))
 		resp, err := http.Get(remoteUrl)
 		if err != nil {
 			continue
@@ -82,17 +83,30 @@ func (h *StreamHGHandler) RemoteUpload(c *gin.Context) {
 		if err := json.NewDecoder(resp.Body).Decode(&res); err == nil && res.Status == 200 {
 			resMap, ok := res.Result.(map[string]interface{})
 			if ok {
-				fileCode := fmt.Sprintf("%v", resMap["filecode"])
+				// Try both filecode and file_code
+				fileCode := ""
+				if val, found := resMap["filecode"]; found {
+					fileCode = fmt.Sprintf("%v", val)
+				} else if val, found := resMap["file_code"]; found {
+					fileCode = fmt.Sprintf("%v", val)
+				}
 				
-				// B. Rename immediately (Backend-side)
-				// We use both 'name' and 'file_title' to be sure
-				renameUrl := fmt.Sprintf("https://streamhgapi.com/api/file/rename?key=%s&file_code=%s&name=%s", input.ApiKey, fileCode, url.QueryEscape(file.Title))
-				http.Get(renameUrl)
-				
-				editUrl := fmt.Sprintf("https://streamhgapi.com/api/file/edit?key=%s&file_code=%s&file_title=%s", input.ApiKey, fileCode, url.QueryEscape(file.Title))
-				http.Get(editUrl)
-				
-				successCount++
+				if fileCode != "" {
+					// B. Rename immediately (Backend-side)
+					// Ensure we have .mp4 if it's missing to help some hosts
+					finalTitle := file.Title
+					if !strings.HasSuffix(strings.ToLower(finalTitle), ".mp4") {
+						finalTitle += ".mp4"
+					}
+
+					renameUrl := fmt.Sprintf("https://streamhgapi.com/api/file/rename?key=%s&file_code=%s&name=%s", input.ApiKey, fileCode, url.QueryEscape(finalTitle))
+					http.Get(renameUrl)
+					
+					editUrl := fmt.Sprintf("https://streamhgapi.com/api/file/edit?key=%s&file_code=%s&file_title=%s", input.ApiKey, fileCode, url.QueryEscape(finalTitle))
+					http.Get(editUrl)
+					
+					successCount++
+				}
 			}
 		}
 		resp.Body.Close()

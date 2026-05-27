@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useInView } from "react-intersection-observer";
+import { motion, AnimatePresence } from "framer-motion";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useTranslation } from "react-i18next";
 import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { queryClient as globalQueryClient } from '@/lib/react-query';
-import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown, List, Share2, Play, ChevronDown, BookOpen } from "lucide-react";
+import { Search, Star, ThumbsUp, Filter, Facebook, Twitter, Instagram, Youtube, Mail, Globe, UserPlus, LogIn, ShieldAlert, Home, Sparkles, Monitor, Film, PlayCircle, LayoutGrid, ArrowUp, Moon, Sun, ArrowUpDown, List, Share2, Play, ChevronDown, BookOpen, MessageCircle, Eye, Newspaper } from "lucide-react";
 import { toast } from "sonner";
 import { WatchLaterButton } from "@/components/common/WatchLaterButton";
 import { Link, useNavigate } from "react-router-dom";
@@ -17,7 +19,7 @@ import SearchModal from "@/components/modals/SearchModal";
 import FilterModal from "@/components/modals/FilterModal";
 import SearchAnimeModal from "@/components/modals/SearchAnimeModal";
 import FilterAnimeModal from "@/components/modals/FilterAnimeModal";
-import { NewsTicker } from "@/components/common/NewsTicker";
+
 import Footer from "@/components/common/Footer";
 import { renderEmojiContent } from "@/utils/render-content";
 import { useTheme } from "@/components/theme-provider";
@@ -28,6 +30,138 @@ import { slugify } from "@/utils/slug";
 import { useLoadingStore } from "@/stores/loading-store";
 import { useSettingsStore } from '@/stores/settings-store';
 import CentralSpinner from "@/components/ui/CentralSpinner";
+
+
+
+interface QuickNews {
+    id: number;
+    description: string;
+    description_en: string;
+    image?: string;
+    url?: string;
+    url_en?: string;
+}
+
+const QuickNewsHero = ({ lang, isRtl }: { lang: string; isRtl: boolean }) => {
+    const { data: newsItems } = useQuery<QuickNews[]>({
+        queryKey: ['quick-news'],
+        queryFn: async () => (await api.get('/quick-news')).data,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    // Auto-slide logic
+    useEffect(() => {
+        if (!newsItems || newsItems.length <= 1) return;
+        const timer = setInterval(() => {
+            setCurrentIndex((prev) => (prev + 1) % newsItems.length);
+        }, 8000);
+        return () => clearInterval(timer);
+    }, [newsItems]);
+
+    if (!newsItems || newsItems.length === 0) return null;
+
+    const news = newsItems[currentIndex];
+    const title = isRtl ? news.description : (news.description_en || news.description);
+    const linkUrl = isRtl ? news.url : (news.url_en || news.url);
+
+    return (
+        <div className="relative w-full h-[55vh] md:h-[70vh] xl:h-[80vh] bg-black overflow-hidden group">
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={currentIndex}
+                    initial={{ opacity: 0, scale: 1.1 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="absolute inset-0"
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    onDragEnd={(_e, { offset }) => {
+                        const swipe = offset.x;
+                        if (swipe < -50) { // Swipe Left
+                            setCurrentIndex((prev) => (prev + 1) % newsItems.length);
+                        } else if (swipe > 50) { // Swipe Right
+                            setCurrentIndex((prev) => (prev - 1 + newsItems.length) % newsItems.length);
+                        }
+                    }}
+                >
+                    {/* Background Image */}
+                    {news.image && (
+                        <img
+                            src={getImageUrl(news.image)}
+                            alt={title}
+                            className="absolute inset-0 w-full h-full object-cover opacity-80"
+                            fetchPriority="high"
+                        />
+                    )}
+                    {/* Gradient Overlays */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-95" />
+                    <div className="absolute inset-0 bg-black/40" />
+
+                    {/* Content */}
+                    <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-5xl mx-auto h-full justify-end pb-24 md:pb-32">
+                        {/* News Badge */}
+                        <motion.div 
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className="flex items-center gap-2 bg-[#FF3D00] px-4 py-1.5 rounded-full mb-6 shadow-lg"
+                        >
+                            <Newspaper className="w-4 h-4 text-white" />
+                            <span className="text-xs md:text-sm font-black text-white uppercase tracking-widest">
+                                {isRtl ? 'خبر عاجل' : 'Breaking News'}
+                            </span>
+                        </motion.div>
+
+                        <motion.h1 
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-black text-white drop-shadow-[0_4px_12px_rgba(0,0,0,1)] mb-10 leading-[1.1] tracking-tight"
+                        >
+                            {renderEmojiContent(title)}
+                        </motion.h1>
+                        
+                        {linkUrl && (
+                            <motion.a
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.4 }}
+                                href={linkUrl}
+                                target={linkUrl.startsWith('http') ? '_blank' : '_self'}
+                                rel={linkUrl.startsWith('http') ? 'noopener noreferrer' : ''}
+                                className="group/btn flex items-center gap-4 px-10 md:px-14 py-4 md:py-5 bg-white text-black hover:bg-[#FF3D00] hover:text-white font-black rounded-full transition-all duration-500 shadow-2xl hover:shadow-[#FF3D00]/50 hover:scale-110 border-2 border-white hover:border-[#FF3D00]"
+                            >
+                                <PlayCircle className="w-8 h-8 md:w-10 md:h-10 transition-transform duration-500 group-hover/btn:rotate-[360deg]" />
+                                <span className="text-xl md:text-2xl uppercase tracking-tighter">
+                                    {isRtl ? 'اضغط هنا لمشاهدة' : 'Click here to watch'}
+                                </span>
+                            </motion.a>
+                        )}
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+
+            {/* Slider Dots */}
+            {newsItems.length > 1 && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-20">
+                    {newsItems.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => setCurrentIndex(idx)}
+                            className={`h-2.5 transition-all duration-500 rounded-full ${currentIndex === idx ? 'w-10 bg-[#FF3D00]' : 'w-2.5 bg-white/30 hover:bg-white/50'}`}
+                            aria-label={`Go to slide ${idx + 1}`}
+                        />
+                    ))}
+                </div>
+            )}
+            
+            {/* Bottom Accent Line */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF3D00] to-transparent opacity-50 z-20" />
+        </div>
+    );
+};
 
 export default function HomePage() {
     const { i18n } = useTranslation();
@@ -60,119 +194,19 @@ export default function HomePage() {
 
             {/* Header Content & Main Content */}
             <>
-                {/* Hero Section */}
-                <div className="mt-0 bg-white dark:bg-black">
-                    <div className="flex flex-col items-center justify-center pt-8 pb-12 mb-8 animate-fade-in px-4">
-                        {/* Large Logo with Skeleton */}
-                        <div className="mb-8 flex items-center justify-center">
-                            {logoUrl ? (
-                                <img
-                                    src={logoUrl}
-                                    alt="AnimeLast Logo"
-                                    className="w-auto h-24 md:h-32 lg:h-40 xl:h-48 object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500"
-                                    fetchPriority="high"
-                                />
-                            ) : (
-                                <div className="h-24 md:h-32 lg:h-40 w-48 md:w-64 lg:w-80 rounded-xl bg-gray-200 dark:bg-white/10 animate-pulse" />
-                            )}
-                        </div>
+                {/* Quick News Full-Width Hero */}
+                <QuickNewsHero lang={i18n.language} isRtl={isRtl} />
 
-                        {/* Updated Tagline */}
-                        <div className="text-center max-w-2xl mx-auto px-4">
-                            <p className="text-xl md:text-2xl lg:text-3xl text-gray-800 dark:text-gray-200 font-bold leading-relaxed tracking-wide" dir={isRtl ? 'rtl' : 'ltr'}>
-                                {isRtl
-                                    ? "أردت التواصل معنا ومتابعة أحدث الحلقات والأنميات؟ من هنا 👇"
-                                    : "Want to contact us and follow the latest episodes and anime? From here 👇"}
-                            </p>
-                        </div>
 
-                        {/* Social Media Icons */}
-                        <div className="flex items-center justify-center gap-5 mt-8">
-                            {/* TikTok */}
-                            <a
-                                href="https://tiktok.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-[#1a1a1a] shadow-md hover:scale-110 hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-white/10"
-                                aria-label="TikTok"
-                            >
-                                <svg className="w-5 h-5 fill-current text-gray-800 dark:text-white group-hover:text-black dark:group-hover:text-white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.52V7.12a4.85 4.85 0 0 1-1-.43z"/>
-                                </svg>
-                            </a>
-
-                            {/* Instagram */}
-                            <a
-                                href="https://instagram.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-[#1a1a1a] shadow-md hover:scale-110 hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-white/10"
-                                aria-label="Instagram"
-                            >
-                                <Instagram className="w-5 h-5 text-gray-800 dark:text-white group-hover:text-pink-500 transition-colors" />
-                            </a>
-
-                            {/* Telegram */}
-                            <a
-                                href="https://t.me"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-[#1a1a1a] shadow-md hover:scale-110 hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-white/10"
-                                aria-label="Telegram"
-                            >
-                                <svg className="w-5 h-5 fill-current text-gray-800 dark:text-white group-hover:text-sky-500 transition-colors" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.932z"/>
-                                </svg>
-                            </a>
-
-                            {/* Facebook */}
-                            <a
-                                href="https://facebook.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-[#1a1a1a] shadow-md hover:scale-110 hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-white/10"
-                                aria-label="Facebook"
-                            >
-                                <Facebook className="w-5 h-5 text-gray-800 dark:text-white group-hover:text-blue-600 transition-colors" />
-                            </a>
-                        </div>
-                    </div>
+                {/* Main Content Area - Centered with wider margins */}
+                <div className="max-w-[1500px] mx-auto min-h-screen px-1.5 sm:px-16 md:px-24 lg:px-32 xl:px-44 pb-16 pt-10">
+                    <BrowseSection 
+                        mode="latest-animes"
+                        lang={i18n.language}
+                        isRtl={isRtl}
+                    />
                 </div>
-
-
-                    {/* Main Content Area - Centered with wider margins */}
-                    <div className="max-w-[1500px] mx-auto min-h-screen px-1.5 sm:px-16 md:px-24 lg:px-32 xl:px-44 pb-16">
-                        {/* Latest Episodes Section - List Design */}
-                        <BrowseSection
-                            title={i18n.language === 'ar' ? 'تصفح انميات الجديدة' : 'Browse New Animes'}
-                            endpoint="/episodes/latest"
-                            lang={i18n.language}
-                            isRtl={isRtl}
-                            isEpisodes={true}
-                            queryKeyPrefix="home-latest-episodes"
-                        />
-
-                        {/* Latest Animes Section */}
-                        <Section
-                            title={i18n.language === 'ar' ? 'أحدث الأنميات' : 'Latest Animes'}
-                            endpoint="/animes/latest"
-                            type="anime"
-                            limit={12}
-                            showActionButtons={false}
-                            lang={i18n.language}
-                        />
-
-                        {/* Latest Manga Section */}
-                        <Section
-                            title={i18n.language === 'ar' ? 'أحدث المانجا' : 'Latest Manga'}
-                            endpoint="/animes/type/manga"
-                            type="manga"
-                            limit={12}
-                            showActionButtons={false}
-                            lang={i18n.language}
-                        />
-                    </div>
-                </>
+            </>
 
             <Footer />
         </div>
@@ -321,37 +355,20 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
 
 // ─── Component: Browse Section ──────────────────────────────────────────────────
 
-function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes, queryKeyPrefix = 'browse' }: { title: string; endpoint: string; lang: string; isRtl: boolean; isEpisodes?: boolean; queryKeyPrefix?: string }) {
-    const { elementRef, hasIntersected } = useIntersectionObserver({ threshold: 0.1 });
-    const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
-    const [searchQuery] = useState('');
-    const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+function BrowseSection({ mode, lang, isRtl }: { mode: 'latest-episodes' | 'latest-animes' | 'latest-movies'; lang: string; isRtl: boolean }) {
+    const [layout, setLayout] = useState<'grid' | 'list'>(mode === 'latest-episodes' ? 'list' : 'grid');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const filterMenuRef = useRef<HTMLDivElement>(null);
-
     const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isFilterMenuOpen && filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
-                setIsFilterMenuOpen(false);
-            }
-        };
+    const isEpisodes = mode === 'latest-episodes';
+    const endpoint = mode === 'latest-episodes' ? '/episodes/latest' : (mode === 'latest-animes' ? '/animes' : '/animes/type/Movie');
+    const sectionTitle = isRtl 
+        ? (mode === 'latest-episodes' ? 'تصفح انميات الجديدة' : (mode === 'latest-animes' ? 'أحدث الأنميات' : 'تصفح الأفلام'))
+        : (mode === 'latest-episodes' ? 'Browse New Animes' : (mode === 'latest-animes' ? 'Latest Animes' : 'Browse Movies'));
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isFilterMenuOpen]);
-
-    const handleMouseEnter = (index: number) => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        setHoveredCardIndex(index);
-    };
-
-    const handleMouseLeave = () => {
-        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = setTimeout(() => setHoveredCardIndex(null), 100);
-    };
+    const { ref: loadMoreRef, inView } = useInView({ threshold: 0.1 });
 
     const {
         data,
@@ -360,183 +377,131 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes, queryKeyPrefi
         isFetchingNextPage,
         isLoading,
     } = useInfiniteQuery({
-        queryKey: [queryKeyPrefix, endpoint, selectedLetter, searchQuery],
+        queryKey: ['browse-v2', mode],
         queryFn: async ({ pageParam = 1 }) => {
             const params: any = {
                 page: pageParam,
-                limit: 14,
-                letter: selectedLetter || '',
-                search: searchQuery,
+                limit: 12,
+                paginate: true,
             };
             const response = await api.get(endpoint, { params });
-            return response.data;
+            return response.data.data || response.data;
         },
         initialPageParam: 1,
-        enabled: hasIntersected,
         getNextPageParam: (lastPage: any, allPages: any[]) => {
-            if (!lastPage || lastPage.length < 14) return undefined;
+            if (!lastPage || lastPage.length < 12) return undefined;
             return allPages.length + 1;
         },
-        staleTime: 5 * 60 * 1000,
     });
 
-    const isLoadingState = (!hasIntersected || isLoading) && !data;
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const allItems = useMemo(() => data?.pages.flat() || [], [data]);
-    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    const lettersDisplay = ALPHABET;
 
-    // Wider grid since no sidebar
-    const gridCols = "grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-x-1.5 sm:gap-x-4 gap-y-5 sm:gap-y-8";
+    const handleMouseEnter = (index: number) => {
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        setHoveredCardIndex(index);
+    };
+
+    const handleMouseLeave = () => {
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredCardIndex(null);
+        }, 100);
+    };
 
     return (
-        <div ref={elementRef as React.RefObject<HTMLDivElement>}>
-        <section className="mb-14" ref={filterMenuRef}>
-            {/* Header */}
-            <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-6 text-base font-bold">
+        <section className="mb-14">
+            <div className="flex items-center justify-between gap-1 mb-8 p-0">
+                <h2 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white leading-none flex items-center gap-3">
+                    <span className="w-2 h-8 bg-blue-600 dark:bg-white inline-block rounded-full"></span>
+                    {sectionTitle}
+                </h2>
+
+                <div className="flex items-center gap-4">
                     <button
                         onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                        className={cn("flex items-center gap-2 text-gray-900 dark:text-white transition-colors", isFilterMenuOpen ? "text-blue-500" : "hover:text-gray-600 dark:hover:text-gray-300")}
+                        className={cn(
+                            "flex items-center gap-2 text-gray-900 dark:text-white transition-colors font-bold",
+                            isFilterMenuOpen ? "text-blue-500" : "hover:text-gray-600 dark:hover:text-gray-300"
+                        )}
                     >
                         <Filter className="w-5 h-5" />
-                        <span>{isRtl ? 'فلتر' : 'Filter'}</span>
+                        <span className="hidden sm:inline">{isRtl ? 'فلتر' : 'Filter'}</span>
                         <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isFilterMenuOpen && "rotate-180")} />
                     </button>
-                    <button className="flex items-center gap-2 text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                        <ArrowUpDown className="w-5 h-5" />
-                        <span>{isRtl ? 'أبجدي' : 'Alphabetical'}</span>
-                    </button>
-                    {isEpisodes && (
-                        <div className="flex items-center bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-lg">
-                            <button
-                                onClick={() => setLayout('grid')}
-                                className={cn(
-                                    "p-1.5 rounded-md transition-colors",
-                                    layout === 'grid' ? "bg-white dark:bg-[#2a2a2a] shadow-sm text-black dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                )}
-                                title={lang === 'ar' ? "شبكة" : "Grid"}
-                            >
-                                <LayoutGrid className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setLayout('list')}
-                                className={cn(
-                                    "p-1.5 rounded-md transition-colors",
-                                    layout === 'list' ? "bg-white dark:bg-[#2a2a2a] shadow-sm text-black dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                )}
-                                title={lang === 'ar' ? "قائمة" : "List"}
-                            >
-                                <List className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
+
+                    <div className="flex items-center bg-gray-100 dark:bg-white/5 p-1 rounded-full border border-gray-200 dark:border-white/10">
+                        <button
+                            onClick={() => setLayout('grid')}
+                            className={cn(
+                                "p-2 rounded-full transition-all",
+                                layout === 'grid' ? "bg-white dark:bg-white/10 shadow-sm text-black dark:text-white" : "text-gray-500"
+                            )}
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setLayout('list')}
+                            className={cn(
+                                "p-2 rounded-full transition-all",
+                                layout === 'list' ? "bg-white dark:bg-white/10 shadow-sm text-black dark:text-white" : "text-gray-500"
+                            )}
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                    <span className="w-1.5 h-6 bg-blue-600 dark:bg-white inline-block"></span>
-                    {title}
-                </h2>
             </div>
 
-            {/* Categories Mega Menu - appears BELOW header row */}
             <div
                 className={cn(
-                    "w-full z-50 bg-white dark:bg-[#0a0a0a] shadow-2xl border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all duration-300 mb-4",
-                    isFilterMenuOpen
-                        ? "max-h-[800px] opacity-100"
-                        : "max-h-0 opacity-0 pointer-events-none border-transparent dark:border-transparent"
+                    "w-full z-50 bg-white dark:bg-[#0a0a0a] shadow-2xl border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all duration-300 mb-8 rounded-2xl",
+                    isFilterMenuOpen ? "max-h-[800px] opacity-100 p-6" : "max-h-0 opacity-0 pointer-events-none"
                 )}
             >
-                <CategoriesMenuContent
-                    onClose={() => setIsFilterMenuOpen(false)}
-                    isVisible={isFilterMenuOpen}
-                />
+                <CategoriesMenuContent onClose={() => setIsFilterMenuOpen(false)} isVisible={isFilterMenuOpen} />
             </div>
 
-            {/* Alphabet Bar */}
-            <div className="w-full border-b border-gray-200 dark:border-neutral-800 py-3 flex justify-center sticky top-[60px] z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md mb-6 transition-colors">
-                <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-sm md:text-base font-bold text-gray-500 dark:text-gray-500 uppercase">
-                    <button
-                        onClick={() => setSelectedLetter(null)}
-                        className={`hover:text-black dark:hover:text-white transition-colors ${selectedLetter === null ? 'text-black dark:text-white underline decoration-2' : ''}`}
-                    >
-                        #
-                    </button>
-                    {lettersDisplay.map((letter) => (
-                        <button
-                            key={letter}
-                            onClick={() => setSelectedLetter(letter)}
-                            className={`hover:text-black dark:hover:text-white transition-colors ${selectedLetter === letter ? 'text-black dark:text-white underline decoration-2' : ''}`}
-                        >
-                            {letter}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content List */}
-            <div className={layout === 'list' && isEpisodes ? "flex flex-col gap-2 relative z-0" : `${gridCols} relative z-0`}>
-                {isLoadingState ? (
-                    window.innerWidth < 768 ? (
-                        <AnimeBrowseMobileSkeleton
-                            type={isEpisodes && layout === 'list' ? 'episode' : 'anime'}
-                            count={14}
-                        />
-                    ) : (
-                        <CrunchyrollSkeleton count={14} isEpisode={isEpisodes} layout={layout === 'list' && isEpisodes ? 'list' : 'grid'} className="!bg-transparent" gridClassName={gridCols} />
-                    )
-                ) : allItems.length > 0 ? (
-                    allItems.map((item: any, index: number) => (
-                        layout === 'list' && isEpisodes ? (
-                            <ListItem
-                                key={item.id}
-                                item={item}
-                                lang={lang}
-                            />
-                        ) : (
-                            <CardItem
-                                key={item.id}
-                                item={item}
-                                index={index}
-                                type={isEpisodes ? 'episode' : 'anime'}
-                                lang={lang}
-                                isHovered={hoveredCardIndex === index}
-                                onMouseEnter={() => handleMouseEnter(index)}
-                                onMouseLeave={handleMouseLeave}
-                                keepCardOpen={() => {
-                                    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                                }}
-                            />
-                        )
+            <div className={layout === 'list' ? "grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"}>
+                {isLoading ? (
+                    Array.from({ length: 10 }).map((_, i) => (
+                        <div key={i} className="aspect-[2/3] bg-gray-100 dark:bg-white/10 animate-pulse rounded-xl" />
                     ))
-                ) : (
-                    <div className="col-span-full text-center py-10 text-gray-500 font-medium">
-                        {isRtl ? 'لا توجد نتائج' : 'No results found'}
+                ) : allItems.map((item: any, index: number) => (
+                    layout === 'list' ? (
+                        <ListItem key={item.id} item={item} lang={lang} isEpisode={isEpisodes} />
+                    ) : (
+                        <CardItem 
+                            key={item.id} 
+                            item={item} 
+                            index={index} 
+                            type={isEpisodes ? 'episode' : 'anime'} 
+                            lang={lang} 
+                            isHovered={hoveredCardIndex === index}
+                            onMouseEnter={() => handleMouseEnter(index)}
+                            onMouseLeave={handleMouseLeave}
+                            keepCardOpen={() => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); }}
+                        />
+                    )
+                ))}
+            </div>
+
+            <div ref={loadMoreRef} className="py-12 flex justify-center">
+                {(isFetchingNextPage || hasNextPage) && (
+                    <div className="flex flex-col items-center gap-4">
+                        <CentralSpinner />
+                        <span className="text-xs font-black text-gray-500 uppercase tracking-widest animate-pulse">
+                            {isRtl ? 'جاري تحميل المزيد...' : 'Loading More...'}
+                        </span>
                     </div>
                 )}
             </div>
-
-            {/* Load More */}
-            {hasNextPage && (
-                <div className="flex justify-center mt-10">
-                    <button
-                        onClick={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="px-8 py-3 bg-white dark:bg-white text-black dark:text-black font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-100 transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
-                    >
-                        {isFetchingNextPage ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin" />
-                                <span>{isRtl ? 'جاري التحميل...' : 'Loading...'}</span>
-                            </>
-                        ) : (
-                            <span>{isRtl ? 'عرض المزيد' : 'Show More'}</span>
-                        )}
-                    </button>
-                </div>
-            )}
         </section>
-        </div>
     );
 }
 
@@ -576,7 +541,7 @@ const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter,
         });
     };
 
-    const image = animeObj?.cover || item.cover || item.image || item.banner;
+    const image = item.image || animeObj?.image || item.cover || animeObj?.cover || item.banner;
     const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
 
     // For episodes, format needs to assume structure
@@ -601,32 +566,37 @@ const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter,
             }}
             onMouseLeave={onMouseLeave}
         >
-            <Link to={targetLink} className="flex flex-col w-full h-full">
-                {/* Cover Container */}
-                <div className={`relative flex-shrink-0 w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] transition-transform duration-300 rounded-none`}>
-                    <SpinnerImage
-                        src={getImageUrl(image)}
-                        alt={displayTitle}
-                        className="w-full h-full"
-                        imageClassName="object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                    />
+            <Link 
+                to={targetLink} 
+                className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
+            >
+                <SpinnerImage 
+                    src={getImageUrl(image)} 
+                    alt={displayTitle} 
+                    className="w-full h-full object-cover" 
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    <Play className="w-10 h-10 text-white opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300 fill-current" />
                 </div>
-
-                {/* Metadata Below Card */}
-                <div className="mt-2.5 text-center flex flex-col items-center flex-1 w-full px-1">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-2 leading-relaxed group-hover:text-blue-500 transition-colors">
-                        {renderEmojiContent(displayTitle)}
-                    </h3>
-                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                        {renderEmojiContent(subText)}
-                    </p>
-                </div>
+                {isEpisode && (
+                    <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-black px-2 py-1 rounded-md border border-white/10 uppercase">
+                        {lang === 'ar' ? 'حلقة' : 'EP'} {item.episode_number}
+                    </div>
+                )}
             </Link>
+
+            <div className="mt-3 px-1">
+                <h3 className="text-sm font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-blue-500 transition-colors">
+                    {renderEmojiContent(displayTitle)}
+                </h3>
+                <p className="text-[11px] text-gray-500 font-bold mt-0.5">
+                    {renderEmojiContent(subText)}
+                </p>
+            </div>
 
             {/* Hover Card Component */}
             {isHovered && (
-                <div className="absolute inset-0 z-50 pointer-events-none md:pointer-events-auto">
+                <div className="absolute inset-0 z-50">
                     <AnimeHoverCard
                         data={item}
                         lang={lang}
@@ -639,74 +609,185 @@ const CardItem = React.memo(({ item, index, type, lang, isHovered, onMouseEnter,
     );
 });
 
+// ─── Reactions Helper ──────────────────────────────────────────────────────────
+
+const REACTION_EMOJIS: Record<string, string> = {
+    like:      '/uploads/تفاعل البوست/أعجبني.png',
+    love:      '/uploads/تفاعل البوست/أحببتة.png',
+    haha:      '/uploads/تفاعل البوست/اضحكني.png',
+    wow:       '/uploads/تفاعل البوست/واوو.png',
+    sad:       '/uploads/تفاعل البوست/أحزنني.gif',
+    angry:     '/uploads/تفاعل البوست/أغضبني.gif',
+    super_sad: '/uploads/تفاعل البوست/أحززنني جدا.png',
+};
+
+const REACTION_KEYS: { key: string; col: string }[] = [
+    { key: 'like',      col: 'likes_count' },
+    { key: 'love',      col: 'loves_count' },
+    { key: 'haha',      col: 'hahas_count' },
+    { key: 'wow',       col: 'wows_count' },
+    { key: 'sad',       col: 'sads_count' },
+    { key: 'angry',     col: 'angrys_count' },
+    { key: 'super_sad', col: 'super_sads_count' },
+];
+
+function getTopReactions(item: any, maxShown = 3) {
+    return REACTION_KEYS
+        .map(({ key, col }) => ({ key, count: Number(item[col] || 0) }))
+        .filter(r => r.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, maxShown);
+}
+
+function formatReactionCount(n: number) {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+    return String(n);
+}
+
 // ─── List Item Design ──────────────────────────────────────────────────────────
 
-const ListItem = React.memo(({ item, lang }: any) => {
+const ListItem = ({ item, lang, isEpisode }: any) => {
+    const isRtl = lang === 'ar';
     const animeObj = item.anime || item.series;
-    const image = animeObj?.cover || item.cover || item.image || item.banner || item.thumbnail;
-    const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
-    const displayTitle = title || (lang === 'ar' ? 'عنوان غير متوفر' : 'No Title Available');
-
-    const animeTitle = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);
-    const subText = `${animeTitle} - ${lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`}`;
-    const animeId = animeObj?.id || item.anime_id || item.id;
-    const slug = slugify(animeTitle);
-
-    const targetLink = `/${lang}/watch/${animeId}/${item.episode_number}/${slug}`;
+    const animeTitle = isRtl ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || animeObj?.title || item.title);
+    const image = item.image || animeObj?.image || item.cover || animeObj?.cover || (isEpisode ? item.thumbnail : item.banner);
+    const url = isEpisode 
+        ? `/${lang}/watch/${animeObj?.id || item.anime_id || item.id}/${item.episode_number}/${slugify(animeTitle)}`
+        : `/${lang}/animes/${item.id}/${slugify(animeTitle)}`;
+    const title = isRtl ? (item.title || `حلقة ${item.episode_number}`) : (item.title_en || `Episode ${item.episode_number}`);
+    const description = isRtl ? (item.description || 'لا يوجد وصف متاح للا هذه الحلقة.') : (item.description_en || 'No description available for this episode.');
+    const topReactions = getTopReactions(item);
 
     const handleShare = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        const url = `${window.location.origin}${targetLink}`;
-        navigator.clipboard.writeText(url);
+        const fullUrl = `${window.location.origin}${url}`;
+        navigator.clipboard.writeText(fullUrl);
         toast.success(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
     };
 
     return (
-        <div className="group flex items-center gap-0 px-2 md:px-3 py-2 border-b border-gray-100 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm">
-            <Link to={targetLink} className="flex-1 flex items-center min-w-0">
-                <div className="w-24 md:w-32 flex-shrink-0 aspect-video rounded-none overflow-hidden bg-gray-100 dark:bg-[#1a1a1a] ml-3 rtl:ml-0 rtl:mr-3 relative transition-transform">
-                    <img src={getImageUrl(image)} alt={displayTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <Play className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md fill-white" />
+        <div className="group relative">
+            <Link
+                to={url}
+                className="flex flex-row gap-4 md:gap-6 bg-transparent hover:bg-white dark:hover:bg-neutral-900/40 transition-all duration-200 relative z-10 p-0 md:p-2 border border-transparent hover:border-gray-100 dark:hover:border-transparent hover:shadow-md rounded-lg"
+            >
+                {/* Image Section */}
+                <div className="w-[85px] md:w-[120px] aspect-[2/3] flex-shrink-0 relative overflow-hidden shadow-sm rounded-xl">
+                    <img
+                        src={getImageUrl(image)}
+                        alt={title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center rounded-xl">
+                        <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-75 group-hover:scale-100">
+                            <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                        </div>
                     </div>
+                    {isEpisode && (
+                        <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-black px-1.5 py-0.5 rounded border border-white/10 uppercase">
+                            {isRtl ? 'حلقة' : 'EP'} {item.episode_number}
+                        </div>
+                    )}
                 </div>
 
-                <div className="flex-1 min-w-0 px-2 md:px-3">
-                    <h4 className="text-sm md:text-base font-bold text-gray-900 dark:text-white truncate group-hover:text-blue-500 transition-colors">
-                        {renderEmojiContent(displayTitle)}
-                    </h4>
-                    <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
-                        {renderEmojiContent(subText)}
-                    </p>
+                {/* Content Section */}
+                <div className={`flex-1 flex flex-col items-start py-1 md:py-2 ${isRtl ? 'text-right' : 'text-left'} w-full min-w-0`}>
+                    <h3 className="text-sm md:text-xl font-black text-gray-900 dark:text-white mb-1 md:mb-2 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-1 md:line-clamp-2">
+                        {renderEmojiContent(animeTitle)}
+                    </h3>
+
+                    
+                    <div className="hidden md:block w-full">
+                        <p className="text-[12.5px] md:text-base text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3 mb-1 md:mb-2 font-normal">
+                            {isEpisode ? description : (lang === 'ar' ? 'عرض تفاصيل الأنمي والمزيد.' : 'View anime details and more.')}
+                        </p>
+                    </div>
+
+                    {/* Reactions & Comments row */}
+                    {isEpisode && (
+                        <div className="flex items-center flex-wrap gap-2 md:gap-3 mb-1.5 md:mb-2">
+                            {topReactions.map(r => (
+                                <div key={r.key} className="flex items-center gap-0.5">
+                                    <img
+                                        src={getImageUrl(REACTION_EMOJIS[r.key])}
+                                        alt={r.key}
+                                        className="w-7 h-7 md:w-8 md:h-8 object-contain"
+                                        loading="lazy"
+                                    />
+                                    <span className="text-xs md:text-xs font-bold text-gray-600 dark:text-gray-400">
+                                        {formatReactionCount(r.count)}
+                                    </span>
+                                </div>
+                            ))}
+                            
+                            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
+                                <span className="text-xs font-bold">{formatReactionCount(item.comments_count || 0)}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-auto flex flex-row items-center justify-between md:justify-start gap-2 md:gap-6 w-full pt-0 md:pt-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm md:text-xl font-black text-gray-900 dark:text-white">
+                                {isEpisode ? (isRtl ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (isRtl ? 'تفاصيل' : 'Details')}
+                            </p>
+                            
+                            {/* Views Count */}
+                            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                <span className="text-[10px] md:text-xs font-bold">{formatReactionCount(item.views || 0)}</span>
+                            </div>
+
+                            {/* Mobile Watch Later Icon-Only Button - Next to Episode text */}
+                            <div className="md:hidden">
+                                <WatchLaterButton 
+                                    animeId={animeObj?.id || item.anime_id || item.id} 
+                                    episodeId={isEpisode ? Number(item.id) : undefined}
+                                    variant="icon"
+                                    showLabel={false}
+                                    className="p-1 bg-transparent dark:bg-transparent border-none text-gray-400 dark:text-gray-500 scale-90"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="hidden md:flex items-center gap-6">
+                            <span className="text-[10px] md:text-sm font-black text-black dark:text-white uppercase tracking-tighter">
+                                {isRtl ? 'مشاهدة الآن' : 'Watch Now'}
+                            </span>
+                            {(item.rating || animeObj?.rating) && (
+                                <div className="flex items-center gap-1.5 text-[10px] md:text-sm text-gray-500 font-bold">
+                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
+                                    <span>{item.rating || animeObj?.rating}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </Link>
 
-            <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end ml-2 rtl:ml-0 rtl:mr-2">
-                <span className="text-xs text-gray-400 group-hover:hidden whitespace-nowrap font-medium transition-opacity">
-                    {lang === 'ar' ? `حلقة ${item.episode_number}` : `Ep ${item.episode_number}`}
-                </span>
-
-                <div className="hidden group-hover:flex items-center gap-1">
-                    <WatchLaterButton
-                        animeId={Number(animeId)}
-                        episodeId={Number(item.id)}
-                        episodeTitle={displayTitle}
-                        episodeNumber={item.episode_number}
-                        episodeImage={getImageUrl(image)}
-                        variant="default"
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all"
-                        showLabel={false}
-                    />
-                    <button
-                        onClick={handleShare}
-                        className="p-1.5 h-8 w-8 rounded-md hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-colors"
-                        title={lang === 'ar' ? 'نسخ الرابط' : 'Copy Link'}
-                    >
-                        <Share2 className="w-4 h-4" />
-                    </button>
-                </div>
+            {/* Floating Share Button Desktop */}
+            <div className="hidden md:flex absolute top-4 left-4 rtl:right-4 rtl:left-auto flex-col gap-2 z-20">
+                <button
+                    onClick={handleShare}
+                    className="p-2 h-10 w-10 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-md text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/20 transition-all flex items-center justify-center shadow-lg transform hover:scale-110"
+                    title={lang === 'ar' ? 'نسخ الرابط' : 'Copy Link'}
+                >
+                    <Share2 className="w-5 h-5" />
+                </button>
+                <WatchLaterButton
+                    animeId={Number(animeObj?.id || item.anime_id || item.id)}
+                    episodeId={Number(item.id)}
+                    episodeTitle={title}
+                    episodeNumber={item.episode_number}
+                    episodeImage={getImageUrl(image)}
+                    variant="icon"
+                    className="p-2 h-10 w-10 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-md text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/20 transition-all shadow-lg transform hover:scale-110"
+                    showLabel={false}
+                />
             </div>
         </div>
     );
-});
+};

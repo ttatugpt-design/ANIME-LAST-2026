@@ -47,6 +47,27 @@ type AnimeImportRequest struct {
 	AutoScrape  bool     `json:"auto_scrape"`
 }
 
+type AnimercoFullImportRequest struct {
+	Title         string   `json:"title"`
+	Story         string   `json:"story"`
+	Poster        string   `json:"poster"`
+	AnimeBanner   string   `json:"anime_banner"` // الغلاف الكبير من الصفحة الرئيسية للأنمي
+	EpisodesCount string   `json:"episodes_count"`
+	Type          string   `json:"type"`
+	Genres        []string `json:"genres"`
+	Status        string   `json:"status"`
+	Season        string   `json:"season"`
+	Episodes      []struct {
+		Number    int    `json:"number"`
+		Title     string `json:"title"`
+		Thumbnail string `json:"thumbnail"`
+		Servers   []struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"servers"`
+	} `json:"episodes"`
+}
+
 func NewScraperHandler(db *gorm.DB, baseDir string) *ScraperHandler {
 	return &ScraperHandler{db: db, BaseDir: baseDir}
 }
@@ -687,6 +708,183 @@ func (h *ScraperHandler) FetchPageImages(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+
+// FetchAnimercoInfo fetches the base info (banner + seasons) for an Animerco anime
+func (h *ScraperHandler) FetchAnimercoInfo(c *gin.Context) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.URL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب توفير رابط صالح"})
+		return
+	}
+
+	scriptPath := h.getScriptPath("animerco_full_scraper.js")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "node", scriptPath, "base", body.URL)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تشغيل السكريبت", "details": stderr.String()})
+		return
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تحليل النتيجة", "output": stdout.String()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// FetchAnimercoSeasonDetails fetches the metadata and episode thumbnails for a specific Animerco season
+func (h *ScraperHandler) FetchAnimercoSeasonDetails(c *gin.Context) {
+	var body struct {
+		URL         string `json:"url"`
+		WithServers bool   `json:"with_servers"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.URL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "يجب توفير رابط صالح"})
+		return
+	}
+
+	scriptPath := h.getScriptPath("animerco_full_scraper.js")
+	
+	// Large timeout if fetching servers, otherwise 3 mins
+	timeout := 3 * time.Minute
+	if body.WithServers {
+		timeout = 15 * time.Minute
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	withServersStr := "false"
+	if body.WithServers {
+		withServersStr = "true"
+	}
+
+	cmd := exec.CommandContext(ctx, "node", scriptPath, "season", body.URL, withServersStr)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		log.Printf("[Animerco Scraper] Error: %v | Stderr: %s", err, stderr.String())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تشغيل السكريبت", "details": stderr.String()})
+		return
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل تحليل النتيجة", "output": stdout.String()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+// ImportAnimercoFull handles importing an Animerco season with all its episode thumbnails
+func (h *ScraperHandler) ImportAnimercoFull(c *gin.Context) {
+	var body AnimercoFullImportRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "بيانات غير صالحة: " + err.Error()})
+		return
+	}
+
+	// 1. Download Images
+	// Image (Poster) -> The specific DVD poster for this season
+	imagePath, _ := h.downloadPoster(body.Poster, body.Title)
+	
+	// Cover (Banner) -> The big wide banner from the anime main page
+	bannerPath := imagePath // Fallback if no banner provided
+	if body.AnimeBanner != "" {
+		if path, err := h.downloadImage(body.AnimeBanner, body.Title+"-main-wide-banner", "animes"); err == nil {
+			bannerPath = path
+		}
+	}
+
+	slug := h.slugify(body.Title)
+	
+	anime := domain.Anime{
+		Title:         body.Title,
+		TitleEn:       body.Title,
+		Description:   body.Story,
+		DescriptionEn: body.Story,
+		Slug:          slug,
+		SlugEn:        slug,
+		Status:        body.Status,
+		Type:          body.Type,
+		Category:      strings.Join(body.Genres, ","),
+		Image:         imagePath,  // Season DVD Poster
+		Cover:         bannerPath, // Main Anime Wide Banner
+		PosterImageConfusion: imagePath, 
+		BannerImageConfusion: bannerPath,
+		IsPublished:   true,
+		Seasons:       1,
+		Rating:        8.0,
+	}
+	
+	if err := h.db.Create(&anime).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "فشل إنشاء الأنمي: " + err.Error()})
+		return
+	}
+
+	// 2. Create Episodes
+	importCount := 0
+	for _, ep := range body.Episodes {
+		epSlug := fmt.Sprintf("%s-%d", anime.Slug, ep.Number)
+		episode := domain.Episode{
+			AnimeID:       anime.ID,
+			Title:         ep.Title,
+			TitleEn:       ep.Title,
+			Slug:          epSlug,
+			SlugEn:        epSlug,
+			EpisodeNumber: ep.Number,
+			IsPublished:   true,
+			VideoURLs:     "[]",
+			Rating:        8.0,
+			Banner:        bannerPath, // Using the main banner as the episode banner
+		}
+
+		// Download thumbnail
+		if ep.Thumbnail != "" {
+			thumbSlug := fmt.Sprintf("%s-ep-%d", body.Title, ep.Number)
+			if thumbPath, err := h.downloadImage(ep.Thumbnail, thumbSlug, "episodes"); err == nil {
+				episode.Thumbnail = thumbPath
+			}
+		} else {
+			episode.Thumbnail = imagePath // Fallback to poster
+		}
+
+		if err := h.db.Create(&episode).Error; err == nil {
+			importCount++
+			
+			// Add servers for this episode
+			for _, srv := range ep.Servers {
+				server := domain.EpisodeServer{
+					EpisodeID: episode.ID,
+					Language:  "ar",
+					Name:      srv.Name,
+					URL:       srv.URL,
+					Type:      "embed",
+				}
+				h.db.Create(&server)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("تم استيراد %s مع %d حلقة وسيرفرات المشاهدة بنجاح", anime.Title, importCount),
+		"anime_id": anime.ID,
+	})
+}
+
 // DownloadImagesZip downloads a list of images and serves them as a ZIP file
 func (h *ScraperHandler) DownloadImagesZip(c *gin.Context) {
 	var body struct {

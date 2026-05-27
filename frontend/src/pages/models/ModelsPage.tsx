@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Trash, Box, Bone, Plus, ExternalLink, Pencil, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import UnifiedModelViewer, { UnifiedModelViewerProps } from "@/components/3d/UnifiedModelViewer";
+import type { UnifiedModelViewerProps } from "@/components/3d/UnifiedModelViewer";
+
+const UnifiedModelViewer = lazy(() =>
+    import('@/components/3d/UnifiedModelViewer') as Promise<{
+        default: ComponentType<UnifiedModelViewerProps>;
+    }>
+);
 import { Badge } from "@/components/ui/badge";
 import { useInView } from "react-intersection-observer";
 import { useModelLoaderStore } from "@/stores/model-loader-store";
@@ -394,16 +400,22 @@ export default function ModelsPage() {
                 <DialogContent className="max-w-4xl w-full h-[80vh] flex flex-col p-0 overflow-hidden">
                     <div className="flex-1 w-full h-full bg-slate-950 relative">
                         {selectedModel && (
-                            <UnifiedModelViewer
-                                url={getModelUrl(selectedModel.path)}
-                                type={selectedModel.type}
-                                scale={1}
-                                autoRotate={true}
-                                showSkeleton={showSkeletons || selectedModel.type === 'bvh'}
-                                isPlaying={true}
-                                interactive={true}
-                                performanceMode={false}
-                            />
+                            <Suspense fallback={
+                                <div className="h-full w-full flex items-center justify-center">
+                                    <Loader2 className="h-10 w-10 animate-spin text-white" />
+                                </div>
+                            }>
+                                <UnifiedModelViewer
+                                    url={getModelUrl(selectedModel.path)}
+                                    type={selectedModel.type}
+                                    scale={1}
+                                    autoRotate={true}
+                                    showSkeleton={showSkeletons || selectedModel.type === 'bvh'}
+                                    isPlaying={true}
+                                    interactive={true}
+                                    performanceMode={false}
+                                />
+                            </Suspense>
                         )}
                     </div>
                     <div className="p-4 border-t flex items-center justify-between bg-background">

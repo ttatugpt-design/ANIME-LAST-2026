@@ -5,6 +5,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { WatchLaterButton } from '@/components/common/WatchLaterButton';
 import { getImageUrl } from '@/utils/image-utils';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 interface EpisodeInfoMenuProps {
     episode: any;
@@ -20,6 +21,8 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
     const { i18n } = useTranslation();
     const lang = i18n.language;
 
+    useModalBackButton(isOpen, onClose);
+
     const title = (lang === 'ar' ? (episode?.title || episode?.title_en) : (episode?.title_en || episode?.title)) || `Episode ${episode?.episode_number || ''}`;
     const animeTitle = lang === 'ar' ? (anime?.title) : (anime?.title_en || anime?.title) || '';
     // Ensure we check all possible image sources
@@ -28,7 +31,7 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 gap-0 rounded-none md:rounded-xl overflow-hidden">
+            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-black md:dark:bg-[#1a1a1a] border border-gray-200 dark:border-transparent md:dark:border-white/10 p-0 gap-0 rounded-none md:rounded-2xl overflow-hidden">
                 <div className="h-full md:max-h-[600px] overflow-y-auto custom-scrollbar">
                         {/* Header with Image and Title - reused logic */}
                         <div className="relative h-64 w-full bg-gray-900 group shrink-0">

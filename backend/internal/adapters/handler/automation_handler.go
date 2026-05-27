@@ -32,6 +32,83 @@ type SyncRequest struct {
 	Items   []SyncItem `json:"items"`
 }
 
+type SequentialAssignRequest struct {
+	AnimeID    uint     `json:"anime_id"`
+	SourceType string   `json:"source_type"` // pcloud, doodstream, streamhg
+	Links      []string `json:"links"`
+}
+
+func (h *AutomationHandler) AssignLinksSequentially(c *gin.Context) {
+	var req SequentialAssignRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("[AUTOMATION] Sequential Assign for Anime %d, Source: %s, Links: %d\n", req.AnimeID, req.SourceType, len(req.Links))
+
+	// Get all episodes for this anime ordered by number ASC
+	episodes, err := h.episodeSvc.GetByAnimeID(req.AnimeID, 1000, 0) // Assume max 1000 episodes
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch episodes"})
+		return
+	}
+
+	// Sort episodes by number just in case the service doesn't guarantee it
+	// (Actually we should trust the service or handle it if needed)
+
+	count := 0
+	for i, link := range req.Links {
+		if i >= len(episodes) {
+			break
+		}
+
+		ep := episodes[i]
+		formattedLink := link
+		serverName := ""
+		serverType := "embed"
+
+		switch strings.ToLower(req.SourceType) {
+		case "pcloud":
+			serverName = "pCloud"
+			serverType = "direct"
+		case "doodstream", "dood":
+			serverName = "DoodStream"
+			serverType = "embed"
+			if !strings.HasPrefix(link, "http") {
+				formattedLink = fmt.Sprintf("https://dood.li/e/%s", link)
+			}
+		case "streamhg", "hg":
+			serverName = "StreamHG"
+			serverType = "embed"
+			if !strings.HasPrefix(link, "http") {
+				formattedLink = fmt.Sprintf("https://hgcloud.to/e/%s", link)
+			}
+		default:
+			// Fallback if type is unknown but we have a link
+			serverName = "Other"
+			if strings.Contains(link, "pcloud") || strings.Contains(link, "filedn") {
+				serverName = "pCloud"
+				serverType = "direct"
+			}
+		}
+
+		if serverName == "" {
+			continue
+		}
+
+		err := h.linkServerToEpisode(ep.ID, serverName, formattedLink, serverType)
+		if err == nil {
+			count++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":   fmt.Sprintf("تم ربط %d حلقة بنجاح بالتسلسل!", count),
+		"processed": count,
+	})
+}
+
 func (h *AutomationHandler) SyncEpisodes(c *gin.Context) {
 	fmt.Println("===========================================")
 	fmt.Println("[AUTOMATION] SYNC PROCESS BEGUN")
@@ -63,7 +140,7 @@ func (h *AutomationHandler) SyncEpisodes(c *gin.Context) {
 			h.linkServerToEpisode(episode.ID, "StreamHG", fmt.Sprintf("https://hgcloud.to/e/%s", item.HGCode), "embed")
 		}
 		if item.DoodCode != "" {
-			h.linkServerToEpisode(episode.ID, "DoodStream", fmt.Sprintf("https://myvidplay.com/e/%s", item.DoodCode), "embed")
+			h.linkServerToEpisode(episode.ID, "DoodStream", fmt.Sprintf("https://dood.li/e/%s", item.DoodCode), "embed")
 		}
 
 		results = append(results, gin.H{"episode": epNum, "status": "linked"})

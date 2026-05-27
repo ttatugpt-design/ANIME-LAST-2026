@@ -66,6 +66,7 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		&domain.Post{}, &domain.PostMedia{}, &domain.PostLike{},
 		&domain.PostComment{}, &domain.PostCommentLike{},
 		&domain.Country{}, &domain.Server{}, &domain.Chapter{}, &domain.EmbedAccount{},
+		&domain.VPSTask{}, &domain.AnimeCollection{},
 	)
 
 	if err != nil {
@@ -85,6 +86,7 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		{"comments", "wows", "ALTER TABLE comments ADD COLUMN wows INTEGER DEFAULT 0"},
 		{"comments", "hahas", "ALTER TABLE comments ADD COLUMN hahas INTEGER DEFAULT 0"},
 		{"comments", "super_sads", "ALTER TABLE comments ADD COLUMN super_sads INTEGER DEFAULT 0"},
+		{"comments", "anime_id", "ALTER TABLE comments ADD COLUMN anime_id INTEGER"},
 		{"post_comments", "likes", "ALTER TABLE post_comments ADD COLUMN likes INTEGER DEFAULT 0"},
 		{"post_comments", "loves", "ALTER TABLE post_comments ADD COLUMN loves INTEGER DEFAULT 0"},
 		{"post_comments", "sads", "ALTER TABLE post_comments ADD COLUMN sads INTEGER DEFAULT 0"},
@@ -168,10 +170,27 @@ func (r *SQLiteRepository) GetUserByName(name string) (*domain.User, error) {
 
 func (r *SQLiteRepository) GetUserByID(id uint) (*domain.User, error) {
 	var user domain.User
-	if err := r.db.Preload("Role").Preload("Role.Permissions").First(&user, id).Error; err != nil {
+	if err := r.db.Preload("Role").Preload("Role.Permissions").Preload("FavoriteAnimes").First(&user, id).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *SQLiteRepository) UpdateFavoriteAnimes(userID uint, animeIDs []uint) error {
+	var user domain.User
+	if err := r.db.First(&user, userID).Error; err != nil {
+		return err
+	}
+
+	var animes []domain.Anime
+	if len(animeIDs) > 0 {
+		if err := r.db.Where("id IN ?", animeIDs).Find(&animes).Error; err != nil {
+			return err
+		}
+	}
+
+	// This will clear existing associations and replace with the new ones
+	return r.db.Model(&user).Association("FavoriteAnimes").Replace(&animes)
 }
 
 func (r *SQLiteRepository) GetAllUsers(limit int) ([]domain.User, error) {
@@ -1079,4 +1098,56 @@ func (r *SQLiteRepository) GetChaptersByAnimeID(animeID uint) ([]domain.Chapter,
 
 func (r *SQLiteRepository) IncrementChapterViews(chapterID uint) error {
 	return r.db.Model(&domain.Chapter{}).Where("id = ?", chapterID).UpdateColumn("views_count", gorm.Expr("views_count + ?", 1)).Error
+}
+// --- Anime Collection Repository ---
+
+func (r *SQLiteRepository) CreateAnimeCollection(collection *domain.AnimeCollection) error {
+	return r.db.Create(collection).Error
+}
+
+func (r *SQLiteRepository) GetAnimeCollectionByID(id uint) (*domain.AnimeCollection, error) {
+	var collection domain.AnimeCollection
+	err := r.db.Preload("Animes").First(&collection, id).Error
+	return &collection, err
+}
+
+func (r *SQLiteRepository) GetAnimeCollectionsByAnimeID(animeID uint) ([]domain.AnimeCollection, error) {
+	var collections []domain.AnimeCollection
+	err := r.db.Preload("Animes").
+		Joins("JOIN anime_collection_items aci ON aci.anime_collection_id = anime_collections.id").
+		Where("aci.anime_id = ?", animeID).
+		Find(&collections).Error
+	return collections, err
+}
+
+func (r *SQLiteRepository) GetAllAnimeCollections(search string) ([]domain.AnimeCollection, error) {
+	var collections []domain.AnimeCollection
+	db := r.db.Preload("Animes")
+	if search != "" {
+		likeQuery := "%" + search + "%"
+		db = db.Where("title_ar LIKE ? OR title_en LIKE ?", likeQuery, likeQuery)
+	}
+	err := db.Order("created_at desc").Find(&collections).Error
+	return collections, err
+}
+
+func (r *SQLiteRepository) UpdateAnimeCollection(collection *domain.AnimeCollection) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Update association
+		if err := tx.Model(collection).Association("Animes").Replace(collection.Animes); err != nil {
+			return err
+		}
+		// Update fields
+		return tx.Save(collection).Error
+	})
+}
+
+func (r *SQLiteRepository) DeleteAnimeCollection(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Delete many-to-many associations first
+		if err := tx.Exec("DELETE FROM anime_collection_items WHERE anime_collection_id = ?", id).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&domain.AnimeCollection{}, id).Error
+	})
 }

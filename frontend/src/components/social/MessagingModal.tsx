@@ -175,6 +175,24 @@ export const MessagingModal: React.FC = () => {
                 return conv;
             }));
 
+            // Handle initial message (e.g. from Profile Page)
+            const initialMsg = useMessagingStore.getState().initialMessage;
+            if (initialMsg) {
+                // We wrap it in a small delay to ensure everything is ready
+                setTimeout(async () => {
+                    try {
+                        await api.post('/messages/send', { 
+                            receiver_id: selectedUser.id, 
+                            content: initialMsg
+                        });
+                        // Clear it from store so it doesn't send again if user switches chats and comes back
+                        useMessagingStore.setState({ initialMessage: null });
+                    } catch (err) {
+                        console.error("Failed to send initial message", err);
+                    }
+                }, 500);
+            }
+
             // Focus the input field after selection/mounting
             setTimeout(() => {
                 if (window.innerWidth >= 768) {
@@ -518,11 +536,8 @@ export const MessagingModal: React.FC = () => {
             // Use setTimeout to ensure we don't interfere with dropdown open events
             setTimeout(() => {
                 if (!isInputClick && !isMenuClick && !isMoreButtonClick) {
-                    if (replyingTo || editingMessage) {
-                        setReplyingTo(null);
-                        setEditingMessage(null);
-                        setInputText('');
-                    }
+                    // Do not clear editingMessage or replyingTo automatically on click outside,
+                    // to prevent issues on mobile where tapping the keyboard or anywhere closes the edit mode.
                 }
             }, 0);
         };

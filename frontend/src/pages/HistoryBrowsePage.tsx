@@ -3,8 +3,8 @@ import { useHistoryStore, HistoryItem as HistoryItemType } from '@/stores/histor
 import { useTranslation } from 'react-i18next';
 import { History, Trash2, Clock } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
-import { useNavigate, useLocation } from 'react-router-dom';
+import CentralSpinner from '@/components/ui/CentralSpinner';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import AnimeHoverCard from '@/components/AnimeHoverCard';
@@ -140,9 +140,7 @@ export default function HistoryBrowsePage() {
                         </div>
 
                         {isLoading ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-6">
-                                <CrunchyrollSkeleton count={12} />
-                            </div>
+                            <CentralSpinner />
                         ) : history.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                                 <History className="w-16 h-16 mb-4 opacity-20" />
@@ -198,18 +196,18 @@ export default function HistoryBrowsePage() {
                                             onMouseLeave={handleMouseLeave}
                                             className="group cursor-pointer relative z-0"
                                         >
-                                            <div className="relative aspect-video overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] mb-2">
+                                            <div className="relative aspect-video overflow-hidden rounded-xl bg-gray-100 dark:bg-[#1c1c1c] mb-2">
                                                 <img
                                                     src={getImageUrl(image)}
                                                     alt={title}
                                                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                                     loading="lazy"
                                                 />
-                                                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white z-10 ${getActionColor(item.activity_type)}`}>
+                                                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold rounded-xl text-white z-10 ${getActionColor(item.activity_type)}`}>
                                                     {getActionLabel(item.activity_type, isRtl)}
                                                 </div>
                                                 {episodeNumber && item.activity_type === 'episode_view' && (
-                                                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 text-xs font-bold bg-black/60 text-white z-10 backdrop-blur-sm">
+                                                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 text-xs font-bold rounded-xl bg-black/60 text-white z-10 backdrop-blur-sm">
                                                         {isRtl ? `ح ${episodeNumber}` : `EP ${episodeNumber}`}
                                                     </div>
                                                 )}

@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { slugify } from '@/utils/slug';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 import { renderEmojiContent } from '@/utils/render-content';
 
 interface Interaction {
@@ -96,10 +97,10 @@ export const UserInteractionsList = () => {
             : '#';
 
         return (
-            <div className="bg-card border border-border p-5 flex flex-col gap-4 hover:border-primary/50 transition-all group rounded-none shadow-sm relative overflow-hidden">
+            <div className="bg-card border border-border p-5 flex flex-col gap-4 hover:border-primary/50 transition-all group rounded-xl shadow-sm relative overflow-hidden">
                 <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/10 pb-3">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 dark:bg-white/5 rounded-none">{getIcon(item.type)}</div>
+                        <div className="p-2 bg-gray-100 dark:bg-white/5 rounded-xl">{getIcon(item.type)}</div>
                         <div>
                             <span className="text-xs font-black text-black dark:text-white uppercase tracking-widest block mb-0.5">{getLabel(item.type)}</span>
                             <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
@@ -165,14 +166,14 @@ export const UserInteractionsList = () => {
 
     return (
         <Tabs defaultValue="comment" onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-white dark:bg-black border border-gray-100 dark:border-white/10 p-1 h-12 rounded-none mb-6 shadow-sm">
-                <TabsTrigger value="comment" className="rounded-none data-[state=active]:bg-black dark:data-[state=active]:bg-white data-[state=active]:text-white dark:data-[state=active]:text-black font-black text-[10px] uppercase transition-all">
+            <TabsList className="grid w-full grid-cols-3 bg-white dark:bg-black border border-gray-100 dark:border-white/10 p-1 h-12 rounded-xl mb-6 shadow-sm">
+                <TabsTrigger value="comment" className="rounded-xl data-[state=active]:bg-black dark:data-[state=active]:bg-white data-[state=active]:text-white dark:data-[state=active]:text-black font-black text-[10px] uppercase transition-all">
                     {isRtl ? 'تعليقاتي' : 'Comments'}
                 </TabsTrigger>
-                <TabsTrigger value="reply" className="rounded-none data-[state=active]:bg-black dark:data-[state=active]:bg-white data-[state=active]:text-white dark:data-[state=active]:text-black font-black text-[10px] uppercase transition-all">
+                <TabsTrigger value="reply" className="rounded-xl data-[state=active]:bg-black dark:data-[state=active]:bg-white data-[state=active]:text-white dark:data-[state=active]:text-black font-black text-[10px] uppercase transition-all">
                     {isRtl ? 'ردودي' : 'Replies'}
                 </TabsTrigger>
-                <TabsTrigger value="like" className="rounded-none data-[state=active]:bg-black dark:data-[state=active]:bg-white data-[state=active]:text-white dark:data-[state=active]:text-black font-black text-[10px] uppercase transition-all">
+                <TabsTrigger value="like" className="rounded-xl data-[state=active]:bg-black dark:data-[state=active]:bg-white data-[state=active]:text-white dark:data-[state=active]:text-black font-black text-[10px] uppercase transition-all">
                     {isRtl ? 'أعجبني' : 'Likes'}
                 </TabsTrigger>
             </TabsList>
@@ -180,14 +181,9 @@ export const UserInteractionsList = () => {
             {['comment', 'reply', 'like'].map((tab) => (
                 <TabsContent key={tab} value={tab} className="mt-0 outline-none">
                     {isLoading ? (
-                        <div className="flex items-center justify-center min-h-[200px]">
-                            <div className="relative w-8 h-8">
-                                <div className="absolute inset-0 border-4 border-gray-100 dark:border-white/10 rounded-full"></div>
-                                <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                            </div>
-                        </div>
+                        <CentralSpinner />
                     ) : interactions.length === 0 ? (
-                        <div className="bg-white dark:bg-black p-10 text-center rounded-none border border-gray-100 dark:border-white/10">
+                        <div className="bg-white dark:bg-black p-10 text-center rounded-xl border border-gray-100 dark:border-white/10">
                             <p className="text-gray-500 dark:text-gray-400 font-bold">{isRtl ? 'لا توجد بيانات' : 'Empty'}</p>
                         </div>
                     ) : (

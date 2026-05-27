@@ -15,6 +15,7 @@ import { HistoryDropdown } from './HistoryDropdown';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { MessagesDropdown } from './MessagesDropdown';
 import { UserDropdown } from './UserDropdown';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -30,6 +31,9 @@ export function Header() {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [messagesMenuOpen, setMessagesMenuOpen] = useState(false);
     const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
+
+    useModalBackButton(mobileMenuOpen, () => setMobileMenuOpen(false), 'mobileMenu');
+    useModalBackButton(userMenuOpen, () => setUserMenuOpen(false), 'userMenu');
 
     const [isReady, setIsReady] = useState(false);
 

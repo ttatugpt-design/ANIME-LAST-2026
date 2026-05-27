@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash, Smile, Sparkles, Newspaper } from "lucide-react";
+import { Plus, Pencil, Trash, Smile, Sparkles, Newspaper, UploadCloud, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { renderEmojiContent } from "@/utils/render-content";
+import { getImageUrl } from "@/utils/image-utils";
 
 import {
     Dialog,
@@ -25,7 +26,6 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { RichTextInput } from '@/components/comments/RichTextInput';
 import { CustomEmojiPicker } from '@/components/comments/CustomEmojiPicker';
@@ -35,6 +35,9 @@ interface QuickNews {
     id: number;
     description: string;
     description_en: string;
+    image?: string;
+    url?: string;
+    url_en?: string;
     created_at: string;
 }
 
@@ -47,7 +50,11 @@ export default function QuickNewsPage() {
 
     const [formData, setFormData] = useState({
         description: "",
-        description_en: ""
+        description_en: "",
+        url: "",
+        url_en: "",
+        image: null as File | null,
+        imagePreview: ""
     });
 
     // Emoji Picker States
@@ -70,7 +77,17 @@ export default function QuickNewsPage() {
     });
 
     const createMutation = useMutation({
-        mutationFn: async (data: any) => await api.post("/quick-news", data),
+        mutationFn: async (data: any) => {
+            const fd = new FormData();
+            fd.append("description", data.description);
+            fd.append("description_en", data.description_en);
+            if (data.url) fd.append("url", data.url);
+            if (data.url_en) fd.append("url_en", data.url_en);
+            if (data.image) fd.append("image", data.image);
+            return await api.post("/quick-news", fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["quick-news"] });
             toast.success("News added successfully");
@@ -81,7 +98,17 @@ export default function QuickNewsPage() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: async (data: any) => await api.put(`/quick-news/${editingNews?.id}`, data),
+        mutationFn: async (data: any) => {
+            const fd = new FormData();
+            fd.append("description", data.description);
+            fd.append("description_en", data.description_en);
+            if (data.url) fd.append("url", data.url);
+            if (data.url_en) fd.append("url_en", data.url_en);
+            if (data.image) fd.append("image", data.image);
+            return await api.put(`/quick-news/${editingNews?.id}`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["quick-news"] });
             toast.success("News updated successfully");
@@ -102,7 +129,7 @@ export default function QuickNewsPage() {
     });
 
     const resetForm = () => {
-        setFormData({ description: "", description_en: "" });
+        setFormData({ description: "", description_en: "", url: "", url_en: "", image: null, imagePreview: "" });
         setShowEmojiPickerAR(false);
         setShowCustomEmojiPickerAR(false);
         setShowEmojiPickerEN(false);
@@ -113,7 +140,11 @@ export default function QuickNewsPage() {
         setEditingNews(news);
         setFormData({
             description: news.description,
-            description_en: news.description_en
+            description_en: news.description_en,
+            url: news.url || "",
+            url_en: news.url_en || "",
+            image: null,
+            imagePreview: news.image ? getImageUrl(news.image) : ""
         });
         setIsEditModalOpen(true);
     };
@@ -154,9 +185,6 @@ export default function QuickNewsPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Imported from render-content
-
-
     if (isLoading) return <PageLoader />;
 
     return (
@@ -184,6 +212,7 @@ export default function QuickNewsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[80px]">ID</TableHead>
+                                <TableHead>الصورة</TableHead>
                                 <TableHead>الوصف بالعربي</TableHead>
                                 <TableHead>الوصف بالإنجليزي</TableHead>
                                 <TableHead className="text-right">الإجراءات</TableHead>
@@ -193,6 +222,15 @@ export default function QuickNewsPage() {
                             {newsItems?.map((news) => (
                                 <TableRow key={news.id}>
                                     <TableCell className="font-medium text-xs">#{news.id}</TableCell>
+                                    <TableCell>
+                                        {news.image ? (
+                                            <img src={getImageUrl(news.image)} alt="news" className="w-12 h-12 rounded object-cover" />
+                                        ) : (
+                                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                                                <ImageIcon className="w-5 h-5 text-gray-400" />
+                                            </div>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="max-w-[300px]">
                                         <div className="text-sm line-clamp-2">{renderEmojiContent(news.description)}</div>
                                     </TableCell>
@@ -214,7 +252,7 @@ export default function QuickNewsPage() {
                             ))}
                             {newsItems?.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                                         لا توجد أخبار حالياً.
                                     </TableCell>
                                 </TableRow>
@@ -272,12 +310,43 @@ function NewsModal({
     const { i18n } = useTranslation();
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="sm:max-w-[600px]" dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
                 <DialogHeader>
                     <DialogTitle>{isEdit ? 'تعديل الخبر' : 'إضافة خبر جديد'}</DialogTitle>
-                    <DialogDescription>أدخل وصف الخبر باللغتين العربية والإنجليزية.</DialogDescription>
+                    <DialogDescription>أدخل وصف الخبر باللغتين العربية والإنجليزية، مع إمكانية رفع صورة.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                        <Label>صورة الخبر (اختياري)</Label>
+                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                            <label className="flex flex-col items-center justify-center w-full sm:w-2/3 h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-bray-800 dark:bg-gray-800 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700 transition-colors">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <UploadCloud className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" />
+                                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-bold">اضغط للرفع</span></p>
+                                </div>
+                                <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setFormData((prev: any) => ({
+                                            ...prev,
+                                            image: file,
+                                            imagePreview: URL.createObjectURL(file)
+                                        }));
+                                    }
+                                }} />
+                            </label>
+                            {formData.imagePreview && (
+                                <div className="relative shrink-0 w-32 h-32">
+                                    <img src={formData.imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg border border-border shadow-sm" />
+                                    <button type="button" onClick={() => setFormData((prev: any) => ({ ...prev, image: null, imagePreview: "" }))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600 transition-colors">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Arabic Description */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -314,6 +383,17 @@ function NewsModal({
                         />
                     </div>
 
+                    <div className="space-y-2">
+                        <Label>رابط التوجيه (العربية - اختياري)</Label>
+                        <input 
+                            type="url" 
+                            value={formData.url}
+                            onChange={(e) => setFormData((prev: any) => ({ ...prev, url: e.target.value }))}
+                            placeholder="https://example.com"
+                            className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm"
+                        />
+                    </div>
+
                     {/* English Description */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -347,6 +427,17 @@ function NewsModal({
                             onChange={(val) => setFormData((prev: any) => ({ ...prev, description_en: val }))}
                             placeholder="Write news in English..."
                             className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm min-h-[100px]"
+                        />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label>Redirect URL (English - Optional)</Label>
+                        <input 
+                            type="url" 
+                            value={formData.url_en}
+                            onChange={(e) => setFormData((prev: any) => ({ ...prev, url_en: e.target.value }))}
+                            placeholder="https://example.com"
+                            className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm"
                         />
                     </div>
                 </div>

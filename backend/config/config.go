@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	Port         string
+	Host         string
 	DBUrl        string
 	JWTSecret    string
 	RTSecret     string // Refresh Token Secret
@@ -25,20 +27,35 @@ type Config struct {
 
 func LoadConfig() (*Config, error) {
 	// Resolve base directory (current working directory)
-	baseDir, err := os.Getwd()
+	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("Warning: Failed to get current working directory: %v\n", err)
-		baseDir = "."
+		cwd = "."
+	}
+
+	// Determine if we are in the backend subdirectory or root (Logic from main.go)
+	baseDir := cwd
+	if filepath.Base(cwd) == "server" && strings.Contains(cwd, filepath.Join("backend", "cmd", "server")) {
+		// We are in backend/cmd/server, root is 3 levels up
+		baseDir = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		// We are in backend/, root is 1 level up
+		baseDir = filepath.Dir(cwd)
 	}
 	fmt.Printf("Config: Project base directory resolved to: %s\n", baseDir)
 
 	// Load .env file
 	_ = godotenv.Load() // Optional from current dir
-	_ = godotenv.Load("../../.env")
+	_ = godotenv.Load(filepath.Join(baseDir, "backend", ".env"))
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+
+	host := os.Getenv("SERVER_HOST")
+	if host == "" {
+		host = "0.0.0.0"
 	}
 
 	// ─── DATABASE CONFIGURATION ──────────────────────────────────────────────
@@ -48,6 +65,10 @@ func LoadConfig() (*Config, error) {
 		// Use absolute path to avoid ambiguity in Docker/Railway
 		dbUrl = filepath.Join(baseDir, "backend", "cmd", "server", "saas.db")
 		fmt.Printf("Config: Database forced to absolute path: %s\n", dbUrl)
+	} else if !filepath.IsAbs(dbUrl) {
+		// If relative, make it absolute relative to baseDir
+		dbUrl = filepath.Join(baseDir, dbUrl)
+		fmt.Printf("Config: Database relative path resolved to: %s\n", dbUrl)
 	}
 
 	// Ensure the directory for the database exists
@@ -105,6 +126,7 @@ func LoadConfig() (*Config, error) {
 
 	return &Config{
 		Port:          port,
+		Host:          host,
 		DBUrl:         dbUrl,
 		JWTSecret:     jwtSecret,
 		RTSecret:      rtSecret,

@@ -1,3 +1,4 @@
+import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 
 import { getImageUrl } from '@/utils/image-utils';
@@ -5,81 +6,91 @@ import { getDetailsUrl } from "@/utils/navigation";
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import LoginPage from '@/pages/auth/LoginPage';
-import RegisterPage from '@/pages/auth/RegisterPage';
-import DashboardPage from '@/pages/dashboard/DashboardPage';
-import UsersPage from '@/pages/users/UsersPage';
-import RolesPage from '@/pages/roles/RolesPage';
-import PermissionsPage from '@/pages/permissions/PermissionsPage';
-import ModelsPage from '@/pages/models/ModelsPage';
-import ModelViewerPage from '@/pages/models/ModelViewerPage';
-import ThreeDAILabPage from '@/pages/ai/ThreeDAILabPage';
-import SettingsPage from '@/pages/settings/SettingsPage';
-import CategoriesPage from '@/pages/categories/CategoriesPage';
-import TypesPage from '@/pages/types/TypesPage';
-import SeasonsPage from '@/pages/seasons/SeasonsPage';
-import StudiosPage from '@/pages/studios/StudiosPage';
-import LanguagesPage from '@/pages/languages/LanguagesPage';
-import AnimesPage from '@/pages/animes/AnimesPage';
-import MangasPage from '@/pages/animes/MangasPage';
-import ChaptersPage from '@/pages/animes/ChaptersPage';
-import ForeignAnimesPage from '@/pages/animes/ForeignAnimesPage';
-import WatchPage from '@/pages/animes/WatchPage';
-import EpisodesPage from '@/pages/episodes/EpisodesPage';
-import ForeignEpisodesPage from '@/pages/episodes/ForeignEpisodesPage';
+import { AdminRoute } from '@/components/auth/AdminRoute';
 import { HomeLayout } from '@/layouts/HomeLayout';
-import HomePage from '@/pages/home/HomePage';
-import AnimeBrowsePage from '@/pages/animes/AnimeBrowsePage';
-import PublicMangasPage from '@/pages/animes/PublicMangasPage';
-import AnimeDetailsPage from '@/pages/animes/AnimeDetailsPage';
-import MangaDetailsPage from '@/pages/animes/MangaDetailsPage';
-import ChapterPage from '@/pages/animes/ChapterPage';
-import UserLibraryPage from '@/pages/UserLibraryPage';
-import NotificationsPage from '@/pages/NotificationsPage';
-import SearchPage from '@/pages/SearchPage';
-import HistoryBrowsePage from '@/pages/HistoryBrowsePage';
-import WatchlistBrowsePage from '@/pages/WatchlistBrowsePage';
-import NotificationsBrowsePage from '@/pages/NotificationsBrowsePage';
 import { LanguageWrapper } from '@/components/LanguageWrapper';
 import { RedirectToDefaultLang } from '@/components/RedirectToDefaultLang';
 import { RootRedirect } from '@/components/RootRedirect';
 import ScrollToTop from '@/components/ScrollToTop';
 import { UserControlPanelLayout } from '@/layouts/UserControlPanelLayout';
-import UserInfoPage from '@/pages/user-dashboard/UserInfoPage';
-import EditProfilePage from '@/pages/user-dashboard/EditProfilePage';
-import UserSettingsPage from '@/pages/user-dashboard/UserSettingsPage';
-import DashboardReportsPage from '@/pages/dashboard/DashboardReportsPage';
-import DashboardAnalyticsPage from '@/pages/dashboard/DashboardAnalyticsPage';
-import DashboardCommentsPage from '@/pages/dashboard/DashboardCommentsPage';
-import QuickNewsPage from '@/pages/dashboard/QuickNewsPage';
-import PublicCategoriesPage from '@/pages/animes/PublicCategoriesPage';
-import BrowseAllAnimesPage from '@/pages/animes/BrowseAllAnimesPage';
-import DmcaPage from '@/pages/animes/DmcaPage';
-import ProfilePage from '@/pages/ProfilePage';
-import FriendsPage from '@/pages/dashboard/FriendsPage';
-import CommunityPage from '@/pages/social/CommunityPage';
-import PostDetailPage from '@/pages/social/PostDetailPage';
-import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
-import BackupPage from '@/pages/dashboard/BackupPage';
-import BatchAnimeSelectionPage from '@/pages/dashboard/BatchAnimeSelectionPage';
-import BatchUploadPage from '@/pages/dashboard/BatchUploadPage';
-import EmbedAccountsPage from '@/pages/dashboard/EmbedAccountsPage';
-import MirroredAccountsPage from '@/pages/dashboard/MirroredAccountsPage';
-import ServerFileSelectionPage from '@/pages/dashboard/ServerFileSelectionPage';
-import ServerFileBrowserPage from '@/pages/dashboard/ServerFileBrowserPage';
-import FakeNumbersPage from '@/pages/dashboard/FakeNumbersPage';
-import FetchLinksPage from '@/pages/dashboard/FetchLinksPage';
-import EgyDeadScraperPage from '@/pages/dashboard/EgyDeadScraperPage';
-import Anime4UpScraperPage from '@/pages/dashboard/Anime4UpScraperPage';
-import RistoAnimeScraperPage from '@/pages/dashboard/RistoAnimeScraperPage';
-import WitAnimeScraperPage from '@/pages/dashboard/WitAnimeScraperPage';
-import Anime3rbScraperPage from '@/pages/dashboard/Anime3rbScraperPage';
-import ImageScraperPage from '@/pages/dashboard/ImageScraperPage';
-import AnimercoScraperPage from '@/pages/dashboard/AnimercoScraperPage';
-import PCloudBrowserPage from '@/pages/dashboard/PCloudBrowserPage';
-import Anime3rbDirectLinksPage from '@/pages/dashboard/Anime3rbDirectLinksPage';
-import CrunchyrollImporterPage from '@/pages/dashboard/CrunchyrollImporterPage';
-import { lazy } from 'react';
+
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
+const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
+const UsersPage = lazy(() => import('@/pages/users/UsersPage'));
+const RolesPage = lazy(() => import('@/pages/roles/RolesPage'));
+const PermissionsPage = lazy(() => import('@/pages/permissions/PermissionsPage'));
+const ModelsPage = lazy(() => import('@/pages/models/ModelsPage'));
+const ModelViewerPage = lazy(() => import('@/pages/models/ModelViewerPage'));
+const ThreeDAILabPage = lazy(() => import('@/pages/ai/ThreeDAILabPage'));
+const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
+const CategoriesPage = lazy(() => import('@/pages/categories/CategoriesPage'));
+const TypesPage = lazy(() => import('@/pages/types/TypesPage'));
+const SeasonsPage = lazy(() => import('@/pages/seasons/SeasonsPage'));
+const StudiosPage = lazy(() => import('@/pages/studios/StudiosPage'));
+const LanguagesPage = lazy(() => import('@/pages/languages/LanguagesPage'));
+const AnimesPage = lazy(() => import('@/pages/animes/AnimesPage'));
+const MangasPage = lazy(() => import('@/pages/animes/MangasPage'));
+const ChaptersPage = lazy(() => import('@/pages/animes/ChaptersPage'));
+const ForeignAnimesPage = lazy(() => import('@/pages/animes/ForeignAnimesPage'));
+const WatchPage = lazy(() => import('@/pages/animes/WatchPage'));
+const EpisodesPage = lazy(() => import('@/pages/episodes/EpisodesPage'));
+const ForeignEpisodesPage = lazy(() => import('@/pages/episodes/ForeignEpisodesPage'));
+const HomePage = lazy(() => import('@/pages/home/HomePage'));
+const AnimeBrowsePage = lazy(() => import('@/pages/animes/AnimeBrowsePage'));
+const PublicMangasPage = lazy(() => import('@/pages/animes/PublicMangasPage'));
+const AnimeDetailsPage = lazy(() => import('@/pages/animes/AnimeDetailsPage'));
+const MangaDetailsPage = lazy(() => import('@/pages/animes/MangaDetailsPage'));
+const ChapterPage = lazy(() => import('@/pages/animes/ChapterPage'));
+const UserLibraryPage = lazy(() => import('@/pages/UserLibraryPage'));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
+const SearchPage = lazy(() => import('@/pages/SearchPage'));
+const HistoryBrowsePage = lazy(() => import('@/pages/HistoryBrowsePage'));
+const WatchlistBrowsePage = lazy(() => import('@/pages/WatchlistBrowsePage'));
+const NotificationsBrowsePage = lazy(() => import('@/pages/NotificationsBrowsePage'));
+const UserInfoPage = lazy(() => import('@/pages/user-dashboard/UserInfoPage'));
+const EditProfilePage = lazy(() => import('@/pages/user-dashboard/EditProfilePage'));
+const UserSettingsPage = lazy(() => import('@/pages/user-dashboard/UserSettingsPage'));
+const DashboardReportsPage = lazy(() => import('@/pages/dashboard/DashboardReportsPage'));
+const DashboardAnalyticsPage = lazy(() => import('@/pages/dashboard/DashboardAnalyticsPage'));
+const DashboardCommentsPage = lazy(() => import('@/pages/dashboard/DashboardCommentsPage'));
+const QuickNewsPage = lazy(() => import('@/pages/dashboard/QuickNewsPage'));
+const PublicCategoriesPage = lazy(() => import('@/pages/animes/PublicCategoriesPage'));
+const BrowseAllAnimesPage = lazy(() => import('@/pages/animes/BrowseAllAnimesPage'));
+const DmcaPage = lazy(() => import('@/pages/animes/DmcaPage'));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const FriendsPage = lazy(() => import('@/pages/dashboard/FriendsPage'));
+const CommunityPage = lazy(() => import('@/pages/social/CommunityPage'));
+const PostDetailPage = lazy(() => import('@/pages/social/PostDetailPage'));
+const ForeignMediaPage = lazy(() => import('@/pages/animes/ForeignMediaPage'));
+const BackupPage = lazy(() => import('@/pages/dashboard/BackupPage'));
+const BatchAnimeSelectionPage = lazy(() => import('@/pages/dashboard/BatchAnimeSelectionPage'));
+const BatchUploadPage = lazy(() => import('@/pages/dashboard/BatchUploadPage'));
+const EmbedAccountsPage = lazy(() => import('@/pages/dashboard/EmbedAccountsPage'));
+const MirroredAccountsPage = lazy(() => import('@/pages/dashboard/MirroredAccountsPage'));
+const ServerFileSelectionPage = lazy(() => import('@/pages/dashboard/ServerFileSelectionPage'));
+const ServerFileBrowserPage = lazy(() => import('@/pages/dashboard/ServerFileBrowserPage'));
+const FakeNumbersPage = lazy(() => import('@/pages/dashboard/FakeNumbersPage'));
+const FetchLinksPage = lazy(() => import('@/pages/dashboard/FetchLinksPage'));
+const EgyDeadScraperPage = lazy(() => import('@/pages/dashboard/EgyDeadScraperPage'));
+const Anime4UpScraperPage = lazy(() => import('@/pages/dashboard/Anime4UpScraperPage'));
+const RistoAnimeScraperPage = lazy(() => import('@/pages/dashboard/RistoAnimeScraperPage'));
+const WitAnimeScraperPage = lazy(() => import('@/pages/dashboard/WitAnimeScraperPage'));
+const Anime3rbScraperPage = lazy(() => import('@/pages/dashboard/Anime3rbScraperPage'));
+const ImageScraperPage = lazy(() => import('@/pages/dashboard/ImageScraperPage'));
+const AnimercoScraperPage = lazy(() => import('@/pages/dashboard/AnimercoScraperPage'));
+const PCloudBrowserPage = lazy(() => import('@/pages/dashboard/PCloudBrowserPage'));
+const Anime3rbDirectLinksPage = lazy(() => import('@/pages/dashboard/Anime3rbDirectLinksPage'));
+const CrunchyrollImporterPage = lazy(() => import('@/pages/dashboard/CrunchyrollImporterPage'));
+const VPSDownloaderPage = lazy(() => import('@/pages/dashboard/VPSDownloaderPage'));
+const VPSManagerPage = lazy(() => import('@/pages/dashboard/VPSManagerPage'));
+const AnimeCollectionsPage = lazy(() => import('@/pages/dashboard/AnimeCollectionsPage'));
+
+const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
+    <Suspense fallback={<div />}>
+        {children}
+    </Suspense>
+);
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
 const UserInteractionsPage = lazy(() => import('@/pages/user-dashboard/UserInteractionsPage'));
@@ -113,10 +124,10 @@ export const routes = [
     {
         path: '/:lang',
         element: (
-            <>
+            <SuspenseWrapper>
                 <ScrollToTop />
                 <LanguageWrapper />
-            </>
+            </SuspenseWrapper>
         ),
         children: [
             {
@@ -270,7 +281,11 @@ export const routes = [
                     // Admin Dashboard Route
                     {
                         path: 'dashboard',
-                        element: <DashboardLayout />,
+                        element: (
+                            <AdminRoute>
+                                <DashboardLayout />
+                            </AdminRoute>
+                        ),
                         children: [
                             {
                                 index: true,
@@ -323,6 +338,10 @@ export const routes = [
                             {
                                 path: 'animes',
                                 element: <AnimesPage />,
+                            },
+                            {
+                                path: 'anime-collections',
+                                element: <AnimeCollectionsPage />,
                             },
                             {
                                 path: 'mangas',
@@ -443,6 +462,14 @@ export const routes = [
                             {
                                 path: 'crunchyroll-importer',
                                 element: <CrunchyrollImporterPage />,
+                            },
+                            {
+                                path: 'vps-manager',
+                                element: <VPSManagerPage />,
+                            },
+                            {
+                                path: 'vps-downloader',
+                                element: <VPSDownloaderPage />,
                             },
                         ],
                     },

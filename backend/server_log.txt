@@ -1,0 +1,701 @@
+Config: Project base directory resolved to: E:\anime - last\ANIME-GOLANG
+Config: Database relative path resolved to: E:\anime - last\ANIME-GOLANG\backend\cmd\server\saas.db
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: mention_user_id
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN mention_user_id INTEGER
+2026/05/26 12:04:27 DB Migration Note (comments.mention_user_id): duplicate column name: mention_user_id
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: loves
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN loves INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (comments.loves): duplicate column name: loves
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: sads
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN sads INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (comments.sads): duplicate column name: sads
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: angrys
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN angrys INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (comments.angrys): duplicate column name: angrys
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: wows
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN wows INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (comments.wows): duplicate column name: wows
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: hahas
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN hahas INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (comments.hahas): duplicate column name: hahas
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: super_sads
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN super_sads INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (comments.super_sads): duplicate column name: super_sads
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: anime_id
+[0m[33m[0.507ms] [34;1m[rows:0][0m ALTER TABLE comments ADD COLUMN anime_id INTEGER
+2026/05/26 12:04:27 DB Migration Note (comments.anime_id): duplicate column name: anime_id
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: likes
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN likes INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.likes): duplicate column name: likes
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: loves
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN loves INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.loves): duplicate column name: loves
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: sads
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN sads INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.sads): duplicate column name: sads
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: angrys
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN angrys INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.angrys): duplicate column name: angrys
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: wows
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN wows INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.wows): duplicate column name: wows
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: hahas
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN hahas INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.hahas): duplicate column name: hahas
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: super_sads
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE post_comments ADD COLUMN super_sads INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (post_comments.super_sads): duplicate column name: super_sads
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: loves_count
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episodes ADD COLUMN loves_count INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (episodes.loves_count): duplicate column name: loves_count
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: hahas_count
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episodes ADD COLUMN hahas_count INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (episodes.hahas_count): duplicate column name: hahas_count
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: wows_count
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episodes ADD COLUMN wows_count INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (episodes.wows_count): duplicate column name: wows_count
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: sads_count
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episodes ADD COLUMN sads_count INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (episodes.sads_count): duplicate column name: sads_count
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: angrys_count
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episodes ADD COLUMN angrys_count INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (episodes.angrys_count): duplicate column name: angrys_count
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: super_sads_count
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episodes ADD COLUMN super_sads_count INTEGER DEFAULT 0
+2026/05/26 12:04:27 DB Migration Note (episodes.super_sads_count): duplicate column name: super_sads_count
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: type
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE episode_likes ADD COLUMN type TEXT DEFAULT 'like'
+2026/05/26 12:04:27 DB Migration Note (episode_likes.type): duplicate column name: type
+
+2026/05/26 12:04:27 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/adapters/repository/sqlite.go:108 [35;1mduplicate column name: server_priority
+[0m[33m[0.000ms] [34;1m[rows:0][0m ALTER TABLE animes ADD COLUMN server_priority TEXT
+2026/05/26 12:04:27 DB Migration Note (animes.server_priority): duplicate column name: server_priority
+2026/05/26 12:04:27 Seeding countries for existing database...
+2026/05/26 12:04:31 Countries seeding completed. Created: 0, Updated: 60
+2026/05/26 12:04:31 Running localhost URL cleanup migration...
+2026/05/26 12:04:31 Running database cleanup: removing localhost:8080 URLs...
+2026/05/26 12:04:31 Cleaned 0 anime images
+2026/05/26 12:04:31 Cleaned 0 anime covers
+2026/05/26 12:04:31 Cleaned 0 episode thumbnails
+2026/05/26 12:04:31 Cleaned 0 episode banners
+2026/05/26 12:04:31 Cleaned 0 user avatars
+
+2026/05/26 12:04:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/migration/cleanup_localhost.go:48 [35;1mno such column: preview
+[0m[33m[0.000ms] [34;1m[rows:0][0m UPDATE models SET preview = REPLACE(preview, 'http://localhost:8080', '') WHERE preview LIKE '%localhost:8080%'
+2026/05/26 12:04:31 Warning: Failed to clean localhost URLs: no such column: preview
+2026/05/26 12:04:31 Running reports table migration...
+2026/05/26 12:04:31 Creating reports table...
+2026/05/26 12:04:31 Reports table created successfully!
+2026/05/26 12:04:31 Current working directory: E:\anime - last\ANIME-GOLANG\backend
+2026/05/26 12:04:31 Determined Base Project Directory: E:\anime - last\ANIME-GOLANG
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\backend\vps_key.pem
+2026/05/26 12:04:31 [VPS Service] Starting background worker...
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /sitemap.xml              --> backend/internal/adapters/handler.(*SitemapHandler).GetSitemap-fm (6 handlers)
+2026/05/26 12:04:31 [VPS Service] Testing SSH connection...
+
+2026/05/26 12:04:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.535ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+2026/05/26 12:04:31 [BACKUP SYSTEM] Initialized. Storage: E:\anime - last\ANIME-GOLANG\backend\uploads\backups
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\backend\uploads
+[GIN-debug] GET    /uploads/*filepath        --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+[GIN-debug] HEAD   /uploads/*filepath        --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\backend\uploads\flag-icons
+[GIN-debug] GET    /flag-icons/*filepath     --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+[GIN-debug] HEAD   /flag-icons/*filepath     --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\frontend\dist\client\assets
+[GIN-debug] GET    /assets/*filepath         --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+[GIN-debug] HEAD   /assets/*filepath         --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\emoji
+[GIN-debug] GET    /custom-emojis/*filepath  --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+[GIN-debug] HEAD   /custom-emojis/*filepath  --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (8 handlers)
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\frontend\dist\client\favicon.ico
+[GIN-debug] GET    /favicon.ico              --> main.main.(*RouterGroup).StaticFile.func19 (8 handlers)
+[GIN-debug] HEAD   /favicon.ico              --> main.main.(*RouterGroup).StaticFile.func19 (8 handlers)
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\frontend\dist\client\vite.svg
+[GIN-debug] GET    /vite.svg                 --> main.main.(*RouterGroup).StaticFile.func20 (8 handlers)
+[GIN-debug] HEAD   /vite.svg                 --> main.main.(*RouterGroup).StaticFile.func20 (8 handlers)
+2026/05/26 12:04:31 Path Verified: E:\anime - last\ANIME-GOLANG\frontend\dist\client\favicon.png
+[GIN-debug] GET    /favicon.png              --> main.main.(*RouterGroup).StaticFile.func21 (8 handlers)
+[GIN-debug] HEAD   /favicon.png              --> main.main.(*RouterGroup).StaticFile.func21 (8 handlers)
+Starting Node SSR server at: E:\anime - last\ANIME-GOLANG\frontend\server.js
+[GIN-debug] POST   /api/auth/register        --> backend/internal/adapters/handler.(*AuthHandler).Register-fm (8 handlers)
+[GIN-debug] POST   /api/auth/login           --> backend/internal/adapters/handler.(*AuthHandler).Login-fm (8 handlers)
+[GIN-debug] POST   /api/auth/refresh         --> backend/internal/adapters/handler.(*AuthHandler).Refresh-fm (8 handlers)
+[GIN-debug] GET    /api/health               --> main.main.func5 (8 handlers)
+[GIN-debug] GET    /                         --> main.main.func6 (8 handlers)
+[GIN-debug] GET    /api/version              --> backend/internal/adapters/handler.(*VersionHandler).GetVersion-fm (8 handlers)
+[GIN-debug] GET    /api/search               --> backend/internal/adapters/handler.(*SearchHandler).Search-fm (8 handlers)
+[GIN-debug] GET    /api/pcloud/list          --> backend/internal/adapters/handler.(*PCloudHandler).ProxyListFolder-fm (8 handlers)
+[GIN-debug] GET    /api/pcloud/public-drive  --> backend/internal/adapters/handler.(*PCloudHandler).ProxyListPublicDrive-fm (8 handlers)
+[GIN-debug] GET    /api/pcloud/link          --> backend/internal/adapters/handler.(*PCloudHandler).ProxyGetFileLink-fm (8 handlers)
+[GIN-debug] GET    /api/pcloud/login         --> backend/internal/adapters/handler.(*PCloudHandler).ProxyLogin-fm (8 handlers)
+[GIN-debug] POST   /api/automation/sync      --> backend/internal/adapters/handler.(*AutomationHandler).SyncEpisodes-fm (8 handlers)
+[GIN-debug] POST   /api/automation/assign-sequential --> backend/internal/adapters/handler.(*AutomationHandler).AssignLinksSequentially-fm (8 handlers)
+[GIN-debug] GET    /api/animes               --> backend/internal/adapters/handler.(*AnimeHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/animes/latest        --> backend/internal/adapters/handler.(*AnimeHandler).GetLatest-fm (8 handlers)
+[GIN-debug] GET    /api/animes/type/:type    --> backend/internal/adapters/handler.(*AnimeHandler).GetByType-fm (8 handlers)
+[GIN-debug] GET    /api/animes/search        --> backend/internal/adapters/handler.(*AnimeHandler).Search-fm (8 handlers)
+[GIN-debug] GET    /api/animes/slug/:slug    --> backend/internal/adapters/handler.(*AnimeHandler).GetBySlug-fm (8 handlers)
+[GIN-debug] GET    /api/animes/:id           --> backend/internal/adapters/handler.(*AnimeHandler).GetByID-fm (8 handlers)
+[GIN-debug] GET    /api/animes/:id/servers   --> backend/internal/adapters/handler.(*AnimeHandler).GetUniqueServers-fm (8 handlers)
+[GIN-debug] PATCH  /api/animes/:id/server-priority --> backend/internal/adapters/handler.(*AnimeHandler).UpdateServerPriority-fm (8 handlers)
+[GIN-debug] GET    /api/episodes             --> backend/internal/adapters/handler.(*EpisodeHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/episodes/latest      --> backend/internal/adapters/handler.(*EpisodeHandler).GetLatest-fm (8 handlers)
+[GIN-debug] GET    /api/episodes/search      --> backend/internal/adapters/handler.(*EpisodeHandler).Search-fm (8 handlers)
+[GIN-debug] GET    /api/episodes/:id         --> backend/internal/adapters/handler.(*EpisodeHandler).GetByID-fm (8 handlers)
+[GIN-debug] GET    /api/chapters             --> backend/internal/adapters/handler.(*ChapterHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/chapters/:id         --> backend/internal/adapters/handler.(*ChapterHandler).GetByID-fm (8 handlers)
+[GIN-debug] GET    /api/chapters/anime/:animeId --> backend/internal/adapters/handler.(*ChapterHandler).GetByAnimeID-fm (8 handlers)
+[GIN-debug] GET    /api/models               --> backend/internal/adapters/handler.(*ModelHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/models/:id/download  --> backend/internal/adapters/handler.(*ModelHandler).Download-fm (8 handlers)
+[GIN-debug] GET    /api/categories           --> backend/internal/adapters/handler.(*CategoryHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/types                --> backend/internal/adapters/handler.(*TypeHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/seasons              --> backend/internal/adapters/handler.(*SeasonHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/studios              --> backend/internal/adapters/handler.(*StudioHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/languages            --> backend/internal/adapters/handler.(*LanguageHandler).GetAll-fm (8 handlers)
+[GIN-debug] POST   /api/export/sprint        --> backend/internal/adapters/handler.(*ExportHandler).GenerateSprint-fm (8 handlers)
+[GIN-debug] GET    /api/export/download/:filename --> backend/internal/adapters/handler.(*ExportHandler).Download-fm (8 handlers)
+[GIN-debug] GET    /api/episodes/:id/comments --> backend/internal/adapters/handler.(*CommentHandler).GetAllByEpisode-fm (8 handlers)
+[GIN-debug] GET    /api/chapters/:id/comments --> backend/internal/adapters/handler.(*CommentHandler).GetAllByChapter-fm (8 handlers)
+[GIN-debug] GET    /api/animes/:id/comments  --> backend/internal/adapters/handler.(*CommentHandler).GetAllByAnime-fm (8 handlers)
+[GIN-debug] GET    /api/comments/:id/reactions --> backend/internal/adapters/handler.(*CommentHandler).GetReactions-fm (8 handlers)
+[GIN-debug] POST   /api/reports              --> backend/internal/adapters/handler.(*ReportHandler).CreateReport-fm (8 handlers)
+[GIN-debug] GET    /api/settings             --> backend/internal/adapters/handler.(*SettingsHandler).GetSettings-fm (8 handlers)
+[GIN-debug] GET    /api/quick-news           --> backend/internal/adapters/handler.(*QuickNewsHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/countries            --> backend/internal/adapters/handler.(*CountryHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/servers              --> backend/internal/adapters/handler.(*ServerHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/anime-collections    --> backend/internal/adapters/handler.(*AnimeCollectionHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/anime-collections/:id --> backend/internal/adapters/handler.(*AnimeCollectionHandler).GetByID-fm (8 handlers)
+[GIN-debug] GET    /api/anime-collections/anime/:animeId --> backend/internal/adapters/handler.(*AnimeCollectionHandler).GetByAnimeID-fm (8 handlers)
+[GIN-debug] POST   /api/scraper/anime3rb-refresh --> backend/internal/adapters/handler.(*ScraperHandler).RefreshAnime3rbVideo-fm (8 handlers)
+[GIN-debug] GET    /api/users                --> backend/internal/adapters/handler.(*UserHandler).GetAll-fm (8 handlers)
+[GIN-debug] GET    /api/users/:id            --> backend/internal/adapters/handler.(*UserHandler).GetByID-fm (8 handlers)
+[GIN-debug] GET    /api/comments             --> backend/internal/adapters/handler.(*CommentHandler).GetAllComments-fm (8 handlers)
+[GIN-debug] GET    /api/comments/:id         --> backend/internal/adapters/handler.(*CommentHandler).GetByID-fm (8 handlers)
+[GIN-debug] POST   /api/posts                --> backend/internal/adapters/handler.(*PostHandler).CreatePost-fm (9 handlers)
+[GIN-debug] PUT    /api/posts/:id            --> backend/internal/adapters/handler.(*PostHandler).UpdatePost-fm (9 handlers)
+[GIN-debug] DELETE /api/posts/:id            --> backend/internal/adapters/handler.(*PostHandler).DeletePost-fm (9 handlers)
+[GIN-debug] GET    /api/posts                --> backend/internal/adapters/handler.(*PostHandler).GetFeed-fm (9 handlers)
+[GIN-debug] GET    /api/posts/:id            --> backend/internal/adapters/handler.(*PostHandler).GetPostByIDHandler-fm (9 handlers)
+[GIN-debug] GET    /api/posts/:id/reactions  --> backend/internal/adapters/handler.(*PostHandler).GetPostReactions-fm (9 handlers)
+[GIN-debug] GET    /api/posts/:id/comments   --> backend/internal/adapters/handler.(*PostHandler).GetPostComments-fm (9 handlers)
+[GIN-debug] GET    /api/posts/comments/:id   --> backend/internal/adapters/handler.(*PostHandler).GetPostCommentByID-fm (9 handlers)
+[GIN-debug] GET    /api/posts/comments/:id/reactions --> backend/internal/adapters/handler.(*PostHandler).GetCommentReactions-fm (9 handlers)
+[GIN-debug] GET    /api/posts/comments/:id/replies --> backend/internal/adapters/handler.(*PostHandler).GetPostCommentReplies-fm (9 handlers)
+[GIN-debug] GET    /api/me                   --> main.main.func7 (9 handlers)
+[GIN-debug] POST   /api/user/profile/update  --> backend/internal/adapters/handler.(*UserHandler).UpdateProfile-fm (9 handlers)
+[GIN-debug] GET    /api/user/stats           --> backend/internal/adapters/handler.(*UserHandler).GetStats-fm (9 handlers)
+[GIN-debug] GET    /api/user/interactions    --> backend/internal/adapters/handler.(*UserHandler).GetInteractions-fm (9 handlers)
+[GIN-debug] PUT    /api/users/:id/favorites  --> backend/internal/adapters/handler.(*UserHandler).UpdateFavoriteAnimes-fm (9 handlers)
+[GIN-debug] POST   /api/friends/request/:id  --> backend/internal/adapters/handler.(*UserHandler).SendFriendRequest-fm (9 handlers)
+[GIN-debug] POST   /api/friends/accept/:id   --> backend/internal/adapters/handler.(*UserHandler).AcceptFriendRequest-fm (9 handlers)
+[GIN-debug] DELETE /api/friends/:id          --> backend/internal/adapters/handler.(*UserHandler).RemoveFriend-fm (9 handlers)
+[GIN-debug] GET    /api/friends/status/:id   --> backend/internal/adapters/handler.(*UserHandler).GetFriendshipStatus-fm (9 handlers)
+[GIN-debug] GET    /api/friends/list/:id     --> backend/internal/adapters/handler.(*UserHandler).GetUserFriends-fm (9 handlers)
+[GIN-debug] GET    /api/friends/requests/pending --> backend/internal/adapters/handler.(*UserHandler).GetPendingRequests-fm (9 handlers)
+[GIN-debug] POST   /api/messages/send        --> backend/internal/adapters/handler.(*MessageHandler).SendMessage-fm (9 handlers)
+[GIN-debug] PUT    /api/messages/:id         --> backend/internal/adapters/handler.(*MessageHandler).EditMessage-fm (9 handlers)
+[GIN-debug] DELETE /api/messages/:id         --> backend/internal/adapters/handler.(*MessageHandler).DeleteMessage-fm (9 handlers)
+[GIN-debug] POST   /api/messages/:id/react   --> backend/internal/adapters/handler.(*MessageHandler).ReactToMessage-fm (9 handlers)
+[GIN-debug] GET    /api/messages/history/:userId --> backend/internal/adapters/handler.(*MessageHandler).GetChatHistory-fm (9 handlers)
+[GIN-debug] GET    /api/messages/conversations --> backend/internal/adapters/handler.(*MessageHandler).GetRecentConversations-fm (9 handlers)
+[GIN-debug] DELETE /api/messages/conversation/:userId --> backend/internal/adapters/handler.(*MessageHandler).DeleteConversation-fm (9 handlers)
+[GIN-debug] POST   /api/users/block/:id      --> backend/internal/adapters/handler.(*UserHandler).BlockUser-fm (9 handlers)
+[GIN-debug] DELETE /api/users/block/:id      --> backend/internal/adapters/handler.(*UserHandler).UnblockUser-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/reports    --> backend/internal/adapters/handler.(*ReportHandler).GetAllReports-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/comments   --> backend/internal/adapters/handler.(*CommentHandler).GetAllComments-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/analytics/stats --> backend/internal/adapters/handler.(*AnalyticsHandler).GetGlobalStats-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/analytics/top --> backend/internal/adapters/handler.(*AnalyticsHandler).GetTopContent-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/backups    --> backend/internal/adapters/handler.(*BackupHandler).ListBackups-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/backup-stats --> backend/internal/adapters/handler.(*BackupHandler).GetBackupStats-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/backups    --> backend/internal/adapters/handler.(*BackupHandler).CreateBackup-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/backups/create-new --> backend/internal/adapters/handler.(*BackupHandler).CreateBackup-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/backups/download/:filename --> backend/internal/adapters/handler.(*BackupHandler).DownloadBackup-fm (9 handlers)
+[GIN-debug] DELETE /api/dashboard/backups/:filename --> backend/internal/adapters/handler.(*BackupHandler).DeleteBackup-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/backups/delete/:filename --> backend/internal/adapters/handler.(*BackupHandler).DeleteBackup-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/backups/delete-now/:filename --> backend/internal/adapters/handler.(*BackupHandler).DeleteBackup-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/backups/restore/:filename --> backend/internal/adapters/handler.(*BackupHandler).RestoreBackup-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/backups/upload --> backend/internal/adapters/handler.(*BackupHandler).UploadAndRestore-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/backups/upload/chunk --> backend/internal/adapters/handler.(*BackupHandler).UploadChunk-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/backups/upload/finalize --> backend/internal/adapters/handler.(*BackupHandler).UploadFinalize-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/vps-downloader/download --> backend/internal/adapters/handler.(*VPSDownloaderHandler).Download-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/vps-downloader/upload --> backend/internal/adapters/handler.(*VPSDownloaderHandler).UploadToPCloud-fm (9 handlers)
+[GIN-debug] POST   /api/dashboard/vps-downloader/deep-scrape --> backend/internal/adapters/handler.(*VPSDownloaderHandler).DeepScrape-fm (9 handlers)
+[GIN-debug] GET    /api/dashboard/vps-downloader/status --> backend/internal/adapters/handler.(*VPSDownloaderHandler).GetStatus-fm (9 handlers)
+[GIN-debug] DELETE /api/dashboard/vps-downloader/link --> backend/internal/adapters/handler.(*VPSDownloaderHandler).DeleteLink-fm (9 handlers)
+[GIN-debug] POST   /api/settings/update      --> backend/internal/adapters/handler.(*SettingsHandler).UpdateSettings-fm (9 handlers)
+[GIN-debug] POST   /api/users                --> backend/internal/adapters/handler.(*UserHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/users/:id            --> backend/internal/adapters/handler.(*UserHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/users/:id            --> backend/internal/adapters/handler.(*UserHandler).Delete-fm (9 handlers)
+[GIN-debug] GET    /api/roles                --> backend/internal/adapters/handler.(*RoleHandler).GetAll-fm (9 handlers)
+[GIN-debug] POST   /api/roles                --> backend/internal/adapters/handler.(*RoleHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/roles/:id            --> backend/internal/adapters/handler.(*RoleHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/roles/:id            --> backend/internal/adapters/handler.(*RoleHandler).Delete-fm (9 handlers)
+[GIN-debug] GET    /api/permissions          --> backend/internal/adapters/handler.(*PermissionHandler).GetAll-fm (9 handlers)
+[GIN-debug] POST   /api/permissions          --> backend/internal/adapters/handler.(*PermissionHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/permissions/:id      --> backend/internal/adapters/handler.(*PermissionHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/permissions/:id      --> backend/internal/adapters/handler.(*PermissionHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/models               --> backend/internal/adapters/handler.(*ModelHandler).Upload-fm (9 handlers)
+[GIN-debug] PUT    /api/models/:id           --> backend/internal/adapters/handler.(*ModelHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/models/:id           --> backend/internal/adapters/handler.(*ModelHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/upload               --> backend/internal/adapters/handler.(*UploadHandler).UploadFile-fm (9 handlers)
+[GIN-debug] POST   /api/categories           --> backend/internal/adapters/handler.(*CategoryHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/categories/:id       --> backend/internal/adapters/handler.(*CategoryHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/categories/:id       --> backend/internal/adapters/handler.(*CategoryHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/types                --> backend/internal/adapters/handler.(*TypeHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/types/:id            --> backend/internal/adapters/handler.(*TypeHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/types/:id            --> backend/internal/adapters/handler.(*TypeHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/seasons              --> backend/internal/adapters/handler.(*SeasonHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/seasons/:id          --> backend/internal/adapters/handler.(*SeasonHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/seasons/:id          --> backend/internal/adapters/handler.(*SeasonHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/studios              --> backend/internal/adapters/handler.(*StudioHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/studios/:id          --> backend/internal/adapters/handler.(*StudioHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/studios/:id          --> backend/internal/adapters/handler.(*StudioHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/languages            --> backend/internal/adapters/handler.(*LanguageHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/languages/:id        --> backend/internal/adapters/handler.(*LanguageHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/languages/:id        --> backend/internal/adapters/handler.(*LanguageHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/animes               --> backend/internal/adapters/handler.(*AnimeHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/animes/:id           --> backend/internal/adapters/handler.(*AnimeHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/animes/:id           --> backend/internal/adapters/handler.(*AnimeHandler).Delete-fm (9 handlers)
+[GIN-debug] DELETE /api/animes/:id/servers   --> backend/internal/adapters/handler.(*AnimeHandler).DeleteServersBulk-fm (9 handlers)
+[GIN-debug] POST   /api/episodes             --> backend/internal/adapters/handler.(*EpisodeHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/episodes/:id         --> backend/internal/adapters/handler.(*EpisodeHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/episodes/:id         --> backend/internal/adapters/handler.(*EpisodeHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/chapters             --> backend/internal/adapters/handler.(*ChapterHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/chapters/:id         --> backend/internal/adapters/handler.(*ChapterHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/chapters/:id         --> backend/internal/adapters/handler.(*ChapterHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/chapters/:id/view    --> backend/internal/adapters/handler.(*ChapterHandler).TrackView-fm (9 handlers)
+[GIN-debug] POST   /api/watch-later          --> backend/internal/adapters/handler.(*WatchLaterHandler).Toggle-fm (9 handlers)
+[GIN-debug] GET    /api/watch-later          --> backend/internal/adapters/handler.(*WatchLaterHandler).GetByUser-fm (9 handlers)
+[GIN-debug] GET    /api/watch-later/check    --> backend/internal/adapters/handler.(*WatchLaterHandler).CheckStatus-fm (9 handlers)
+[GIN-debug] GET    /api/history              --> backend/internal/adapters/handler.(*HistoryHandler).GetHistory-fm (9 handlers)
+[GIN-debug] DELETE /api/history              --> backend/internal/adapters/handler.(*HistoryHandler).ClearHistory-fm (9 handlers)
+[GIN-debug] POST   /api/history/track-episode --> backend/internal/adapters/handler.(*HistoryHandler).TrackEpisodeView-fm (9 handlers)
+[GIN-debug] POST   /api/history/track-anime  --> backend/internal/adapters/handler.(*HistoryHandler).TrackAnimeView-fm (9 handlers)
+[GIN-debug] POST   /api/episodes/:id/comments --> backend/internal/adapters/handler.(*CommentHandler).Create-fm (9 handlers)
+[GIN-debug] POST   /api/chapters/:id/comments --> backend/internal/adapters/handler.(*CommentHandler).Create-fm (9 handlers)
+[GIN-debug] POST   /api/animes/:id/comments  --> backend/internal/adapters/handler.(*CommentHandler).Create-fm (9 handlers)
+[GIN-debug] POST   /api/comments/:id/like    --> backend/internal/adapters/handler.(*CommentHandler).ToggleLike-fm (9 handlers)
+[GIN-debug] PUT    /api/comments/:id         --> backend/internal/adapters/handler.(*CommentHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/comments/:id         --> backend/internal/adapters/handler.(*CommentHandler).Delete-fm (9 handlers)
+[GIN-debug] GET    /api/notifications        --> backend/internal/adapters/handler.(*NotificationHandler).GetUserNotifications-fm (9 handlers)
+[GIN-debug] POST   /api/notifications/:id/read --> backend/internal/adapters/handler.(*NotificationHandler).MarkRead-fm (9 handlers)
+[GIN-debug] POST   /api/notifications/read-all --> backend/internal/adapters/handler.(*NotificationHandler).MarkAllRead-fm (9 handlers)
+[GIN-debug] DELETE /api/notifications/:id    --> backend/internal/adapters/handler.(*NotificationHandler).Delete-fm (9 handlers)
+[GIN-debug] DELETE /api/notifications/clear-all --> backend/internal/adapters/handler.(*NotificationHandler).DeleteAll-fm (9 handlers)
+[GIN-debug] POST   /api/notifications/delete-selected --> backend/internal/adapters/handler.(*NotificationHandler).DeleteSelected-fm (9 handlers)
+[GIN-debug] GET    /api/ws                   --> backend/internal/adapters/handler.(*WSHandler).HandleWS-fm (9 handlers)
+[GIN-debug] POST   /api/episodes/:id/view    --> backend/internal/adapters/handler.(*EpisodeHandler).TrackView-fm (9 handlers)
+[GIN-debug] POST   /api/episodes/:id/reactions --> backend/internal/adapters/handler.(*EpisodeHandler).ToggleReaction-fm (9 handlers)
+[GIN-debug] GET    /api/episodes/:id/stats   --> backend/internal/adapters/handler.(*EpisodeHandler).GetStats-fm (9 handlers)
+[GIN-debug] POST   /api/doodstream/upload/:episode_id --> backend/internal/adapters/handler.(*DoodstreamHandler).HandleUpload-fm (9 handlers)
+[GIN-debug] POST   /api/doodstream/push/:episode_id --> backend/internal/adapters/handler.(*DoodstreamHandler).PushMergedFile-fm (9 handlers)
+[GIN-debug] GET    /api/doodstream/folders   --> backend/internal/adapters/handler.(*DoodstreamHandler).GetFolders-fm (9 handlers)
+[GIN-debug] GET    /api/doodstream/files     --> backend/internal/adapters/handler.(*DoodstreamHandler).ListFiles-fm (9 handlers)
+[GIN-debug] GET    /api/doodstream/file/info --> backend/internal/adapters/handler.(*DoodstreamHandler).GetFileInfo-fm (9 handlers)
+[GIN-debug] POST   /api/doodstream/file/rename --> backend/internal/adapters/handler.(*DoodstreamHandler).RenameFile-fm (9 handlers)
+[GIN-debug] DELETE /api/doodstream/file/delete --> backend/internal/adapters/handler.(*DoodstreamHandler).DeleteFile-fm (9 handlers)
+[GIN-debug] GET    /api/doodstream/files-by-key --> backend/internal/adapters/handler.(*DoodstreamHandler).ListFilesByKey-fm (9 handlers)
+[GIN-debug] POST   /api/doodstream/files-delete-by-key --> backend/internal/adapters/handler.(*DoodstreamHandler).DeleteFilesByKey-fm (9 handlers)
+[GIN-debug] POST   /api/doodstream/files-rename-by-key --> backend/internal/adapters/handler.(*DoodstreamHandler).RenameFileByKey-fm (9 handlers)
+[GIN-debug] POST   /api/doodstream/folder/create --> backend/internal/adapters/handler.(*DoodstreamHandler).CreateFolderByKey-fm (9 handlers)
+[GIN-debug] POST   /api/mirrored/push/:episode_id --> backend/internal/adapters/handler.(*MirroredHandler).PushMergedFile-fm (9 handlers)
+[GIN-debug] POST   /api/upload/init          --> backend/internal/adapters/handler.(*ResumableUploadHandler).InitUpload-fm (9 handlers)
+[GIN-debug] POST   /api/upload/chunk         --> backend/internal/adapters/handler.(*ResumableUploadHandler).UploadChunk-fm (9 handlers)
+[GIN-debug] GET    /api/upload/status/:uploadId --> backend/internal/adapters/handler.(*ResumableUploadHandler).GetStatus-fm (9 handlers)
+[GIN-debug] POST   /api/upload/complete      --> backend/internal/adapters/handler.(*ResumableUploadHandler).CompleteUpload-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/test-fetch   --> backend/internal/adapters/handler.(*ScraperHandler).TestFetchLink-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/doodstream-proxy --> backend/internal/adapters/handler.(*ScraperHandler).ProxyDoodstream-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/streamhg-proxy --> backend/internal/adapters/handler.(*ScraperHandler).ProxyStreamHG-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/egydead      --> backend/internal/adapters/handler.(*ScraperHandler).FetchEgyDead-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/egydead-batch --> backend/internal/adapters/handler.(*ScraperHandler).FetchEgyDeadBatch-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/anime4up     --> backend/internal/adapters/handler.(*ScraperHandler).FetchAnime4Up-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/anime4up-batch --> backend/internal/adapters/handler.(*ScraperHandler).FetchAnime4UpBatch-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/ristoanime   --> backend/internal/adapters/handler.(*ScraperHandler).FetchRistoAnime-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/ristoanime-batch --> backend/internal/adapters/handler.(*ScraperHandler).FetchRistoAnimeBatch-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/animerco-batch --> backend/internal/adapters/handler.(*ScraperHandler).FetchAnimercoBatch-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/animerco/info --> backend/internal/adapters/handler.(*ScraperHandler).FetchAnimercoInfo-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/animerco/season-details --> backend/internal/adapters/handler.(*ScraperHandler).FetchAnimercoSeasonDetails-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/animerco/import-full --> backend/internal/adapters/handler.(*ScraperHandler).ImportAnimercoFull-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/witanime-batch --> backend/internal/adapters/handler.(*ScraperHandler).FetchWitAnimeBatch-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/anime3rb-batch --> backend/internal/adapters/handler.(*ScraperHandler).FetchAnime3rbBatch-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/images       --> backend/internal/adapters/handler.(*ScraperHandler).FetchPageImages-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/images-download --> backend/internal/adapters/handler.(*ScraperHandler).DownloadImagesZip-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/import       --> backend/internal/adapters/handler.(*ScraperHandler).ImportScrapedAnime-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/deep-import  --> backend/internal/adapters/handler.(*ScraperHandler).DeepImportAnime-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/crunchyroll/deep-import --> backend/internal/adapters/handler.(*ScraperHandler).DeepImportCrunchyroll-fm (9 handlers)
+[GIN-debug] POST   /api/scraper/crunchyroll/update-anime --> backend/internal/adapters/handler.(*ScraperHandler).UpdateAnimeFromCrunchyroll-fm (9 handlers)
+[GIN-debug] POST   /api/quick-news           --> backend/internal/adapters/handler.(*QuickNewsHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/quick-news/:id       --> backend/internal/adapters/handler.(*QuickNewsHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/quick-news/:id       --> backend/internal/adapters/handler.(*QuickNewsHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/countries            --> backend/internal/adapters/handler.(*CountryHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/countries/:id        --> backend/internal/adapters/handler.(*CountryHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/countries/:id        --> backend/internal/adapters/handler.(*CountryHandler).Delete-fm (9 handlers)
+[GIN-debug] GET    /api/embed-accounts       --> backend/internal/adapters/handler.(*EmbedAccountHandler).GetAll-fm (9 handlers)
+[GIN-debug] POST   /api/embed-accounts       --> backend/internal/adapters/handler.(*EmbedAccountHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/embed-accounts/:id   --> backend/internal/adapters/handler.(*EmbedAccountHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/embed-accounts/:id   --> backend/internal/adapters/handler.(*EmbedAccountHandler).Delete-fm (9 handlers)
+[GIN-debug] GET    /api/embed-accounts/all/export --> backend/internal/adapters/handler.(*EmbedAccountHandler).Export-fm (9 handlers)
+[GIN-debug] POST   /api/embed-accounts/all/import --> backend/internal/adapters/handler.(*EmbedAccountHandler).Import-fm (9 handlers)
+[GIN-debug] POST   /api/servers              --> backend/internal/adapters/handler.(*ServerHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/servers/:id          --> backend/internal/adapters/handler.(*ServerHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/servers/:id          --> backend/internal/adapters/handler.(*ServerHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/anime-collections    --> backend/internal/adapters/handler.(*AnimeCollectionHandler).Create-fm (9 handlers)
+[GIN-debug] PUT    /api/anime-collections/:id --> backend/internal/adapters/handler.(*AnimeCollectionHandler).Update-fm (9 handlers)
+[GIN-debug] DELETE /api/anime-collections/:id --> backend/internal/adapters/handler.(*AnimeCollectionHandler).Delete-fm (9 handlers)
+[GIN-debug] POST   /api/streamhg/remote-upload --> backend/internal/adapters/handler.(*StreamHGHandler).RemoteUpload-fm (9 handlers)
+[GIN-debug] GET    /api/streamhg/account-info --> backend/internal/adapters/handler.(*StreamHGHandler).GetAccountInfo-fm (9 handlers)
+[GIN-debug] GET    /api/streamhg/list        --> backend/internal/adapters/handler.(*StreamHGHandler).ListFiles-fm (9 handlers)
+[GIN-debug] POST   /api/streamhg/rename      --> backend/internal/adapters/handler.(*StreamHGHandler).RenameFile-fm (9 handlers)
+[GIN-debug] DELETE /api/streamhg/delete      --> backend/internal/adapters/handler.(*StreamHGHandler).DeleteFiles-fm (9 handlers)
+[GIN-debug] POST   /api/streamhg/create-folder --> backend/internal/adapters/handler.(*StreamHGHandler).CreateFolder-fm (9 handlers)
+[GIN-debug] GET    /api/streamhg/files-by-key --> backend/internal/adapters/handler.(*StreamHGHandler).ListFiles-fm (9 handlers)
+[GIN-debug] POST   /api/streamhg/files-delete-by-key --> backend/internal/adapters/handler.(*StreamHGHandler).DeleteFiles-fm (9 handlers)
+[GIN-debug] POST   /api/streamhg/files-rename-by-key --> backend/internal/adapters/handler.(*StreamHGHandler).RenameFile-fm (9 handlers)
+[GIN-debug] POST   /api/streamhg/folder/create --> backend/internal/adapters/handler.(*StreamHGHandler).CreateFolder-fm (9 handlers)
+[GIN-debug] GET    /api/streamtape/account-info --> backend/internal/adapters/handler.(*StreamtapeHandler).GetAccountInfo-fm (9 handlers)
+[GIN-debug] POST   /api/streamtape/remote-upload --> backend/internal/adapters/handler.(*StreamtapeHandler).RemoteUpload-fm (9 handlers)
+2026/05/26 12:04:33 Server configuration complete. Listening on 0.0.0.0:8080
+2026/05/26 12:04:33 Healthcheck path: http://0.0.0.0:8080/api/health (ready)
+2026/05/26 12:04:33 [REQ] GET /api/ws | IP: ::1 | Len: 0
+2026/05/26 12:04:33 [Auth] Found token in query param (trimmed): eyJhbGciOi...
+2026/05/26 12:04:33 [Auth] Token validated for UserID: 1
+2026/05/26 12:04:33 [WSHandler] Incoming request from UserID: 1
+2026/05/26 12:04:33 [WSHandler] Upgrade successful for UserID: 1
+[GIN] 2026/05/26 - 12:04:33 | 200 |       711.8µs |             ::1 | GET      "/api/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJyb2xlIjoiYWRtaW4iLCJpc3MiOiJzYWFzLWFwcCIsImV4cCI6MTc3OTkwNjM3N30.STNE_PVlmzwedf_IuJcsAhFrN3-OpJ4HnInlh-Jz-X4"
+2026/05/26 12:04:33 [WSHub] Client registered (UserID: 1)
+2026/05/26 12:04:33 [REQ] GET /api/user/stats | IP: ::1 | Len: 0
+2026/05/26 12:04:33 [Auth] Token validated for UserID: 1
+[GIN] 2026/05/26 - 12:04:33 | 200 |      1.6613ms |             ::1 | GET      "/api/user/stats"
+✅ SSR Bundle loaded successfully
+🚀 Node SSR Sidecar running on http://localhost:3000
+
+2026/05/26 12:04:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:04:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.305ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:04:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:04:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+2026/05/26 12:04:52 [VPS Service] SSH Connection FAILED: SSH dial failed: dial tcp 165.22.203.23:22: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+
+2026/05/26 12:04:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.272ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:11 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:16 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.634ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:21 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:26 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.590ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.856ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.231ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:05:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.273ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:11 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:16 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+2026/05/26 12:06:16 [REQ] POST /api/posts | IP: ::1 | Len: 316
+
+
+[31m2026/05/26 12:06:16 [Recovery] 2026/05/26 - 12:06:16 panic recovered:
+POST /api/posts HTTP/1.1
+Host: localhost:8080
+Accept: */*
+Content-Length: 316
+Content-Type: multipart/form-data; boundary=------------------------nZg2yYSq9IZNf23RklVYaJ
+User-Agent: curl/8.13.0
+
+
+Key "user_id" does not exist
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:284 (0x7ff6206c5acd)
+	(*Context).MustGet: panic("Key \"" + key + "\" does not exist")
+E:/anime - last/ANIME-GOLANG/backend/internal/adapters/handler/post_handler.go:112 (0x7ff6206c512d)
+	(*PostHandler).CreatePost: userID := c.MustGet("user_id").(uint)
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff620602d4a)
+	(*Context).Next: c.handlers[c.index](c)
+E:/anime - last/ANIME-GOLANG/backend/internal/middleware/auth.go:70 (0x7ff620713d84)
+	main.OptionalAuthMiddleware.func22: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff6206f5b42)
+	(*Context).Next: c.handlers[c.index](c)
+E:/anime - last/ANIME-GOLANG/backend/internal/middleware/cache.go:45 (0x7ff6206f5b30)
+	StaticCacheMiddleware.func1: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff620714cc9)
+	(*Context).Next: c.handlers[c.index](c)
+E:/anime - last/ANIME-GOLANG/backend/cmd/server/main.go:223 (0x7ff620714cb7)
+	main.func2: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff620602d4a)
+	(*Context).Next: c.handlers[c.index](c)
+E:/anime - last/ANIME-GOLANG/backend/internal/middleware/cache.go:62 (0x7ff6207150c5)
+	main.SecurityHeadersMiddleware.func18: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff620610b0e)
+	(*Context).Next: c.handlers[c.index](c)
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/recovery.go:102 (0x7ff620610afb)
+	CustomRecoveryWithWriter.func1: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff62060fbe4)
+	(*Context).Next: c.handlers[c.index](c)
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249 (0x7ff62060fbcb)
+	LoggerWithConfig.func1: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185 (0x7ff62060f00a)
+	(*Context).Next: c.handlers[c.index](c)
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633 (0x7ff62060e9c7)
+	(*Engine).handleHTTPRequest: c.Next()
+C:/Users/Abdo/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589 (0x7ff62060e4ec)
+	(*Engine).ServeHTTP: engine.handleHTTPRequest(c)
+C:/Users/Abdo/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.0.windows-amd64/src/net/http/server.go:3340 (0x7ff61fff70ed)
+	serverHandler.ServeHTTP: handler.ServeHTTP(rw, req)
+C:/Users/Abdo/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.0.windows-amd64/src/net/http/server.go:2109 (0x7ff61ffd5ae4)
+	(*conn).serve: serverHandler{c.server}.ServeHTTP(w, w.req)
+C:/Users/Abdo/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.25.0.windows-amd64/src/runtime/asm_amd64.s:1693 (0x7ff61fd319e0)
+	goexit: BYTE	$0x90	// NOP
+[0m
+[GIN] 2026/05/26 - 12:06:16 | 500 |      2.1919ms |             ::1 | POST     "/api/posts"
+
+2026/05/26 12:06:21 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:26 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+2026/05/26 12:06:31 [REQ] GET /api/user/stats | IP: ::1 | Len: 0
+2026/05/26 12:06:31 [Auth] Token validated for UserID: 1
+[GIN] 2026/05/26 - 12:06:31 | 200 |      1.0775ms |             ::1 | GET      "/api/user/stats"
+
+2026/05/26 12:06:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.248ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.639ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:06:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.566ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.121ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:11 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:16 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:21 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:26 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.880ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.647ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.338ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:07:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.328ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:11 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.155ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:16 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.362ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:21 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.121ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:26 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.604ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+2026/05/26 12:08:31 [REQ] GET /api/user/stats | IP: ::1 | Len: 0
+2026/05/26 12:08:31 [Auth] Token validated for UserID: 1
+[GIN] 2026/05/26 - 12:08:31 | 200 |      1.9805ms |             ::1 | GET      "/api/user/stats"
+
+2026/05/26 12:08:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[1.032ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.597ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:08:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.261ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:11 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:16 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:21 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.374ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:26 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.190ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.245ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.540ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:09:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:11 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.120ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:16 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.288ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:21 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.288ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:26 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:31 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+2026/05/26 12:10:31 [REQ] GET /api/user/stats | IP: ::1 | Len: 0
+2026/05/26 12:10:31 [Auth] Token validated for UserID: 1
+[GIN] 2026/05/26 - 12:10:31 | 200 |      1.0762ms |             ::1 | GET      "/api/user/stats"
+
+2026/05/26 12:10:36 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.209ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:41 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.362ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:46 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:51 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.750ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:10:56 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.000ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:11:01 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.280ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1
+
+2026/05/26 12:11:06 [31;1mE:/anime - last/ANIME-GOLANG/backend/internal/core/service/vps_service.go:144 [35;1mrecord not found
+[0m[33m[0.321ms] [34;1m[rows:0][0m SELECT * FROM `vps_tasks` WHERE status = "pending" ORDER BY created_at asc,`vps_tasks`.`id` LIMIT 1

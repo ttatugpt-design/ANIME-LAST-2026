@@ -184,6 +184,10 @@ export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange
                     <TooltipTrigger asChild>
                         <button
                             onClick={() => {
+                                if (window.innerWidth < 1024) {
+                                    navigate(`/${lang}/u/${currentUser?.id}/dashboard/messages`);
+                                    return;
+                                }
                                 const nextState = !isOpen;
                                 setIsOpen(nextState);
                                 if (nextState && onOpenChange) {

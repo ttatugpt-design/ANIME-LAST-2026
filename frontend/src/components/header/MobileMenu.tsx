@@ -175,6 +175,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                 {/* Home Link */}
                                 <button
                                     onClick={() => handleNavigation('/')}
+                                    onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation('/') }}
                                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a] mx-2 w-[calc(100%-16px)]"
                                 >
                                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
@@ -186,6 +187,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                 {/* Community Link */}
                                 <button
                                     onClick={() => handleNavigation('/community')}
+                                    onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation('/community') }}
                                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-xl flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a] mx-2 w-[calc(100%-16px)]"
                                 >
                                     <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
@@ -202,12 +204,14 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                     <div className="flex flex-col border-b border-gray-100 dark:border-[#2a2a2a] mb-4">
                                         <button
                                             onClick={() => handleNavigation('/browse')}
+                                            onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation('/browse') }}
                                             className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl mx-2 w-[calc(100%-16px)] transition-colors"
                                         >
                                             <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'تصفح الكل' : 'Browse All'}</span>
                                         </button>
                                         <button
                                             onClick={() => handleNavigation('/animes')}
+                                            onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation('/animes') }}
                                             className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl mx-2 w-[calc(100%-16px)] transition-colors"
                                         >
                                             <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'جديد' : 'New'}</span>
@@ -231,6 +235,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                                     <button
                                                         key={category.id}
                                                         onClick={() => handleNavigation(`/browse?categoryId=${category.id}`)}
+                                                        onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation(`/browse?categoryId=${category.id}`) }}
                                                         className="flex items-center justify-center px-3 py-2 text-xs font-medium bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#333] hover:border-black hover:text-black dark:hover:text-white dark:hover:border-white transition-colors text-center rounded-xl"
                                                     >
                                                         {isRtl ? category.name : (category.name_en || category.name)}
@@ -239,6 +244,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                             </div>
                                             <button
                                                 onClick={() => handleNavigation('/categories')}
+                                                onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation('/categories') }}
                                                 className="w-full mt-3 px-3 py-2 text-xs font-bold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors rounded-xl"
                                             >
                                                 {isRtl ? 'عرض جميع الفئات' : 'View All Categories'}
@@ -268,6 +274,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                                                 key={anime.id}
                                                                 className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
                                                                 onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
+                                                                onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation(`/animes/${anime.id}/${slug}`) }}
                                                             >
                                                                 <div className="w-[100px] aspect-[2/3] flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-[#111] shadow-lg">
                                                                     <SpinnerImage
@@ -320,6 +327,7 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                                                 key={episode.id}
                                                                 className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
                                                                 onClick={() => handleNavigation(`/watch/${animeId}/${episode.episode_number}/${slug}`)}
+                                                                onPointerUp={(e) => { if(e.pointerType === 'touch') handleNavigation(`/watch/${animeId}/${episode.episode_number}/${slug}`) }}
                                                             >
                                                                 <div className="w-[140px] aspect-video flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-[#111] shadow-lg relative">
                                                                     <SpinnerImage

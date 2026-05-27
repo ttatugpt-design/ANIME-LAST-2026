@@ -5,6 +5,8 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { Link, useParams } from 'react-router-dom';
 import { getImageUrl } from '@/utils/image-utils';
+import { toast } from 'sonner';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 import Footer from '@/components/common/Footer';
 
 export default function FriendsPage() {
@@ -118,16 +120,11 @@ export default function FriendsPage() {
 
                 {/* Content */}
                 {isLoading ? (
-                    <div className="flex justify-center p-8">
-                        <div className="relative w-8 h-8">
-                            <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                        </div>
-                    </div>
+                    <CentralSpinner />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {activeTab === 'all' && friends.map((friend) => (
-                            <div key={friend.id} className="bg-white dark:bg-[#242526] p-4 rounded-lg shadow-sm flex items-center gap-4">
+                            <div key={friend.id} className="bg-white dark:bg-[#242526] p-4 rounded-xl shadow-sm flex items-center gap-4">
                                 <Link to={`/u/${friend.id}/profile`} className="shrink-0">
                                     <img
                                         src={getImageUrl(friend.avatar)}
@@ -154,7 +151,7 @@ export default function FriendsPage() {
                         ))}
 
                         {activeTab === 'requests' && requests.map((req) => (
-                            <div key={req.id} className="bg-white dark:bg-[#242526] p-4 rounded-lg shadow-sm flex items-center gap-4">
+                            <div key={req.id} className="bg-white dark:bg-[#242526] p-4 rounded-xl shadow-sm flex items-center gap-4">
                                 <Link to={`/u/${req.requester.id}/profile`} className="shrink-0">
                                     <img
                                         src={getImageUrl(req.requester.avatar)}
@@ -169,13 +166,13 @@ export default function FriendsPage() {
                                     <div className="flex gap-2 mt-2">
                                         <button
                                             onClick={() => handleAccept(req.requester.id)}
-                                            className="bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black px-3 py-1 rounded text-sm font-medium transition-colors"
+                                            className="bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black px-3 py-1 rounded-xl text-sm font-medium transition-colors"
                                         >
                                             تأكيد
                                         </button>
                                         <button
                                             onClick={() => handleReject(req.requester.id)}
-                                            className="bg-gray-200 dark:bg-[#3a3b3c] hover:bg-gray-300 dark:hover:bg-[#4e4f50] text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm font-medium transition-colors"
+                                            className="bg-gray-200 dark:bg-[#3a3b3c] hover:bg-gray-300 dark:hover:bg-[#4e4f50] text-gray-700 dark:text-gray-300 px-3 py-1 rounded-xl text-sm font-medium transition-colors"
                                         >
                                             حذف
                                         </button>

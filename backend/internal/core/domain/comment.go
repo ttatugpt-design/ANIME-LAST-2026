@@ -8,10 +8,12 @@ type Comment struct {
 	Content       string    `json:"content" gorm:"type:text;not null"`
 	UserID        uint      `json:"user_id" gorm:"not null"`
 	User          *User     `json:"user" gorm:"foreignKey:UserID;references:ID"`
-	EpisodeID     uint      `json:"episode_id" gorm:"not null"`
+	EpisodeID     uint      `json:"episode_id"`
 	Episode       *Episode  `json:"episode" gorm:"foreignKey:EpisodeID"`
 	ChapterID     *uint     `json:"chapter_id"`
 	Chapter       *Chapter  `json:"chapter" gorm:"foreignKey:ChapterID"`
+	AnimeID       *uint     `json:"anime_id"`
+	Anime         *Anime    `json:"anime" gorm:"foreignKey:AnimeID"`
 	ParentID      *uint     `json:"parent_id,omitempty"`       // For nested replies
 	MentionUserID *uint     `json:"mention_user_id,omitempty"` // User being @mentioned
 	Parent        *Comment  `json:"parent,omitempty" gorm:"foreignKey:ParentID"`

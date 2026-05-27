@@ -91,7 +91,7 @@ export const WatchLaterDropdown: React.FC = () => {
                                     const isEpisode = !!item.episode_id;
                                     const link = isEpisode
                                         ? `/${i18n.language}/watch/${item.anime_id}/${item.episode?.episode_number}`
-                                        : `/${i18n.language}/anime/${item.anime_id}`; // Assuming anime browse link
+                                        : `/${i18n.language}/animes/${item.anime_id}`; // Assuming anime browse link
 
                                     const title = isEpisode
                                         ? (isRtl ? item.episode?.title : item.episode?.title_en) || `Episode ${item.episode?.episode_number}`

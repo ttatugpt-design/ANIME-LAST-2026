@@ -23,7 +23,7 @@ func (r *CommentRepository) Create(comment *domain.Comment) error {
 // GetByID fetches a comment by ID
 func (r *CommentRepository) GetByID(id uint) (*domain.Comment, error) {
 	var comment domain.Comment
-	if err := r.db.Preload("User").Preload("Parent").Preload("Parent.User").Preload("Episode").Preload("Episode.Anime").Preload("Chapter").Preload("Chapter.Anime").First(&comment, id).Error; err != nil {
+	if err := r.db.Preload("User").Preload("Parent").Preload("Parent.User").Preload("Episode").Preload("Episode.Anime").Preload("Chapter").Preload("Chapter.Anime").Preload("Anime").First(&comment, id).Error; err != nil {
 		return nil, err
 	}
 	return &comment, nil
@@ -204,6 +204,86 @@ func (r *CommentRepository) GetByChapterIDPaginated(chapterID uint, page, limit 
 
 	return roots, total, nil
 }
+
+func (r *CommentRepository) GetByAnimeID(animeID uint) ([]domain.Comment, error) {
+	var allComments []domain.Comment
+	err := r.db.Preload("User").
+		Where("anime_id = ?", animeID).
+		Order("created_at asc").
+		Find(&allComments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	commentMap := make(map[uint]*domain.Comment)
+	for i := range allComments {
+		commentMap[allComments[i].ID] = &allComments[i]
+	}
+
+	for i := range allComments {
+		comment := &allComments[i]
+		if comment.ParentID != nil && *comment.ParentID != 0 {
+			if parent, exists := commentMap[*comment.ParentID]; exists {
+				parent.Children = append(parent.Children, *comment)
+			}
+		}
+	}
+
+	var finalRoots []domain.Comment
+	for i := len(allComments) - 1; i >= 0; i-- {
+		c := &allComments[i]
+		if c.ParentID == nil || *c.ParentID == 0 {
+			finalRoots = append(finalRoots, *commentMap[c.ID])
+		}
+	}
+
+	return finalRoots, nil
+}
+
+// GetByAnimeIDPaginated returns paginated top-level comments for an anime with their children.
+func (r *CommentRepository) GetByAnimeIDPaginated(animeID uint, page, limit int) ([]domain.Comment, int64, error) {
+	if page <= 0 { page = 1 }
+	if limit <= 0 { limit = 10 }
+	offset := (page - 1) * limit
+
+	var total int64
+	r.db.Model(&domain.Comment{}).Where("anime_id = ? AND (parent_id IS NULL OR parent_id = 0)", animeID).Count(&total)
+
+	var roots []domain.Comment
+	err := r.db.Preload("User").
+		Where("anime_id = ? AND (parent_id IS NULL OR parent_id = 0)", animeID).
+		Order("created_at desc").
+		Limit(limit).Offset(offset).
+		Find(&roots).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(roots) == 0 {
+		return roots, total, nil
+	}
+
+	rootIDs := make([]uint, len(roots))
+	for i, r := range roots { rootIDs[i] = r.ID }
+
+	var children []domain.Comment
+	r.db.Preload("User").
+		Where("anime_id = ? AND parent_id IN ?", animeID, rootIDs).
+		Order("created_at asc").
+		Find(&children)
+
+	rootMap := make(map[uint]*domain.Comment, len(roots))
+	for i := range roots { rootMap[roots[i].ID] = &roots[i] }
+	for _, child := range children {
+		if child.ParentID != nil {
+			if parent, ok := rootMap[*child.ParentID]; ok {
+				parent.Children = append(parent.Children, child)
+			}
+		}
+	}
+
+	return roots, total, nil
+}
+
 
 // GetAllComments fetches all comments for dashboard
 func (r *CommentRepository) GetAllComments(limit int) ([]domain.Comment, error) {

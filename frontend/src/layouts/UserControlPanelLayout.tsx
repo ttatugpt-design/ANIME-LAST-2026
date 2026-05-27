@@ -1,10 +1,10 @@
 import { Outlet, NavLink, useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { User, Settings, Lock, Bookmark, History, Bell, BarChart3, Activity, Pen, List, MapPin, Users, MessageCircle } from 'lucide-react';
+import { User, Settings, Lock, Bookmark, History, Bell, BarChart3, Activity, Pen, List, MapPin, Users, MessageCircle, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/header/Header';
 import { useState, useEffect } from 'react';
-import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth-store';
 import { getImageUrl } from '@/utils/image-utils';
 import { useNotificationsStore } from '@/stores/notifications-store';
@@ -23,6 +23,7 @@ export function UserControlPanelLayout() {
     const { user } = useAuthStore();
     const isMessagesPage = location.pathname.endsWith('/messages');
     const { unreadCount } = useNotificationsStore();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [stats, setStats] = useState({
         history_count: 0,
         watch_later_count: 0
@@ -132,17 +133,81 @@ export function UserControlPanelLayout() {
         }
     ];
 
-    const [isLoading, setIsLoading] = useState(true);
 
-    // Simulate loading for skeleton demo
-    useEffect(() => {
-        const timer = setTimeout(() => setIsLoading(false), 800);
-        return () => clearTimeout(timer);
-    }, [location.pathname]);
+    const SidebarContent = () => (
+        <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
+            {/* Profile Header (Matched to UserMenuContent) */}
+            <div className="p-4 border-b border-gray-100 dark:border-white/10 shrink-0 mt-4">
+                <div className="flex items-center justify-between">
+                    <Link
+                        to={`${baseDashboardPath}/edit`}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="p-2 text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    >
+                        <Pen className="w-5 h-5" />
+                    </Link>
 
-    if (isLoading) {
-        return <CrunchyrollSkeleton variant="full-screen" />;
-    }
+                    <div className="flex items-center gap-4">
+                        <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold text-gray-900 dark:text-white">{user?.name}</span>
+                        </div>
+                        <div className="relative w-12 h-12 overflow-hidden rounded-full ring-2 ring-gray-100 dark:ring-white/10">
+                            {user?.avatar ? (
+                                <img
+                                    src={getAvatarUrl(user.avatar)}
+                                    alt={user.name}
+                                    className="object-cover w-full h-full"
+                                />
+                            ) : (
+                                <div className="flex items-center justify-center w-full h-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
+                                    {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <nav className="divide-y divide-gray-100 dark:divide-white/10 flex-1">
+                {sidebarItems.map((group, gIndex) => (
+                    <div key={gIndex} className="py-2">
+                        {group.items.map((item) => (
+                            <NavLink
+                                key={item.href}
+                                to={item.href}
+                                end={item.end}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={({ isActive }) => cn(
+                                    "flex items-center justify-end w-full px-5 py-2.5 gap-4 group transition-colors rounded-xl mx-2 my-0.5",
+                                    isActive
+                                        ? "bg-gray-50 dark:bg-white/5"
+                                        : "hover:bg-gray-50 dark:hover:bg-white/5"
+                                )}
+                            >
+                                <div className="flex items-center gap-2">
+                                    {item.count !== undefined && item.count > 0 && (
+                                        <span className="text-[10px] font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">
+                                            {item.count}
+                                        </span>
+                                    )}
+                                    <span className={cn(
+                                        "text-sm font-medium transition-colors",
+                                        "text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white"
+                                    )}>
+                                        {item.title}
+                                    </span>
+                                </div>
+                                <item.icon className={cn(
+                                    "w-4 h-4 transition-colors",
+                                    "text-gray-500 group-hover:text-black dark:group-hover:text-white"
+                                )} />
+                            </NavLink>
+                        ))}
+                    </div>
+                ))}
+            </nav>
+        </div>
+    );
 
     return (
         <div className={cn(
@@ -152,89 +217,39 @@ export function UserControlPanelLayout() {
             <Header />
 
             <div className={cn("flex-1 flex flex-col lg:flex-row", isMessagesPage && "overflow-hidden")}>
-                {/* Sidebar */}
+                {/* Desktop Sidebar */}
                 {!isMessagesPage && (
-                    <aside className="w-full lg:w-72 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-gray-100 dark:border-white/10 bg-white dark:bg-black">
-                        <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col overflow-y-auto custom-scrollbar shadow-sm">
-                            {/* Profile Header (Matched to UserMenuContent) */}
-                            <div className="p-4 border-b border-gray-100 dark:border-white/10">
-                                <div className="flex items-center justify-between">
-                                    <Link
-                                        to={`${baseDashboardPath}/edit`}
-                                        className="p-2 text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                                    >
-                                        <Pen className="w-5 h-5" />
-                                    </Link>
-
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-sm font-bold text-gray-900 dark:text-white">{user?.name}</span>
-                                        </div>
-                                        <div className="relative w-12 h-12 overflow-hidden rounded-full ring-2 ring-gray-100 dark:ring-white/10">
-                                            {user?.avatar ? (
-                                                <img
-                                                    src={getAvatarUrl(user.avatar)}
-                                                    alt={user.name}
-                                                    className="object-cover w-full h-full"
-                                                />
-                                            ) : (
-                                                <div className="flex items-center justify-center w-full h-full bg-black dark:bg-white text-white dark:text-black font-bold text-lg">
-                                                    {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <nav className="divide-y divide-gray-100 dark:divide-white/10">
-                                {sidebarItems.map((group, gIndex) => (
-                                    <div key={gIndex} className="py-1">
-                                        {group.items.map((item) => (
-                                            <NavLink
-                                                key={item.href}
-                                                to={item.href}
-                                                end={item.end}
-                                                className={({ isActive }) => cn(
-                                                    "flex items-center justify-end w-full px-5 py-2.5 gap-4 group transition-colors",
-                                                    isActive
-                                                        ? "bg-gray-50 dark:bg-white/5"
-                                                        : "hover:bg-gray-50 dark:hover:bg-white/5"
-                                                )}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    {item.count !== undefined && item.count > 0 && (
-                                                        <span className="text-[10px] font-bold text-white dark:text-black bg-black dark:bg-white px-1.5 py-0.5 rounded-full">
-                                                            {item.count}
-                                                        </span>
-                                                    )}
-                                                    <span className={cn(
-                                                        "text-sm font-medium transition-colors",
-                                                        "text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white"
-                                                    )}>
-                                                        {item.title}
-                                                    </span>
-                                                </div>
-                                                <item.icon className={cn(
-                                                    "w-4 h-4 transition-colors",
-                                                    "text-gray-500 group-hover:text-black dark:group-hover:text-white"
-                                                )} />
-                                            </NavLink>
-                                        ))}
-                                    </div>
-                                ))}
-                            </nav>
+                    <aside className="hidden lg:block w-72 flex-shrink-0 border-r border-gray-100 dark:border-white/10 bg-white dark:bg-black">
+                        <div className="sticky top-[60px] h-[calc(100vh-60px)] shadow-sm">
+                            <SidebarContent />
                         </div>
                     </aside>
                 )}
 
                 {/* Main Content */}
                 <main className={cn(
-                    "flex-1 min-w-0 bg-white dark:bg-black",
-                    isMessagesPage ? "h-[calc(100dvh-60px)]" : "p-4 sm:p-8"
+                    "flex-1 min-w-0 bg-gray-50 dark:bg-[#0a0a0a] flex flex-col",
+                    isMessagesPage ? "h-[calc(100dvh-60px)]" : ""
                 )}>
-                    <div className={cn(isMessagesPage ? "h-full" : "max-w-7xl mx-auto")}>
-                        <div className={cn("bg-transparent", isMessagesPage ? "h-full" : "min-h-[600px]")}>
+                    {/* Mobile Sidebar Toggle */}
+                    {!isMessagesPage && (
+                        <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-100 dark:border-white/10 bg-white dark:bg-black sticky top-[60px] z-10 shadow-sm">
+                            <span className="font-bold text-lg">{isRtl ? 'لوحة التحكم' : 'Dashboard'}</span>
+                            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                                <SheetTrigger asChild>
+                                    <button className="p-2 -mx-2 text-gray-500 hover:text-black dark:hover:text-white transition-colors rounded-xl hover:bg-gray-100 dark:hover:bg-white/5">
+                                        <Menu className="w-6 h-6" />
+                                    </button>
+                                </SheetTrigger>
+                                <SheetContent side={isRtl ? 'right' : 'left'} className="w-72 p-0 border-gray-100 dark:border-white/10 bg-white dark:bg-black" aria-describedby={undefined}>
+                                     <SidebarContent />
+                                </SheetContent>
+                            </Sheet>
+                        </div>
+                    )}
+
+                    <div className={cn("flex-1", isMessagesPage ? "h-full" : "p-4 sm:p-8")}>
+                        <div className={cn("h-full", !isMessagesPage && "max-w-7xl mx-auto")}>
                             <Outlet />
                         </div>
                     </div>

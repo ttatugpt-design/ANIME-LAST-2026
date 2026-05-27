@@ -13,6 +13,7 @@ import api from '@/lib/api';
 import { getImageUrl } from '@/utils/image-utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMessagingStore } from '@/stores/messaging-store';
+import { slugify } from '@/utils/slug';
 
 export const getReactionInfo = (type: string, isAr: boolean) => {
     const reactions: Record<string, { labelAr: string, labelEn: string, gif: string }> = {
@@ -119,6 +120,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
 
         // 2. Chat Messages
         if (notif.type === 'chat_message' && data.sender_id) {
+            if (window.innerWidth < 1024) {
+                navigate(`/${currentLang}/u/${user?.id}/dashboard/messages?userId=${data.sender_id}`);
+                setIsOpen(false);
+                return;
+            }
             openMessagingModal({
                 id: data.sender_id,
                 name: data.sender_name || 'Someone',
@@ -151,6 +157,20 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOp
                     url += `&parentId=${data.parent_id}`;
                 }
             }
+            navigate(url);
+            setIsOpen(false);
+            return;
+        }
+
+        // 4.5 Anime Details Page (Series Comments)
+        if (data.anime_id && data.episode_number === undefined) {
+            let url = `/${currentLang}/animes/${data.anime_id}/${slugify(data.anime_title || 'anime')}`;
+            const params = new URLSearchParams();
+            if (data.comment_id) params.set('commentId', String(data.comment_id));
+            if (data.parent_id) params.set('parentId', String(data.parent_id));
+            params.set('tab', 'comments');
+            
+            url += `?${params.toString()}`;
             navigate(url);
             setIsOpen(false);
             return;

@@ -24,7 +24,7 @@ if (!seedUrl) {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process'
+                
             ]
         });
 

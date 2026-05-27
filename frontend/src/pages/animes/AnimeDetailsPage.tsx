@@ -4,15 +4,15 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
-import { Search, Play, Plus, Share2, Star, Filter, ArrowUpDown, LayoutGrid, ChevronLeft, Loader2, Bookmark, BookmarkCheck, X } from "lucide-react";
+import { Search, Play, Plus, Share2, Star, Filter, ArrowUpDown, LayoutGrid, ChevronLeft, Loader2, Bookmark, BookmarkCheck, X, Library, MessageCircle } from "lucide-react";
 import api from "@/lib/api";
 import { renderEmojiContent } from "@/utils/render-content";
 import CrunchyrollSkeleton from "@/components/skeleton/CrunchyrollSkeleton";
 import AnimeHoverCard from "@/components/AnimeHoverCard";
 import AnimeListHoverCard from "@/components/AnimeListHoverCard";
 import SpinnerImage from "@/components/ui/SpinnerImage";
-import { NewsTicker } from '@/components/common/NewsTicker';
-import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
+
+import { DashboardSidebar } from '@/components/social/DashboardSidebar';
 import Footer from "@/components/common/Footer";
 import { slugify } from "@/utils/slug";
 import { cn } from "@/lib/utils";
@@ -20,10 +20,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWatchLaterStore } from '@/stores/watch-later-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
+
 import CentralSpinner from "@/components/ui/CentralSpinner";
 import { AnimeShareModal } from "@/components/animes/AnimeShareModal";
 import { getImageUrl } from '@/utils/image-utils';
 import { WatchLaterButton } from '@/components/common/WatchLaterButton';
+import { CommentsSection } from "@/components/comments/CommentsSection";
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 
 // Hero Skeleton replaced by CrunchyrollSkeleton full-screen variant
@@ -37,9 +40,20 @@ export default function AnimeDetailsPage() {
     // State
     const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [activeTab, setActiveTab] = useState<'seasons' | 'comments' | null>('comments');
+    const [commentsCount, setCommentsCount] = useState(0);
+    const [showFullDescription, setShowFullDescription] = useState(false);
+
+    // Fetch Collections for this anime
+    const { data: animeCollections, isLoading: isLoadingCollections } = useQuery({
+        queryKey: ["anime-collections-by-anime", id],
+        queryFn: async () => (await api.get(`/anime-collections/anime/${id}`)).data,
+        enabled: !!id,
+    });
 
     // Hover state management for episodes
     const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
+    const seasonsCount = animeCollections?.reduce((acc: number, col: any) => acc + (col.animes?.length || 0), 0) || 0;
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Watch Later & Share State
@@ -48,6 +62,8 @@ export default function AnimeDetailsPage() {
     const [isWatchLaterLoading, setIsWatchLaterLoading] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isInitialButtonLoading, setIsInitialButtonLoading] = useState(true);
+
+    useModalBackButton(isShareModalOpen, () => setIsShareModalOpen(false), 'share');
 
     const handleMouseEnter = (index: number) => {
         if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -344,27 +360,26 @@ export default function AnimeDetailsPage() {
                 </script>
             </Helmet>
 
-            {/* NewsTicker wrapper with min-height to prevent layout jump */}
-            <div className="hidden md:block min-h-[45px]">
-                <NewsTicker />
-            </div>
 
-            {/* Main Layout - Sync with BrowsePage */}
+
+            {/* Main Layout - Sync with WatchPage */}
             <div className="w-full min-h-screen">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible min-h-screen">
-                    {/* Left Sidebar - narrower width */}
-                    <div className="hidden lg:block lg:col-span-2 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30">
-                        <SocialNavSidebar />
-                    </div>
+                <div className="flex flex-col lg:flex-row overflow-visible min-h-screen">
+                    {/* Left Sidebar - Dashboard Style */}
+                    <aside className="hidden xl:block w-64 flex-shrink-0 border-l border-gray-100 dark:border-white/10 bg-white dark:bg-black -mt-4 md:-mt-10">
+                        <div className="sticky top-[20px] h-[calc(100vh-20px)] shadow-sm">
+                            <DashboardSidebar noTopSpace />
+                        </div>
+                    </aside>
 
                     {isLoading ? (
-                        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white/40 dark:bg-black/40 backdrop-blur-[3px] animate-fade-in">
+                        <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-60px)]">
                             <CentralSpinner />
                         </div>
                     ) : (
                         <>
                             {/* Main Content Area */}
-                            <div className="col-span-1 lg:col-span-7 border-x-0 lg:border-r border-gray-100 dark:border-[#2a2a2a] rtl:lg:border-r-0 rtl:lg:border-l">
+                            <div className="flex-1 min-w-0 border-x-0 lg:border-r border-gray-100 dark:border-[#2a2a2a] rtl:lg:border-r-0 rtl:lg:border-l">
                                 <div className="flex flex-col min-h-screen">
                                     {/* Hero & Search Section */}
                                     {error || !anime ? (
@@ -419,30 +434,30 @@ export default function AnimeDetailsPage() {
 
                                                         {/* Description - Reduced Size */}
                                                         <div className="space-y-4">
-                                                            <p className="text-gray-200 text-sm md:text-base leading-relaxed line-clamp-4 max-w-2xl drop-shadow-md">
+                                                            <p className="text-gray-200 text-xs md:text-sm leading-relaxed line-clamp-4 max-w-2xl drop-shadow-md">
                                                                 {renderEmojiContent(animeDescription || 'No description available.')}
                                                             </p>
                                                         </div>
 
                                                         {/* Actions Buttons */}
-                                                        <div className="flex flex-wrap items-center gap-4 pt-4 min-h-[64px]">
+                                                        <div className="flex flex-wrap items-center gap-2 pt-4 min-h-[48px]">
                                                             {isInitialButtonLoading ? (
-                                                                <div className="px-8 py-3 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
+                                                                <div className="px-6 py-2 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
                                                                     <CentralSpinner size="small" />
                                                                 </div>
                                                             ) : firstEpisodeId ? (
                                                                 <Link
                                                                     to={`/${lang}/watch/${anime?.id}/${firstEpisodeId.episode_number}/${slugify(animeTitle)}`}
-                                                                    className="flex items-center gap-3 px-8 py-4 bg-white hover:bg-neutral-200 text-black font-bold uppercase tracking-wide transition-all hover:scale-105 rounded-full animate-in fade-in zoom-in duration-500"
+                                                                    className="flex items-center gap-2 px-5 py-2.5 text-sm bg-white hover:bg-neutral-200 text-black font-bold uppercase tracking-wide transition-all hover:scale-105 rounded-full animate-in fade-in zoom-in duration-500"
                                                                 >
-                                                                    <span className="flex items-center gap-2">
-                                                                        <Play className="w-5 h-5 fill-current" />
+                                                                    <span className="flex items-center gap-1.5">
+                                                                        <Play className="w-4 h-4 fill-current" />
                                                                         {lang === 'ar' ? `بدء الحلقة ${firstEpisodeId.episode_number}` : `Start Ep ${firstEpisodeId.episode_number}`}
                                                                     </span>
                                                                 </Link>
                                                             ) : (
-                                                                <button disabled className="flex items-center gap-3 px-8 py-4 bg-gray-600 text-gray-400 font-bold uppercase tracking-wide cursor-not-allowed skew-x-[-10deg]">
-                                                                    <span className="skew-x-[10deg] flex items-center gap-2">
+                                                                <button disabled className="flex items-center gap-2 px-5 py-2.5 text-sm bg-gray-600 text-gray-400 font-bold uppercase tracking-wide cursor-not-allowed skew-x-[-10deg]">
+                                                                    <span className="skew-x-[10deg] flex items-center gap-1.5">
                                                                         {lang === 'ar' ? 'قريبا' : 'Coming Soon'}
                                                                     </span>
                                                                 </button>
@@ -452,7 +467,7 @@ export default function AnimeDetailsPage() {
                                                                 onClick={handleWatchLaterToggle}
                                                                 disabled={isWatchLaterLoading}
                                                                 className={cn(
-                                                                    "flex items-center justify-center p-4 rounded-full transition-all duration-300 shadow-sm border group",
+                                                                    "flex items-center justify-center p-2.5 rounded-full transition-all duration-300 shadow-sm border group",
                                                                     isSaved(Number(anime?.id), null)
                                                                         ? "bg-black border-black text-white dark:bg-black dark:border-black dark:text-white"
                                                                         : "bg-white border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 hover:shadow-sm"
@@ -460,19 +475,19 @@ export default function AnimeDetailsPage() {
                                                                 title={lang === 'ar' ? 'أضف لقائمة المشاهدة' : 'Watch Later'}
                                                             >
                                                                 {isWatchLaterLoading ? (
-                                                                    <Loader2 className="w-7 h-7 animate-spin" />
+                                                                    <Loader2 className="w-5 h-5 animate-spin" />
                                                                 ) : isSaved(Number(anime?.id), null) ? (
-                                                                    <BookmarkCheck className="w-7 h-7 fill-current" />
+                                                                    <BookmarkCheck className="w-5 h-5 fill-current" />
                                                                 ) : (
-                                                                    <Bookmark className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                                                                    <Bookmark className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                                                 )}
                                                             </button>
 
                                                             <button
                                                                 onClick={() => setIsShareModalOpen(true)}
-                                                                className="flex items-center justify-center p-4 rounded-full bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
+                                                                className="flex items-center justify-center p-2.5 rounded-full bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
                                                             >
-                                                                <Share2 className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                                                                <Share2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                                             </button>
                                                         </div>
                                                     </div>
@@ -480,7 +495,7 @@ export default function AnimeDetailsPage() {
                                             </div>
 
                                             {/* DESKTOP HERO SECTION - Clean, centered, premium */}
-                                            <div className="hidden lg:block relative w-full pt-10 pb-16 px-4 md:px-12 bg-gray-50 dark:bg-[#0a0a0a] border-b border-gray-100 dark:border-[#1a1a1a]">
+                                            <div className="hidden lg:block relative w-full pt-10 pb-6 px-4 md:px-12 bg-gray-50 dark:bg-[#0a0a0a] border-b border-gray-100 dark:border-[#1a1a1a]">
                                                 <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
                                                     {/* Poster/Image Column */}
                                                     <div className="w-full md:w-[280px] flex-shrink-0">
@@ -522,22 +537,42 @@ export default function AnimeDetailsPage() {
                                                             )}
                                                         </div>
 
+                                                        {/* Description Section */}
+                                                        <div className="mb-6 mt-2">
+                                                            <p className={cn(
+                                                                "text-gray-900 dark:text-gray-100 text-sm md:text-base lg:text-lg font-medium leading-relaxed drop-shadow-sm transition-all",
+                                                                !showFullDescription && "line-clamp-3"
+                                                            )}>
+                                                                {renderEmojiContent(animeDescription || 'No description available.')}
+                                                            </p>
+                                                            {animeDescription && animeDescription.length > 200 && (
+                                                                <button
+                                                                    onClick={() => setShowFullDescription(p => !p)}
+                                                                    className="mt-1 text-xs font-black text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors uppercase tracking-widest"
+                                                                >
+                                                                    {showFullDescription
+                                                                        ? (lang === 'ar' ? '▲ عرض أقل' : '▲ Show Less')
+                                                                        : (lang === 'ar' ? '▼ عرض المزيد' : '▼ Show More')}
+                                                                </button>
+                                                            )}
+                                                        </div>
+
                                                         {/* Actions Buttons */}
-                                                        <div className="flex flex-wrap items-center gap-4 mt-auto min-h-[64px]">
+                                                        <div className="flex flex-wrap items-center gap-3 mt-auto min-h-[48px]">
                                                             {isInitialButtonLoading ? (
-                                                                <div className="px-10 py-3 bg-gray-50 dark:bg-white/5 rounded-full border border-gray-100 dark:border-white/10">
+                                                                <div className="px-8 py-2.5 bg-gray-50 dark:bg-white/5 rounded-full border border-gray-100 dark:border-white/10">
                                                                     <CentralSpinner size="small" />
                                                                 </div>
                                                             ) : firstEpisodeId ? (
                                                                 <Link
                                                                     to={`/${lang}/watch/${anime?.id}/${firstEpisodeId.episode_number}/${slugify(animeTitle)}`}
-                                                                    className="flex items-center gap-3 px-10 py-4 bg-white dark:bg-white text-black dark:text-black font-black uppercase tracking-widest transition-all hover:-translate-y-1 hover:shadow-xl rounded-full shadow-md animate-in fade-in zoom-in duration-500"
+                                                                    className="flex items-center gap-2 px-6 py-3 text-sm bg-white dark:bg-white text-black dark:text-black font-black uppercase tracking-widest transition-all hover:-translate-y-1 hover:shadow-xl rounded-full shadow-md animate-in fade-in zoom-in duration-500"
                                                                 >
-                                                                    <Play className="w-6 h-6 fill-current" />
+                                                                    <Play className="w-5 h-5 fill-current" />
                                                                     {lang === 'ar' ? `ابدأ المشاهدة` : `Start Watching`}
                                                                 </Link>
                                                             ) : (
-                                                                <button disabled className="flex items-center gap-3 px-10 py-4 bg-gray-100 dark:bg-gray-100 text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest cursor-not-allowed rounded-none border border-gray-200 dark:border-gray-200">
+                                                                <button disabled className="flex items-center gap-2 px-6 py-3 text-sm bg-gray-100 dark:bg-gray-100 text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest cursor-not-allowed rounded-full border border-gray-200 dark:border-gray-200">
                                                                     {lang === 'ar' ? 'قريبا' : 'Coming Soon'}
                                                                 </button>
                                                             )}
@@ -546,7 +581,7 @@ export default function AnimeDetailsPage() {
                                                                 onClick={handleWatchLaterToggle}
                                                                 disabled={isWatchLaterLoading}
                                                                 className={cn(
-                                                                    "flex items-center justify-center p-4 rounded-full transition-all duration-300 shadow-sm border group",
+                                                                    "flex items-center justify-center p-3 rounded-full transition-all duration-300 shadow-sm border group",
                                                                     isSaved(Number(anime?.id), null)
                                                                         ? "bg-black border-black text-white dark:bg-black dark:border-black dark:text-white"
                                                                         : "bg-white border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 hover:shadow-sm"
@@ -554,30 +589,122 @@ export default function AnimeDetailsPage() {
                                                                 title={lang === 'ar' ? 'أضف لقائمة المشاهدة' : 'Watch Later'}
                                                             >
                                                                 {isWatchLaterLoading ? (
-                                                                    <Loader2 className="w-7 h-7 animate-spin" />
+                                                                    <Loader2 className="w-5 h-5 animate-spin" />
                                                                 ) : isSaved(Number(anime?.id), null) ? (
-                                                                    <BookmarkCheck className="w-7 h-7 fill-current" />
+                                                                    <BookmarkCheck className="w-5 h-5 fill-current" />
                                                                 ) : (
-                                                                    <Bookmark className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                                                                    <Bookmark className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                                                 )}
                                                             </button>
 
                                                             <button
                                                                 onClick={() => setIsShareModalOpen(true)}
-                                                                className="flex items-center justify-center p-4 rounded-full bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
+                                                                className="flex items-center justify-center p-3 rounded-full bg-white border border-gray-200 text-black dark:bg-white dark:border-gray-200 dark:text-black hover:bg-white dark:hover:bg-gray-50 transition-all shadow-sm group"
                                                             >
-                                                                <Share2 className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                                                                <Share2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                                             </button>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Description Section - Full width below the header */}
-                                                <div className="bg-white dark:bg-[#1a1a1a] p-4 md:p-6 rounded-none border border-gray-100 dark:border-[#2a2a2a] shadow-sm">
-                                                    <p className="text-gray-800 dark:text-gray-300 text-base lg:text-lg leading-relaxed font-medium">
-                                                        {renderEmojiContent(animeDescription || 'No description available.')}
-                                                    </p>
+                                                
+                                            </div>
+
+                                            
+                                            {/* TABS SECTION (Shared) */}
+                                            <div className="w-full max-w-5xl mx-auto px-4 md:px-12 mt-4 md:mt-2 mb-8">
+                                                <div className="flex justify-center md:justify-start gap-4 border-b border-gray-100 dark:border-[#2a2a2a] pb-2">
+                                                    {[
+                                                        { id: 'seasons', label: lang === 'ar' ? 'المواسم' : 'Seasons', icon: <Library className="w-5 h-5" />, count: seasonsCount },
+                                                        { id: 'comments', label: lang === 'ar' ? 'التعليقات' : 'Comments', icon: <MessageCircle className="w-5 h-5" />, count: commentsCount },
+                                                    ].map((tab) => (
+                                                        <button
+                                                            key={tab.id}
+                                                            onClick={() => setActiveTab(activeTab === tab.id ? null : tab.id as any)}
+                                                            className={cn(
+                                                                "flex items-center gap-2 px-6 py-3 rounded-t-xl font-black uppercase tracking-widest transition-all relative",
+                                                                activeTab === tab.id
+                                                                    ? "text-black dark:text-white"
+                                                                    : "text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                            )}
+                                                        >
+                                                            {tab.icon}
+                                                            <span className="text-lg md:text-xl">{tab.label}</span>
+                                                            {tab.count > 0 && (
+                                                                <span className={cn("px-2 py-0.5 rounded-full text-xs font-black ml-1", activeTab === tab.id ? "bg-black text-white dark:bg-white dark:text-black" : "bg-gray-200 text-gray-700 dark:bg-[#333] dark:text-gray-300")}>
+                                                                    {tab.count}
+                                                                </span>
+                                                            )}
+                                                            {activeTab === tab.id && (
+                                                                <motion.div
+                                                                    layoutId="activeTabIndicator"
+                                                                    className="absolute bottom-0 left-0 right-0 h-1 bg-black dark:bg-white rounded-t-full translate-y-2"
+                                                                />
+                                                            )}
+                                                        </button>
+                                                    ))}
                                                 </div>
+
+                                                <AnimatePresence mode="wait">
+                                                    {activeTab && (
+                                                        <motion.div
+                                                            key={activeTab}
+                                                            initial={{ opacity: 0, y: 6 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -6 }}
+                                                            className="mt-1 pt-1 min-h-[200px]"
+                                                        >
+                                                            {activeTab === 'seasons' && (
+                                                                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-4">
+                                                                    {isLoadingCollections ? (
+    <div className="flex justify-center py-20"><span className="ep-loader scale-75" /></div>
+) : animeCollections && animeCollections.length > 0 ? (
+                                                                        <div className="flex flex-col gap-10">
+                                                                            {animeCollections.map((col: any) => (
+                                                                                <div key={col.id || col.ID} className="space-y-6">
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <div className="h-6 w-1.5 bg-black dark:bg-white rounded-full"></div>
+                                                                                        <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
+                                                                                            {lang === 'ar' ? col.title_ar : col.title_en}
+                                                                                        </h3>
+                                                                                    </div>
+                                                                                    <div className="flex flex-col gap-4">
+                                                                                        {col.animes?.map((relatedAnime: any) => (
+                                                                                            <SeasonListItem 
+                                                                                                key={relatedAnime.id}
+                                                                                                anime={relatedAnime}
+                                                                                                lang={lang}
+                                                                                                currentId={Number(id)}
+                                                                                            />
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-center py-20 bg-gray-50/50 dark:bg-[#1a1a1a] rounded-2xl border border-dashed border-gray-200 dark:border-[#2a2a2a]">
+                                                                            <Library className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-4 opacity-50" />
+                                                                            <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest text-sm">
+                                                                                {lang === 'ar' ? 'لا توجد مواسم مرتبطة حالياً' : 'No related seasons found'}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                            {activeTab === 'comments' && (
+                                                                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                                                    <CommentsSection 
+                                                                        itemId={Number(anime.id)} 
+                                                                        type="anime" 
+                                                                        inputPosition="top"
+                                                                        onCountChange={setCommentsCount}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
 
                                             {/* EPISODES SECTION - Browse All List Design (Mobile & Small Tablets Only) */}
@@ -659,9 +786,9 @@ export default function AnimeDetailsPage() {
                                 </div>
                             </div>
 
-                            {/* Right Sidebar - Episodes List (Desktop Only) */}
-                            <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30 px-2 pt-2 md:pt-4 pb-4">
-                                <div className="flex items-center justify-between px-2 border-b border-gray-200 dark:border-[#333] pb-2 mb-2">
+                            {/* Right Episodes Sidebar - Desktop Only - Sticky */}
+                            <div className="hidden md:block w-[340px] flex-shrink-0 sticky top-[20px] h-[calc(100vh-20px)] -mt-4 md:-mt-10 overflow-y-auto custom-scrollbar bg-transparent z-30 px-2 pt-0 pb-4 border-l border-gray-100 dark:border-[#2a2a2a] rtl:border-l-0 rtl:border-r">
+                                <div className="flex items-center justify-between px-2 pb-2 mb-2">
                                     <h3 className="font-black text-gray-900 dark:text-gray-400 text-base md:text-lg">
                                         {lang === 'ar' ? 'حلقات الأنمي' : 'Anime Episodes'}
                                     </h3>
@@ -676,84 +803,86 @@ export default function AnimeDetailsPage() {
                                     </button>
                                 </div>
                                 <div className="border border-gray-100 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-sm">
-                                    {filteredEpisodes.length > 0 ? (
-                                        filteredEpisodes.map((ep: any) => {
-                                            const epItemTitle = lang === 'ar' ? (ep.title || `الحلقة ${ep.episode_number}`) : (ep.title_en || `Episode ${ep.episode_number}`);
-                                            const epUrl = `/${lang}/watch/${anime?.id || ep.anime_id}/${ep.episode_number}/${slugify(lang === 'ar' ? anime?.title : (anime?.title_en || anime?.title))}`;
+                                    {episodesList.length > 0 ? (
+                                        <>
+                                            {episodesList.map((ep: any) => {
+                                                const epItemTitle = lang === 'ar' ? (ep.title || `الحلقة ${ep.episode_number}`) : (ep.title_en || `Episode ${ep.episode_number}`);
+                                                const epUrl = `/${lang}/watch/${anime?.id || ep.anime_id}/${ep.episode_number}/${slugify(lang === 'ar' ? anime?.title : (anime?.title_en || anime?.title))}`;
 
-                                            return (
-                                                <div
-                                                    key={ep.id}
-                                                    className="group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm"
-                                                >
-                                                    <Link
-                                                        to={epUrl}
-                                                        className="flex-1 flex items-center min-w-0"
+                                                return (
+                                                    <div
+                                                        key={ep.id}
+                                                        className="group flex items-center gap-0 px-2 py-1.5 border-b border-gray-50 dark:border-white/5 last:border-0 transition-all hover:bg-white dark:hover:bg-[#222] hover:shadow-sm"
                                                     >
-                                                        {/* Left: Indicator */}
-                                                        <div className="w-10 flex-shrink-0 text-sm font-black text-gray-900 dark:text-gray-100 text-center">
-                                                            #{ep.episode_number}
-                                                        </div>
+                                                        <Link
+                                                            to={epUrl}
+                                                            className="flex-1 flex items-center min-w-0"
+                                                        >
+                                                            {/* Left: Indicator */}
+                                                            <div className="w-10 flex-shrink-0 text-sm font-black text-center text-gray-900 dark:text-gray-100">
+                                                                #{ep.episode_number}
+                                                            </div>
 
-                                                        {/* Center: Title */}
-                                                        <div className="flex-1 min-w-0 px-2">
-                                                            <h4 className="text-[13px] font-medium text-gray-700 dark:text-gray-300 truncate">
-                                                                {epItemTitle}
-                                                            </h4>
-                                                        </div>
-                                                    </Link>
+                                                            {/* Center: Title */}
+                                                            <div className="flex-1 min-w-0 px-2">
+                                                                <h4 className="text-[13px] font-medium truncate text-gray-700 dark:text-gray-300 group-hover:text-black dark:group-hover:text-white transition-colors">
+                                                                    {epItemTitle}
+                                                                </h4>
+                                                            </div>
+                                                        </Link>
 
-                                                    {/* Right: Actions or Duration */}
-                                                    <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end">
-                                                        {/* Default: Duration - Hidden on hover */}
-                                                        <span className="text-[11px] text-gray-400 group-hover:hidden">
-                                                            {ep.duration ? `${ep.duration}m` : '24m'}
-                                                        </span>
+                                                        {/* Right: Actions or Duration */}
+                                                        <div className="flex-shrink-0 flex items-center min-w-[70px] justify-end">
+                                                            {/* Default: Duration - Hidden on hover */}
+                                                            <span className="text-[11px] text-gray-400 group-hover:hidden">
+                                                                {ep.duration ? `${ep.duration}m` : '24m'}
+                                                            </span>
 
-                                                        {/* Hover Actions - Visible only on hover */}
-                                                        <div className="hidden group-hover:flex items-center gap-0.5">
-                                                            <WatchLaterButton
-                                                                animeId={Number(anime?.id)}
-                                                                episodeId={Number(ep.id)}
-                                                                episodeTitle={epItemTitle}
-                                                                episodeNumber={ep.episode_number}
-                                                                episodeImage={getImageUrl(ep.thumbnail || ep.banner || anime?.cover)}
-                                                                variant="default"
-                                                                className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all shadow-sm"
-                                                                showLabel={false}
-                                                            />
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setIsShareModalOpen(true);
-                                                                }}
-                                                                className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
-                                                                title={lang === 'ar' ? 'مشاركة' : 'Share'}
-                                                            >
-                                                                <Share2 className="w-3.5 h-3.5" />
-                                                            </button>
+                                                            {/* Hover Actions - Visible only on hover */}
+                                                            <div className="hidden group-hover:flex items-center gap-0.5">
+                                                                <WatchLaterButton
+                                                                    animeId={Number(anime?.id)}
+                                                                    episodeId={Number(ep.id)}
+                                                                    episodeTitle={epItemTitle}
+                                                                    episodeNumber={ep.episode_number}
+                                                                    episodeImage={getImageUrl(ep.thumbnail || ep.banner || anime?.cover)}
+                                                                    variant="default"
+                                                                    className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white bg-transparent border-0 border-transparent hover:border-gray-100 dark:hover:border-transparent transition-all shadow-sm"
+                                                                    showLabel={false}
+                                                                />
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setIsShareModalOpen(true);
+                                                                    }}
+                                                                    className="p-1 h-7 w-7 rounded-sm hover:bg-white dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-all border border-transparent hover:border-gray-100 dark:hover:border-transparent shadow-sm"
+                                                                    title={lang === 'ar' ? 'مشاركة' : 'Share'}
+                                                                >
+                                                                    <Share2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                );
+                                            })}
+                                            <AnimatePresence>
+                                            {(isFetchingNextPage || hasNextPage) && (
+                                                <div className="py-8 flex flex-col items-center justify-center gap-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/20 dark:bg-white/5">
+                                                    <CentralSpinner size="small" className="min-h-0 !w-auto !h-auto scale-75" color="#FF3D00" />
+                                                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">
+                                                        {lang === 'ar' ? 'جاري الجلب' : 'Fetching'}
+                                                    </span>
                                                 </div>
-                                            );
-                                        })
+                                            )}
+                                            </AnimatePresence>
+                                            <div ref={loadMoreRef} className="h-2 w-full" />
+                                        </>
                                     ) : (
                                         <p className="text-center text-gray-500 py-6 text-sm">
                                             {lang === 'ar' ? 'لا توجد حلقات مطابقة.' : 'No episodes found.'}
                                         </p>
                                     )}
-                                    <AnimatePresence>
-                                    {(isFetchingNextPage || hasNextPage) && (
-                                        <div className="py-8 flex flex-col items-center justify-center gap-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/20 dark:bg-white/5">
-                                            <span className="ep-loader scale-75" />
-                                            <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">
-                                                {lang === 'ar' ? 'جاري الجلب' : 'Fetching'}
-                                            </span>
-                                        </div>
-                                    )}
-                                    </AnimatePresence>
-                                    <div ref={loadMoreRef} className="h-2 w-full" />
                                 </div>
                             </div>
                         </>
@@ -925,5 +1054,83 @@ function EpisodeListItem({ episode, lang, animeTitle, animeId }: { episode: any;
                 />
             </div>
         </div>
+    );
+}
+
+
+function SeasonListItem({ anime, lang, currentId }: { anime: any; lang: string; currentId: number }) {
+    const isRtl = lang === 'ar';
+    const isCurrent = Number(anime.id) === currentId;
+    const title = isRtl ? anime.title : (anime.title_en || anime.title);
+    const description = isRtl
+        ? (anime.description || anime.description_en || 'لا يوجد وصف متاح لهذا الأنمي.')
+        : (anime.description_en || anime.description || 'No description available for this anime.');
+    const image = anime.image || anime.cover;
+
+    return (
+        <Link
+            to={isCurrent ? "#" : `/${lang}/animes/${anime.id}/${slugify(title)}`}
+            className={cn(
+                "group relative flex flex-row gap-4 md:gap-8 bg-transparent hover:bg-white dark:hover:bg-neutral-900/40 transition-all duration-300 p-2 md:p-4 rounded-2xl border border-transparent hover:border-gray-100 dark:hover:border-white/5 hover:shadow-2xl overflow-hidden",
+                isCurrent && "border-primary/30 bg-primary/5 dark:bg-primary/5 pointer-events-none"
+            )}
+        >
+            {/* Image Section */}
+            <div className="w-[100px] md:w-[180px] aspect-[2/3] flex-shrink-0 relative overflow-hidden shadow-2xl rounded-xl">
+                <SpinnerImage
+                    src={getImageUrl(image)}
+                    alt={title}
+                    className="w-full h-full"
+                    imageClassName="object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                {isCurrent && (
+                    <div className="absolute top-2 left-2 right-2 flex justify-center">
+                        <div className="bg-primary text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg border border-white/20 uppercase tracking-tighter animate-pulse">
+                            {isRtl ? 'الموسم الحالي' : 'Current Season'}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Info Section */}
+            <div className={`flex-1 flex flex-col justify-center ${isRtl ? 'text-right' : 'text-left'} py-2`}>
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-2 md:mb-4">
+                    <h3 className={cn(
+                        "text-lg md:text-2xl font-black transition-colors leading-tight font-cairo",
+                        isCurrent ? "text-primary" : "text-gray-900 dark:text-white group-hover:text-primary"
+                    )}>
+                        {title}
+                    </h3>
+                    <div className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest">
+                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-white/10 rounded">{anime.type}</span>
+                        <span>•</span>
+                        <span className="text-primary">{anime.status}</span>
+                        {anime.rating && (
+                            <>
+                                <span>•</span>
+                                <div className="flex items-center gap-1 text-yellow-500">
+                                    <Star className="w-3 h-3 fill-current" />
+                                    <span>{anime.rating}</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                <p className="text-xs md:text-base text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-3 mb-4">
+                    {description}
+                </p>
+
+                <div className="mt-auto flex items-center gap-4">
+                    <span className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-1 group-hover:gap-2 transition-all">
+                        {isRtl ? 'عرض التفاصيل' : 'View Details'}
+                        <ChevronLeft className={`w-4 h-4 ${isRtl ? '' : 'rotate-180'}`} />
+                    </span>
+                </div>
+            </div>
+        </Link>
     );
 }

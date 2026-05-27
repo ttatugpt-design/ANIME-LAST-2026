@@ -4,17 +4,21 @@ import (
 	"backend/internal/core/domain"
 	"backend/internal/core/service"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
 	service *service.UserService
+	baseDir string
 }
 
-func NewUserHandler(service *service.UserService) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(service *service.UserService, baseDir string) *UserHandler {
+	return &UserHandler{service: service, baseDir: baseDir}
 }
 
 func (h *UserHandler) GetAll(c *gin.Context) {
@@ -147,14 +151,17 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	var avatarPath string
 	file, err := c.FormFile("avatar")
 	if err == nil {
-		// Create unique filename
-		filename := strconv.FormatInt(int64(userID), 10) + "_" + strconv.FormatInt(int64(c.Writer.Status()), 10) + "_" + file.Filename
-		dst := "uploads/avatars/" + filename
+		// Create unique filename using timestamp to avoid browser caching issues
+		filename := strconv.FormatInt(int64(userID), 10) + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + file.Filename
+		
+		// Ensure directory exists in the correct baseDir
+		uploadDir := filepath.Join(h.baseDir, "backend", "uploads", "avatars")
+		os.MkdirAll(uploadDir, 0755)
+		
+		dst := filepath.Join(uploadDir, filename)
 
 		if err := c.SaveUploadedFile(file, dst); err == nil {
 			avatarPath = "/uploads/avatars/" + filename
-		} else {
-			// Log error if needed
 		}
 	}
 
@@ -162,8 +169,12 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	var coverImagePath string
 	coverFile, err := c.FormFile("cover_image")
 	if err == nil {
-		filename := "cover_" + strconv.FormatInt(int64(userID), 10) + "_" + strconv.FormatInt(int64(c.Writer.Status()), 10) + "_" + coverFile.Filename
-		dst := "uploads/avatars/" + filename // storing in same folder for now
+		filename := "cover_" + strconv.FormatInt(int64(userID), 10) + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + coverFile.Filename
+		
+		uploadDir := filepath.Join(h.baseDir, "backend", "uploads", "avatars")
+		os.MkdirAll(uploadDir, 0755)
+		
+		dst := filepath.Join(uploadDir, filename)
 		if err := c.SaveUploadedFile(coverFile, dst); err == nil {
 			coverImagePath = "/uploads/avatars/" + filename
 		}
@@ -482,4 +493,54 @@ func (h *UserHandler) UnblockUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User unblocked"})
+}
+
+type UpdateFavoriteAnimesRequest struct {
+	AnimeIDs []uint `json:"anime_ids"`
+}
+
+func (h *UserHandler) UpdateFavoriteAnimes(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var userID uint
+	switch v := userIDVal.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	targetID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID in URL"})
+		return
+	}
+
+	// Only allow user to update their own favorites (or admin, but we'll assume auth middleware handles admin logic or simple check here)
+	if userID != uint(targetID) {
+		// Just a basic check for safety
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own favorites"})
+		return
+	}
+
+	var req UpdateFavoriteAnimesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	if err := h.service.UpdateFavoriteAnimes(userID, req.AnimeIDs); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update favorites"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Favorites updated successfully"})
 }

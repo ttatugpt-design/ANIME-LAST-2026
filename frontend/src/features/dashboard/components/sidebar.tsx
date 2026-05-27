@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Globe2, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database, Upload, Hash, Link2, Image as ImageIconLucide, Zap } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Globe2, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server, Book, Library, Database, Upload, Hash, Link2, Image as ImageIconLucide, Zap, CloudDownload } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -102,6 +102,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/animes`),
         },
         {
+            label: i18n.language === 'ar' ? 'انمي المواسم' : 'Anime Seasons',
+            icon: Library,
+            href: `/${lang}/dashboard/anime-collections`,
+            active: pathname.startsWith(`/${lang}/dashboard/anime-collections`),
+        },
+        {
             label: i18n.language === 'ar' ? 'المانجا' : 'Mangas',
             icon: Book,
             href: `/${lang}/dashboard/mangas`,
@@ -130,6 +136,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Database,
             href: `/${lang}/dashboard/server-files`,
             active: pathname.startsWith(`/${lang}/dashboard/server-files`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'إدارة VPS' : 'VPS Manager',
+            icon: Server,
+            href: `/${lang}/dashboard/vps-manager`,
+            active: pathname.startsWith(`/${lang}/dashboard/vps-manager`),
         },
         {
             label: i18n.language === 'ar' ? 'سيرفرات Embed' : 'Embed Servers',
@@ -220,6 +232,12 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Zap,
             href: `/${lang}/dashboard/crunchyroll-importer`,
             active: pathname.startsWith(`/${lang}/dashboard/crunchyroll-importer`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'تحميل ورفع VPS' : 'VPS Downloader',
+            icon: CloudDownload,
+            href: `/${lang}/dashboard/vps-downloader`,
+            active: pathname.startsWith(`/${lang}/dashboard/vps-downloader`),
         },
         {
             label: i18n.language === 'ar' ? 'الفصول' : 'Chapters',

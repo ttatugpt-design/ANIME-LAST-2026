@@ -11,6 +11,7 @@ type UserRepository interface {
 	UpdateUser(user *domain.User) error
 	DeleteUser(id uint) error
 	SearchUsers(query string) ([]domain.User, error)
+	UpdateFavoriteAnimes(userID uint, animeIDs []uint) error
 	CountComments(userID uint) (int64, error)
 	CountReplies(userID uint) (int64, error)
 	CountLikes(userID uint) (int64, error)
@@ -218,4 +219,13 @@ type EmbedAccountRepository interface {
 	GetAllEmbedAccounts() ([]domain.EmbedAccount, error)
 	UpdateEmbedAccount(acc *domain.EmbedAccount) error
 	DeleteEmbedAccount(id uint) error
+}
+
+type AnimeCollectionRepository interface {
+	CreateAnimeCollection(collection *domain.AnimeCollection) error
+	GetAnimeCollectionByID(id uint) (*domain.AnimeCollection, error)
+	GetAnimeCollectionsByAnimeID(animeID uint) ([]domain.AnimeCollection, error)
+	GetAllAnimeCollections(search string) ([]domain.AnimeCollection, error)
+	UpdateAnimeCollection(collection *domain.AnimeCollection) error
+	DeleteAnimeCollection(id uint) error
 }

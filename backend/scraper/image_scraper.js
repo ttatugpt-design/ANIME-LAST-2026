@@ -207,7 +207,7 @@ const scrapeGeneric = async (browser, url, maxImages) => {
 
                 // Selectors for anime cards (listing pages)
                 const cardSelectors = [
-                    '.anime-card-poster', '.anime-card-container', '.series-box', 
+                    '.movieItem', '.Poster', '.anime-card-poster', '.anime-card-container', '.series-box', 
                     '.movie-item', '.item-poster', '.box-item', '.poster',
                     '.anime-post-container', '.anime-post-thumbnail', '.item',
                     '.animepost', '.anime-item', 'article', '.card', '.box'
@@ -221,12 +221,22 @@ const scrapeGeneric = async (browser, url, maxImages) => {
                         const href = anchor.href.split('?')[0].split('#')[0];
                         if (!href || seenUrls.has(href)) return;
 
+                        const isEgyDead = window.location.hostname.includes('egydead');
+                        
                         // Identify if it's an anime link
-                        const isAnime = href.includes('/anime/') || href.includes('/animes/') || href.includes('/series/') || 
-                                        href.includes('/serie/') || href.includes('/movie/') ;
+                        let isWork = href.includes('/anime/') || href.includes('/animes/') || href.includes('/series/') || 
+                                        href.includes('/serie/') || href.includes('/movie/') || href.includes('/title/') ||
+                                        href.includes('/season/');
+                        
+                        // For EgyDead, often root-level slugs are works
+                        if (isEgyDead && !isWork) {
+                            const pathParts = new URL(href).pathname.split('/').filter(Boolean);
+                            if (pathParts.length === 1) isWork = true;
+                        }
+
                         const isEp = href.includes('/episode/') || href.includes('/watch/') || href.includes('/ep/');
                         
-                        if (isAnime && !isEp) {
+                        if (isWork && !isEp) {
                             seenUrls.add(href);
                             const img = card.querySelector('img');
                             const src = img ? (img.getAttribute('data-src') || img.src) : '';
@@ -234,7 +244,7 @@ const scrapeGeneric = async (browser, url, maxImages) => {
                             // Try to get title from img alt, a text, or h3
                             let title = img ? (img.alt || '').trim() : '';
                             if (!title) {
-                                const titleEl = card.querySelector('h3, h2, .title, .anime-card-details h3');
+                                const titleEl = card.querySelector('h3, h2, .title, .anime-card-details h3, .Title, .BottomTitle');
                                 title = titleEl ? titleEl.textContent.trim() : '';
                             }
 
@@ -407,6 +417,7 @@ const scrapeGeneric = async (browser, url, maxImages) => {
         browser = await puppeteer.launch({
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
             headless: 'new',
+            ignoreHTTPSErrors: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -414,8 +425,8 @@ const scrapeGeneric = async (browser, url, maxImages) => {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process',
-                '--disable-blink-features=AutomationControlled'
+                '--disable-blink-features=AutomationControlled',
+                '--ignore-certificate-errors'
             ]
         });
 

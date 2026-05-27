@@ -3,25 +3,44 @@ import { Share2, X, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderEmojiContent } from '@/utils/render-content';
 import { getImageUrl } from '@/utils/image-utils';
+import { toast } from 'sonner';
 
 interface AnimeShareModalProps {
     anime: any;
+    episode?: any;
     isOpen: boolean;
     onClose: () => void;
+    customUrl?: string;
 }
 
-export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps) {
+export function AnimeShareModal({ anime, episode, isOpen, onClose, customUrl }: AnimeShareModalProps) {
     const { i18n } = useTranslation();
     const lang = i18n.language;
 
-    if (!anime) return null;
+    if (!anime && !episode) return null;
 
-    const title = lang === 'ar' ? anime.title : (anime.title_en || anime.title);
-    const description = lang === 'ar' ? (anime.description || anime.description_en) : (anime.description_en || anime.description);
-    const image = anime.cover || anime.image || anime.banner;
+    const isEpisode = !!episode;
+    
+    // Anime data
+    const animeTitle = lang === 'ar' ? anime?.title : (anime?.title_en || anime?.title);
+    
+    // Display data (Episode or Anime)
+    const title = isEpisode 
+        ? (lang === 'ar' ? (episode.title || `حلقة ${episode.episode_number}`) : (episode.title_en || `Episode ${episode.episode_number}`))
+        : animeTitle;
+        
+    const description = isEpisode
+        ? (lang === 'ar' ? (episode.description || 'لا يوجد وصف متاح للا هذه الحلقة.') : (episode.description_en || 'No description available for this episode.'))
+        : (lang === 'ar' ? (anime.description || anime.description_en) : (anime.description_en || anime.description));
+        
+    const image = isEpisode 
+        ? (episode.thumbnail || episode.banner || anime.cover || anime.image)
+        : (anime.cover || anime.image || anime.banner);
 
-    const shareUrl = window.location.href;
-    const shareText = `${title} - AnimeLast`;
+    const shareUrl = customUrl || window.location.href;
+    const shareText = isEpisode 
+        ? `${animeTitle} - ${title} - AnimeLast`
+        : `${title} - AnimeLast`;
 
     const socialMediaLinks = [
         {
@@ -72,13 +91,13 @@ export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(shareUrl);
-        // Toast logic could go here
+        toast.success(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-neutral-800 p-0 overflow-hidden rounded-none gap-0">
-                <div className="flex flex-col md:flex-row h-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <DialogContent className="w-screen h-[100dvh] max-w-none md:max-w-3xl md:h-auto bg-white dark:bg-[#1a1a1a] border-0 md:border md:border-gray-200 md:dark:border-neutral-800 p-0 overflow-hidden rounded-none gap-0 sm:rounded-none">
+                <div className="flex flex-col md:flex-row h-full md:max-h-[90vh] overflow-y-auto custom-scrollbar">
                     {/* Left: Image and Meta */}
                     <div className="w-full md:w-2/5 relative min-h-[300px] md:min-h-full bg-black shrink-0">
                         <img
@@ -91,16 +110,29 @@ export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps
                                 {renderEmojiContent(title)}
                             </h2>
                             <div className="flex flex-wrap gap-2">
-                                <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
-                                    {anime.type}
-                                </span>
-                                <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
-                                    {anime.status}
-                                </span>
-                                {anime.release_date && (
-                                    <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
-                                        {new Date(anime.release_date).getFullYear()}
-                                    </span>
+                                {isEpisode ? (
+                                    <>
+                                        <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
+                                            {lang === 'ar' ? `الحلقة ${episode.episode_number}` : `Episode ${episode.episode_number}`}
+                                        </span>
+                                        <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
+                                            {animeTitle}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
+                                            {anime?.type}
+                                        </span>
+                                        <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
+                                            {anime?.status}
+                                        </span>
+                                        {anime?.release_date && (
+                                            <span className="px-2 py-0.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold uppercase rounded">
+                                                {new Date(anime.release_date).getFullYear()}
+                                            </span>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -127,7 +159,10 @@ export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps
                         <div className="space-y-4">
                             <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-wider text-black dark:text-white">
                                 <Info className="w-6 h-6" />
-                                {lang === 'ar' ? 'قصة الأنمي' : 'Anime Story'}
+                                {isEpisode 
+                                    ? (lang === 'ar' ? 'وصف الحلقة' : 'Episode Description')
+                                    : (lang === 'ar' ? 'قصة الأنمي' : 'Anime Story')
+                                }
                             </h3>
                             <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed max-h-[150px] overflow-y-auto custom-scrollbar text-pretty">
                                 {renderEmojiContent(description || (lang === 'ar' ? 'لا يوجد وصف متاح.' : 'No description available.'))}
@@ -138,7 +173,10 @@ export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps
                         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-neutral-800">
                             <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-wider text-black dark:text-white">
                                 <Share2 className="w-6 h-6" />
-                                {lang === 'ar' ? 'مشاركة الأنمي' : 'Share Anime'}
+                                {isEpisode 
+                                    ? (lang === 'ar' ? 'مشاركة الحلقة' : 'Share Episode')
+                                    : (lang === 'ar' ? 'مشاركة الأنمي' : 'Share Anime')
+                                }
                             </h3>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -176,3 +214,4 @@ export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps
         </Dialog>
     );
 }
+

@@ -90,7 +90,7 @@ export default function EditProfilePage() {
             </h1>
 
             {/* Profile Card Container */}
-            <div className="bg-[#111] overflow-hidden rounded-none relative">
+            <div className="bg-[#111] overflow-hidden rounded-xl relative">
 
                 {/* Banner Section */}
                 <div className="relative h-48 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-[#333] dark:to-[#1a1a1a] overflow-hidden group">

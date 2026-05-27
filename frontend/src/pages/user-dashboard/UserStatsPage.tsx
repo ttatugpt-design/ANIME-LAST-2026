@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, ThumbsUp, Reply, History as HistoryIcon, Bookmark, Bell } from 'lucide-react';
 import api from '@/lib/api';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 import { toast } from 'sonner';
 
 interface UserStats {
@@ -39,7 +40,7 @@ export default function UserStatsPage() {
     }, [isRtl]);
 
     const StatCard = ({ title, value, icon: Icon, color }: any) => (
-        <Card className="border-gray-100 dark:border-white/10 bg-white dark:bg-black hover:bg-white dark:hover:bg-white/5 transition-all rounded-none shadow-sm hover:shadow-md">
+        <Card className="border-gray-100 dark:border-white/10 bg-white dark:bg-black hover:bg-white dark:hover:bg-white/5 transition-all rounded-xl shadow-sm hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
                 <Icon className={`h-4 w-4 ${color}`} />
@@ -51,14 +52,7 @@ export default function UserStatsPage() {
     );
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="relative w-12 h-12">
-                    <div className="absolute inset-0 border-4 border-gray-100 dark:border-white/10 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                </div>
-            </div>
-        );
+        return <CentralSpinner />;
     }
 
     return (

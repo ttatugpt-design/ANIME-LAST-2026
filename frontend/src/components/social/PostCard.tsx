@@ -10,9 +10,18 @@ import {
     X,
     Loader2,
     Play,
-    MessageSquare
+    MessageSquare,
+    Facebook,
+    Twitter,
+    Link as LinkIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuthStore } from '@/stores/auth-store';
 import { Post, PostMedia } from '@/types/models';
 import { renderEmojiContent } from '@/utils/render-content';
@@ -38,6 +47,16 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 const ImageWithSpinner = ({ src, alt, className }: { src: string, alt: string, className: string }) => {
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -113,6 +132,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
 
     const [showComments, setShowComments] = useState(initialShowComments || new URLSearchParams(window.location.search).has('commentId'));
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
 
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -120,6 +140,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
     const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     const [modalOpenedFromComment, setModalOpenedFromComment] = useState(false);
     const [modalScrollPercent, setModalScrollPercent] = useState(0);
@@ -231,12 +252,32 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
     }, [window.location.search]);
 
     const handleShare = () => {
+        setIsShareModalOpen(true);
+    };
+
+    const handleCopyLink = () => {
         const url = `${window.location.origin}/${i18n.language}/social?postId=${post.id}`;
         navigator.clipboard.writeText(url).then(() => {
             toast.success(isAr ? 'تم نسخ رابط المنشور' : 'Post link copied to clipboard');
+            setIsShareModalOpen(false);
         }).catch(() => {
             toast.error(isAr ? 'فشل نسخ الرابط' : 'Failed to copy link');
         });
+    };
+
+    const shareToSocial = (platform: string) => {
+        const url = encodeURIComponent(`${window.location.origin}/${i18n.language}/social?postId=${post.id}`);
+        const text = encodeURIComponent(post.content ? post.content.substring(0, 100) : 'Check out this post!');
+        let shareUrl = '';
+        
+        if (platform === 'facebook') shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+        if (platform === 'twitter') shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+        if (platform === 'whatsapp') shareUrl = `https://api.whatsapp.com/send?text=${text}%20${url}`;
+        
+        if (shareUrl) {
+            window.open(shareUrl, '_blank', 'width=600,height=400');
+            setIsShareModalOpen(false);
+        }
     };
 
     const [isMobileCommentsOpen, setIsMobileCommentsOpen] = useState(false);
@@ -289,14 +330,17 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
 
     // toggleLike removed as it's merged into handleReactionClick
 
-    const handleDelete = async () => {
-        if (!window.confirm(isAr ? 'هل أنت متأكد من حذف هذا المنشور؟' : 'Are you sure you want to delete this post?')) return;
-
+    const handleDeleteConfirm = async () => {
+        setIsDeleteDialogOpen(false);
         setIsDeleting(true);
         try {
             await api.delete(`/posts/${post.id}`);
             toast.success(isAr ? 'تم حذف المنشور' : 'Post deleted');
-            if (onDelete) onDelete(post.id);
+            if (onDelete) {
+                onDelete(post.id);
+            } else {
+                window.location.reload();
+            }
         } catch (error) {
             setIsDeleting(false);
             toast.error(isAr ? 'فشل حذف المنشور' : 'Failed to delete post');
@@ -352,7 +396,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
 
     return (
         <div className={cn(
-            "post-card-container bg-white dark:bg-[#1a1a1a] rounded-none md:rounded-xl shadow-sm border-y md:border border-gray-100 dark:border-[#2a2a2a] transition-opacity",
+            "post-card-container bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm border border-gray-100 dark:border-[#2a2a2a] transition-opacity overflow-hidden mb-2 md:mb-4",
             (isDeleting || isUpdating) && "opacity-50 pointer-events-none"
         )}>
             {/* Post Header */}
@@ -405,7 +449,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
                                     {isAr ? 'تعديل' : 'Edit'}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                    onClick={handleDelete}
+                                    onClick={() => setIsDeleteDialogOpen(true)}
                                     className="cursor-pointer text-red-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10"
                                 >
                                     {isAr ? 'حذف' : 'Delete'}
@@ -485,7 +529,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
             )}
 
             {/* Post Stats */}
-            <div className="px-3 py-1.5 border-b border-gray-100 dark:border-[#2a2a2a] flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+            <div className="px-3 py-1.5 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                 <div 
                     className="flex items-center gap-1 relative group/stats cursor-pointer"
                     onMouseEnter={handleStatsMouseEnter}
@@ -560,7 +604,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
                         onTouchEnd={handleTouchEnd}
                         onTouchMove={handleTouchMove}
                         className={cn(
-                            "w-full flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold",
+                            "w-full flex items-center justify-center gap-1.5 py-1.5 md:py-2 rounded-lg transition-colors font-bold text-xs md:text-sm",
                             userReaction
                                 ? (userReaction === 'like' ? "text-blue-500" : 
                                    userReaction === 'love' ? "text-red-500" : 
@@ -569,9 +613,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
                         )}
                     >
                         {activeReaction ? (
-                            <img src={activeReaction.gif} className="w-5 h-5 object-contain scale-110" alt={activeReaction.label} />
+                            <img src={activeReaction.gif} className="w-4 h-4 md:w-5 md:h-5 object-contain scale-110" alt={activeReaction.label} />
                         ) : (
-                            <ThumbsUp className="w-5 h-5" />
+                            <ThumbsUp className="w-4 h-4 md:w-5 md:h-5" />
                         )}
                         <span>{activeReaction ? activeReaction.label : (isAr ? 'أعجبني' : 'Like')}</span>
                     </button>
@@ -636,18 +680,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
                 <button
                     onClick={handleCommentClick}
                     className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]",
+                        "flex-1 flex items-center justify-center gap-1.5 py-1.5 md:py-2 rounded-lg transition-colors font-bold text-xs md:text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]",
                         showComments && "text-blue-500 bg-blue-50 dark:bg-blue-900/10"
                     )}
                 >
-                    <MessageCircle className="w-5 h-5" />
+                    <MessageCircle className="w-4 h-4 md:w-5 md:h-5" />
                     <span>{isAr ? 'تعليق' : 'Comment'} {post.comments_count > 0 && `(${post.comments_count})`}</span>
                 </button>
                 <button
                     onClick={handleShare}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 md:py-2 rounded-lg transition-colors font-bold text-xs md:text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2a2a2a]"
                 >
-                    <Share2 className="w-5 h-5" />
+                    <Share2 className="w-4 h-4 md:w-5 md:h-5" />
                     <span>{isAr ? 'مشاركة' : 'Share'}</span>
                 </button>
             </div>
@@ -717,17 +761,91 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowC
                 initialIndex={selectedMediaIndex}
             />
 
+            {/* Share Modal */}
+            <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
+                <DialogContent className="w-[90%] max-w-sm rounded-xl p-6 md:p-6 dark:bg-[#1a1a1a] dark:border-[#333] border-gray-200">
+                    <DialogHeader>
+                        <DialogTitle className="text-center font-bold text-gray-900 dark:text-white pb-2">
+                            {isAr ? 'مشاركة المنشور' : 'Share Post'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="grid grid-cols-4 gap-2 md:gap-4 py-2">
+                        <button
+                            onClick={() => shareToSocial('facebook')}
+                            className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity group"
+                        >
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                                <Facebook className="w-6 h-6 md:w-7 md:h-7 fill-current" />
+                            </div>
+                            <span className="text-[10px] md:text-xs font-medium text-gray-900 dark:text-gray-100">Facebook</span>
+                        </button>
+                        <button
+                            onClick={() => shareToSocial('twitter')}
+                            className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity group"
+                        >
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                                <Twitter className="w-6 h-6 md:w-7 md:h-7 fill-current" />
+                            </div>
+                            <span className="text-[10px] md:text-xs font-medium text-gray-900 dark:text-gray-100">X (Twitter)</span>
+                        </button>
+                        <button
+                            onClick={() => shareToSocial('whatsapp')}
+                            className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity group"
+                        >
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                                <MessageCircle className="w-6 h-6 md:w-7 md:h-7 fill-current" />
+                            </div>
+                            <span className="text-[10px] md:text-xs font-medium text-gray-900 dark:text-gray-100">WhatsApp</span>
+                        </button>
+                        <button
+                            onClick={handleCopyLink}
+                            className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity group"
+                        >
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                                <LinkIcon className="w-6 h-6 md:w-7 md:h-7" />
+                            </div>
+                            <span className="text-[10px] md:text-xs font-medium text-gray-900 dark:text-gray-100">{isAr ? 'نسخ الرابط' : 'Copy Link'}</span>
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Edit Modal */}
             <EditPostModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 post={post}
                 onSuccess={(updatedPost) => {
+                    // Update post data directly
                     post.content = updatedPost.content;
-                    post.media = updatedPost.media;
-                    // Force re-render if needed, though objects are usually shared
+                    post.media = updatedPost.media || [];
                 }}
             />
+
+            {/* Delete Confirmation Modal */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent className="dark:bg-[#1a1a1a] dark:border-[#333] border-gray-200">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className={isAr ? "text-right" : "text-left"}>
+                            {isAr ? 'حذف المنشور' : 'Delete Post'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className={isAr ? "text-right" : "text-left"}>
+                            {isAr ? 'هل أنت متأكد من حذف هذا المنشور؟ لا يمكن التراجع عن هذا الإجراء.' : 'Are you sure you want to delete this post? This action cannot be undone.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className={isAr ? "sm:justify-start flex-row-reverse space-x-reverse space-x-2" : ""}>
+                        <AlertDialogCancel className="dark:bg-[#2a2a2a] dark:text-white dark:hover:bg-[#333] dark:border-[#444] mt-0">
+                            {isAr ? 'إلغاء' : 'Cancel'}
+                        </AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDeleteConfirm}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {isAr ? 'حذف' : 'Delete'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

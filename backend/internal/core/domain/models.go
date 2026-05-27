@@ -40,11 +40,12 @@ type User struct {
 	Password   string         `gorm:"not null" json:"-"` // Hide password in JSON
 	Avatar     string         `json:"avatar"`            // URL or path to avatar image
 	CoverImage string         `json:"cover_image"`       // URL or path to cover image
-	RoleID     uint           `json:"role_id"`
-	Role       Role           `json:"role"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
-	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+	RoleID         uint           `json:"role_id"`
+	Role           Role           `json:"role"`
+	FavoriteAnimes []Anime        `gorm:"many2many:user_favorite_animes;" json:"favorite_animes"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type Friendship struct {
@@ -191,7 +192,20 @@ type QuickNews struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	Description   string         `gorm:"not null" json:"description"`
 	DescriptionEn string         `gorm:"not null" json:"description_en"`
+	Image         string         `json:"image"`
+	URL           string         `json:"url"`
+	URLEn         string         `json:"url_en"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type AnimeCollection struct {
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	TitleAr   string         `gorm:"not null" json:"title_ar"`
+	TitleEn   string         `gorm:"not null" json:"title_en"`
+	Animes    []Anime        `gorm:"many2many:anime_collection_items;" json:"animes"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }

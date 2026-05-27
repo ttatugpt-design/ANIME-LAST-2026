@@ -11,6 +11,7 @@ interface RichTextInputProps {
     onEnter?: () => void;
     placeholder?: string;
     className?: string;
+    dir?: 'rtl' | 'ltr' | 'auto';
 }
 
 export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
@@ -21,7 +22,8 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
     onKeyDown,
     onEnter,
     placeholder,
-    className
+    className,
+    dir
 }, ref) => {
     const { i18n } = useTranslation();
     const lang = i18n.language;
@@ -235,7 +237,7 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
         <div
             ref={editorRef}
             contentEditable
-            dir="auto"
+            dir={dir || "auto"}
             onInput={handleInput}
             onFocus={(e) => {
                 saveSelection();

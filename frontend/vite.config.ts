@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
@@ -25,6 +26,11 @@ export default defineConfig({
         secure: false,
       },
       '/assets': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/custom-emojis': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,

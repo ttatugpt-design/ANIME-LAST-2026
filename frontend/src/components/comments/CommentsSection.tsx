@@ -17,6 +17,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { QuickEmojiRow, QUICK_EMOJIS } from './QuickEmojiRow';
 import { CommentsSkeleton } from './CommentsSkeleton';
 import { useSocketStore } from '@/stores/socket-store';
@@ -24,7 +29,7 @@ import CentralSpinner from '@/components/ui/CentralSpinner';
 
 interface CommentsSectionProps {
     itemId: number;
-    type: 'episode' | 'post' | 'chapter';
+    type: 'episode' | 'post' | 'chapter' | 'anime';
     stickyInput?: boolean;
     inputPosition?: 'top' | 'bottom';
     onCommentInputRender?: (inputElement: React.ReactNode) => void;
@@ -135,6 +140,8 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
             ? `/episodes/${itemId}/comments`
             : type === 'chapter'
             ? `/chapters/${itemId}/comments`
+            : type === 'anime'
+            ? `/animes/${itemId}/comments`
             : `/posts/${itemId}/comments`;
         return `${base}?page=${pageNum}&limit=${PAGE_SIZE}`;
     }, [type, itemId]);
@@ -260,6 +267,8 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
                 ? comment.episode_id === itemId
                 : type === 'chapter'
                 ? comment.chapter_id === itemId
+                : type === 'anime'
+                ? comment.anime_id === itemId
                 : comment.post_id === itemId;
 
             if (!matches) return;
@@ -367,9 +376,7 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
             if (emojiRef.current && !emojiRef.current.contains(event.target as Node)) {
                 setShowMainEmojiPicker(false);
             }
-            if (customEmojiRef.current && !customEmojiRef.current.contains(event.target as Node)) {
-                setShowCustomEmojiPicker(false);
-            }
+            // Removed customEmojiRef check because Popover handles this natively
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -394,6 +401,7 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
         try {
             const url = type === 'episode' ? `/episodes/${itemId}/comments`
                 : type === 'chapter' ? `/chapters/${itemId}/comments`
+                : type === 'anime' ? `/animes/${itemId}/comments`
                 : `/posts/${itemId}/comments`;
             const res = await api.post(url, { content: newComment });
             setComments(prev => {
@@ -507,7 +515,7 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
                     }}
                     className="flex flex-col mb-1 animate-in fade-in duration-300 w-full"
                 >
-                    <div className="flex items-center justify-center w-full py-4 px-6 bg-gray-100 hover:bg-gray-200 dark:bg-gray-100 dark:hover:bg-gray-200 cursor-pointer rounded-full transition-colors border border-gray-300 shadow-sm mt-2">
+                    <div className="flex items-center justify-center w-full py-4 px-6 bg-gray-100/50 hover:bg-gray-200/50 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer rounded-full transition-colors border-0 mt-2">
                         <span className="text-black font-extrabold text-[15px]">
                             {isAr ? 'يجب تسجيل الدخول لكي تستطيع التعليق او الرد' : 'You must log in to comment or reply'}
                         </span>
@@ -518,10 +526,10 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
 
         const trigger = (
             <div 
-                className="flex items-center gap-3 w-full p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl border border-gray-100 dark:border-[#222] transition-all group mt-2"
+                className="flex items-center gap-3 w-full p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 rounded-xl border-0 transition-all group mt-2"
                 onClick={() => setIsAddCommentModalOpen(true)}
             >
-                <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 overflow-hidden bg-purple-600 rounded-full select-none shadow-md ring-1 ring-gray-100 dark:ring-white/10 relative transition-transform group-hover:scale-105">
+                <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 overflow-hidden bg-purple-600 rounded-full select-none relative transition-transform group-hover:scale-105">
                     {user?.avatar ? (
                         <img src={getImageUrl(user.avatar)} alt={user.name} className="absolute inset-0 object-cover w-full h-full block rounded-full" />
                     ) : (
@@ -581,15 +589,7 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
 
             {showAllComments && (
                 <>
-                    <div className={`hidden md:flex items-center justify-between mb-2 ${inputPosition === 'bottom' ? 'px-0.5 md:px-2 pt-4' : ''}`}>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {totalCount > 0 ? totalCount : comments.length} {isAr ? 'تعليق' : 'comments'}
-                </h3>
-                <button className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#272727] px-4 py-2 rounded-full transition">
-                    <AlignLeft className="w-5 h-5" />
-                    <span>{isAr ? 'الترتيب حسب' : 'Sort by'}</span>
-                </button>
-            </div>
+
 
             {!stickyInput && inputPosition === 'top' && (
                 <div className="px-0">
@@ -598,8 +598,8 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
             )}
 
             {isLoading ? (
-                <div className="flex-1 flex items-center justify-center py-20">
-                    <CentralSpinner />
+                <div className="flex-1 py-2 px-1">
+                    <CommentsSkeleton count={5} />
                 </div>
             ) : comments && comments.length > 0 ? (
                 <div
@@ -649,12 +649,15 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
             )}
 
             <Dialog open={isAddCommentModalOpen} onOpenChange={setIsAddCommentModalOpen}>
-                <DialogContent className="max-w-2xl bg-white dark:bg-[#0f0f0f] border-none shadow-2xl p-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10 rounded-2xl z-[10001] flex flex-col md:max-h-[90vh] max-h-[85vh]">
-                    <DialogHeader className="py-1.5 px-3 border-b border-gray-100 dark:border-[#222] bg-gray-50/50 dark:bg-white/5 shrink-0">
+                <DialogContent 
+                    className="max-w-2xl bg-white dark:bg-[#1a1a1a] border-none shadow-2xl p-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10 z-[10001] flex flex-col md:max-h-[90vh] max-h-[85vh] md:rounded-2xl max-md:fixed max-md:left-0 max-md:right-0 max-md:bottom-0 max-md:top-auto max-md:translate-x-0 max-md:translate-y-0 max-md:w-full max-md:max-w-none max-md:rounded-t-3xl max-md:rounded-b-none data-[state=open]:animate-in data-[state=closed]:animate-out max-md:data-[state=open]:slide-in-from-bottom-[100%] max-md:data-[state=closed]:slide-out-to-bottom-[100%] max-md:data-[state=open]:zoom-in-100 max-md:data-[state=closed]:zoom-out-100 duration-300 ease-out will-change-transform"
+                    dir={isAr ? 'rtl' : 'ltr'}
+                >
+                    <DialogHeader className="py-1.5 px-3 shrink-0">
                         <DialogTitle className="sr-only">
                             {isAr ? 'إضافة تعليق' : 'Add Comment'}
                         </DialogTitle>
-                        <div className="mx-auto w-8 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <div className="mx-auto w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 mt-1" />
                     </DialogHeader>
                     <div className="md:p-6 p-4 overflow-y-auto">
                         <div 
@@ -689,12 +692,13 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
                                     placeholder={isAr ? "بماذا تفكر؟..." : "What's on your mind?..."}
                                     className="w-full bg-transparent border-none py-2 px-0 text-base text-gray-900 dark:text-gray-100 resize-none outline-none transition-colors duration-200 md:min-h-[100px] min-h-[80px]"
                                     onFocus={() => {}}
+                                    dir={isAr ? 'rtl' : 'ltr'}
                                 />
                             </div>
                         </div>
                         
                         <div 
-                            className="flex flex-col md:gap-3 gap-2 mt-4 bg-gray-50 dark:bg-white/5 md:p-4 p-3 rounded-xl border border-gray-100 dark:border-[#222]"
+                            className="flex flex-col md:gap-3 gap-2 mt-4 bg-gray-50 dark:bg-[#222] md:p-4 p-3 rounded-xl border border-gray-100 dark:border-[#333]"
                             onPointerDown={(e) => {
                                 // Prevent focus loss when tapping emojis or empty space inside the emoji container
                                 // Allow focus shift if tapping the Send button
@@ -719,14 +723,40 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
                                         </button>
                                     ))}
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 items-center">
+                                    <Popover open={showCustomEmojiPicker} onOpenChange={setShowCustomEmojiPicker}>
+                                        <PopoverTrigger asChild>
+                                            <button
+                                                type="button"
+                                                data-emoji="true"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center bg-white hover:bg-gray-100 dark:bg-[#111] dark:hover:bg-white/10 rounded-full transition-all active:scale-95 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-transparent shadow-sm"
+                                            >
+                                                <Smile className="w-5 h-5 md:w-6 md:h-6" />
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent 
+                                            className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden bg-transparent z-[10005]" 
+                                            side={typeof window !== 'undefined' && window.innerWidth < 768 ? "bottom" : "top"}
+                                            align={typeof window !== 'undefined' && window.innerWidth < 768 ? "center" : (isAr ? "start" : "end")}
+                                            sideOffset={10}
+                                            onFocusOutside={(e) => e.preventDefault()}
+                                            onOpenAutoFocus={(e) => e.preventDefault()}
+                                            onCloseAutoFocus={(e) => e.preventDefault()}
+                                        >
+                                            <CustomEmojiPicker 
+                                                onEmojiClick={onCustomEmojiClick} 
+                                                onClose={() => setShowCustomEmojiPicker(false)} 
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                     <button
                                         onClick={() => {
                                             addComment();
                                             setIsAddCommentModalOpen(false);
                                         }}
                                         disabled={!newComment.trim() || isSubmitting}
-                                        className="px-8 py-2.5 bg-blue-600 dark:bg-white text-white dark:text-black rounded-full font-black text-sm shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+                                        className="px-6 md:px-8 py-2 md:py-2.5 bg-white text-black rounded-full font-black text-sm shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2 border border-gray-200 dark:border-transparent"
                                     >
                                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                                             <>
@@ -737,7 +767,7 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
                                     </button>
                                 </div>
                             </div>
-                            <div className="flex flex-wrap gap-0.5 p-0.5 border-t border-gray-100 dark:border-white/5 pt-1.5">
+                            <div className="flex flex-wrap gap-0.5 p-0.5 pt-1.5">
                                 {QUICK_EMOJIS.slice(12, 28).map((url, idx) => (
                                     <button
                                         key={idx}
@@ -751,7 +781,7 @@ export const CommentsSection = forwardRef<CommentsSectionHandle, CommentsSection
                                     </button>
                                 ))}
                             </div>
-                            <div className="flex flex-wrap gap-0.5 p-0.5 border-t border-gray-100 dark:border-white/5 pt-1.5">
+                            <div className="flex flex-wrap gap-0.5 p-0.5 pt-1.5">
                                 {QUICK_EMOJIS.slice(28).map((url, idx) => (
                                     <button
                                         key={idx}

@@ -26,10 +26,10 @@ export default function UserSettingsPage() {
 
                     <div className="w-full md:w-56">
                         <Select value={theme} onValueChange={(val: any) => setTheme(val)}>
-                            <SelectTrigger className="w-full h-12 bg-white dark:bg-black border-none focus:ring-0 focus:outline-none text-xl font-bold">
+                            <SelectTrigger className="w-full h-12 bg-white dark:bg-black border-none rounded-xl focus:ring-0 focus:outline-none text-xl font-bold">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-white dark:bg-black border-none">
+                            <SelectContent className="bg-white dark:bg-black border-none rounded-xl">
                                 <SelectItem value="light" className="cursor-pointer focus:bg-gray-100 dark:focus:bg-[#111]">
                                     <div className="flex items-center gap-2">
                                         <span>{isRtl ? 'نهاري' : 'Light'}</span>

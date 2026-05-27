@@ -10,6 +10,7 @@ import { NewsTicker } from '@/components/common/NewsTicker';
 import Footer from '@/components/common/Footer';
 import { renderEmojiContent } from '@/utils/render-content';
 import { cn } from '@/lib/utils';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 
 const BASE_URL = '';
 import { getImageUrl } from '@/utils/image-utils';
@@ -17,24 +18,37 @@ import { getImageUrl } from '@/utils/image-utils';
 function WatchlistItem({ item, isRtl, lang, onRemove }: { item: any; isRtl: boolean; lang: string; onRemove: any }) {
     const isEpisode = !!item.episode_id;
     const animeObj = item.anime;
+    const episodeObj = item.episode;
 
     const link = isEpisode
-        ? `/${lang}/watch/${item.anime_id}/${item.episode?.episode_number}`
+        ? `/${lang}/watch/${item.anime_id}/${episodeObj?.episode_number || 1}`
         : `/${lang}/animes/${item.anime_id}`;
 
-    const title = isEpisode
-        ? (isRtl ? item.episode?.title : item.episode?.title_en) || `Episode ${item.episode?.episode_number}`
-        : (isRtl ? item.anime?.title : item.anime?.title_en) || 'Anime';
+    const animeTitle = isRtl ? animeObj?.title : (animeObj?.title_en || animeObj?.title);
+    const episodeTitleStr = isRtl ? episodeObj?.title : (episodeObj?.title_en || episodeObj?.title);
+    
+    let title = animeTitle || 'Anime';
+    if (isEpisode) {
+        if (episodeTitleStr) {
+            title = episodeTitleStr;
+        } else if (episodeObj?.episode_number) {
+            title = `${animeTitle} - ${isRtl ? 'الحلقة' : 'Episode'} ${episodeObj.episode_number}`;
+        } else {
+            title = `${animeTitle} - ${isRtl ? 'حلقة' : 'Episode'}`;
+        }
+    }
 
     const description = isEpisode
-        ? (isRtl ? item.episode?.description : item.episode?.description_en)
-        : (isRtl ? item.anime?.description : item.anime?.description_en);
+        ? ((isRtl ? episodeObj?.description : episodeObj?.description_en) || (isRtl ? animeObj?.description : animeObj?.description_en))
+        : (isRtl ? animeObj?.description : animeObj?.description_en);
 
-    const image = isEpisode ? (item.episode?.thumbnail || item.episode?.banner) : item.anime?.cover;
+    const image = isEpisode 
+        ? (episodeObj?.thumbnail || episodeObj?.banner || animeObj?.cover || animeObj?.image) 
+        : (animeObj?.cover || animeObj?.image);
 
     return (
-        <div className="group relative flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50/50 dark:hover:bg-neutral-900/40 transition-colors duration-200 border border-transparent hover:border-gray-100 dark:hover:border-transparent rounded-lg p-2 md:p-3 hover:shadow-sm">
-            <Link to={link} className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden bg-gray-900">
+        <div className="group relative flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50/50 dark:hover:bg-neutral-900/40 transition-colors duration-200 border border-transparent hover:border-gray-100 dark:hover:border-transparent rounded-xl p-2 md:p-3 hover:shadow-sm">
+            <Link to={link} className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden rounded-xl bg-gray-900">
                 {image ? (
                     <img
                         src={getImageUrl(image)}
@@ -72,7 +86,7 @@ function WatchlistItem({ item, isRtl, lang, onRemove }: { item: any; isRtl: bool
 
                 <div className="mt-auto flex items-center gap-4 w-full pt-1">
                     <span className="text-[10px] md:text-xs font-bold text-black dark:text-white uppercase tracking-wider">
-                        {isEpisode ? (isRtl ? item.anime?.title : item.anime?.title_en) : (isRtl ? 'سلسلة أنمي' : 'Anime Series')}
+                        {isEpisode ? animeTitle : (isRtl ? 'سلسلة أنمي' : 'Anime Series')}
                     </span>
                     <span className="text-[10px] text-gray-400">
                         {new Date(item.created_at).toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -112,17 +126,9 @@ export default function WatchlistBrowsePage() {
                 <NewsTicker />
 
                 <div className="flex flex-col lg:flex-row gap-0 lg:gap-0 pt-0 lg:pt-0">
-                    {/* Sidebar */}
-                    {!isDashboard && (
-                        <div className="hidden lg:block w-80 border-r border-gray-200 dark:border-[#2a2a2a] lg:order-1 flex-shrink-0 bg-white dark:bg-[#0a0a0a]">
-                            <div className="sticky top-[100px] h-[calc(100vh-100px)] overflow-hidden">
-                                <BrowseSidebar />
-                            </div>
-                        </div>
-                    )}
 
                     {/* Main Content */}
-                    <div className="flex-1 min-w-0 px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5 lg:order-2">
+                    <div className="flex-1 min-w-0 px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5 max-w-7xl mx-auto w-full">
                         {/* Header matching Browse Style */}
                         <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-4 mb-8">
                             <div className="flex items-center gap-6 text-base font-bold">
@@ -142,12 +148,7 @@ export default function WatchlistBrowsePage() {
                         </div>
 
                         {isLoading ? (
-                            <div className="flex items-center justify-center py-24 min-h-[40vh]">
-                                <div className="relative w-16 h-16">
-                                    <div className="absolute inset-0 border-4 border-gray-100 dark:border-neutral-800 rounded-full"></div>
-                                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                                </div>
-                            </div>
+                            <CentralSpinner />
                         ) : items.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-gray-500 border border-dashed border-gray-200 dark:border-[#333]">
                                 <Bookmark className="w-16 h-16 mb-4 opacity-20" />

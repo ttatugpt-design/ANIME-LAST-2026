@@ -154,14 +154,14 @@ export default function EpisodesModal({
                 className="max-w-4xl w-full h-full md:h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222] rounded-none md:rounded-xl overflow-hidden"
                 onOpenAutoFocus={(e) => e.preventDefault()}
             >
-                <DialogHeader className="p-4 border-b border-gray-200 dark:border-[#222] shrink-0">
+                <DialogHeader className="p-4 shrink-0">
                     <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
                         {lang === 'ar' ? 'حلقات المسلسل' : 'Episodes'}
                     </DialogTitle>
                 </DialogHeader>
 
                 {/* Search Box */}
-                <div className="p-4 pb-2 border-b border-gray-200 dark:border-[#222] shrink-0">
+                <div className="p-4 pb-2 shrink-0">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -210,15 +210,15 @@ export default function EpisodesModal({
                                             ref={isActive ? activeEpisodeRef : null}
                                             onClick={() => handleNavigate(ep.episode_number)}
                                             className={cn(
-                                                "group cursor-pointer relative z-0 border-b border-gray-100 dark:border-white/5 pb-1.5 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 p-1 rounded-xl transition-all active:scale-[0.98]",
-                                                isActive && "bg-blue-50/50 dark:bg-blue-500/10"
+                                                "group cursor-pointer relative z-0 hover:bg-gray-50 dark:hover:bg-white/5 p-1.5 rounded-xl transition-all active:scale-[0.98]",
+                                                isActive && "bg-white/10 dark:bg-white/5 shadow-sm"
                                             )}
                                         >
                                             <div className="flex flex-row gap-3 w-full h-full">
                                                 {/* Thumbnail Container */}
                                                 <div className={cn(
                                                     "relative flex-shrink-0 w-[140px] md:w-[160px] aspect-video overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] rounded-xl shadow-sm transition-all",
-                                                    isActive ? "ring-2 ring-blue-500 shadow-blue-500/20" : "group-hover:shadow-md"
+                                                    isActive ? "ring-2 ring-white/30" : "group-hover:shadow-md"
                                                 )}>
                                                     <SpinnerImage
                                                         src={getImageUrl(ep.thumbnail || ep.banner)}
@@ -234,8 +234,8 @@ export default function EpisodesModal({
 
                                                     {/* Watching Now overlay */}
                                                     {isActive && (
-                                                        <div className="absolute inset-0 bg-blue-600/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-10">
-                                                            <span className="text-[10px] font-black text-white uppercase tracking-wider bg-blue-600 px-2 py-0.5 rounded shadow-lg">
+                                                        <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px] flex flex-col items-center justify-center z-10">
+                                                            <span className="text-[10px] font-black text-white uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded shadow-lg">
                                                                 {lang === 'ar' ? 'تشاهده الآن' : 'Watching Now'}
                                                             </span>
                                                         </div>
@@ -246,7 +246,7 @@ export default function EpisodesModal({
                                                 <div className="flex-1 flex flex-col items-start py-0 min-w-0">
                                                     <h4 className={cn(
                                                         "font-black line-clamp-1 leading-tight text-[15px] mb-1 transition-colors",
-                                                        isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-white group-hover:text-blue-500"
+                                                        isActive ? "text-black dark:text-white" : "text-gray-900 dark:text-white group-hover:text-[#FF3D00]"
                                                     )}>
                                                         {renderEmojiContent(title)}
                                                     </h4>
@@ -254,7 +254,7 @@ export default function EpisodesModal({
                                                         <span className="text-[13px] font-black text-gray-900 dark:text-white bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
                                                             {lang === 'ar' ? `الحلقة ${ep.episode_number}` : `Episode ${ep.episode_number}`}
                                                         </span>
-                                                        <div className="flex items-center gap-1 text-[11px] font-bold text-gray-500 dark:text-gray-400">
+                                                        <div className={cn("flex items-center gap-1 text-[11px] font-bold", isActive ? "text-black/70 dark:text-white/80" : "text-gray-500 dark:text-gray-400")}>
                                                             <Eye className="w-3.5 h-3.5" />
                                                             <span>{ep.views_count || 0}</span>
                                                         </div>

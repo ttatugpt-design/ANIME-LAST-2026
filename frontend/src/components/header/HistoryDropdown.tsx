@@ -114,7 +114,7 @@ export const HistoryDropdown: React.FC = () => {
                                     const episodeNumber = item.episode?.episode_number;
                                     const link = item.episode
                                         ? `/${i18n.language}/watch/${item.anime.id}/${episodeNumber}`
-                                        : `/${i18n.language}/anime/${item.anime.id}`;
+                                        : `/${i18n.language}/animes/${item.anime.id}`;
 
                                     return (
                                         <Link

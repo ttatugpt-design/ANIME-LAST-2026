@@ -4,6 +4,9 @@ import (
 	"backend/internal/core/domain"
 	"backend/internal/core/port"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -24,13 +27,121 @@ func (r *SQLiteRepository) GetPostByID(id uint) (*domain.Post, error) {
 }
 
 func (r *SQLiteRepository) DeletePost(id uint) error {
-	return r.db.Delete(&domain.Post{}, id).Error
+	// Load post with media to remove files from disk
+	var post domain.Post
+	if err := r.db.Preload("Media").First(&post, id).Error; err != nil {
+		return err
+	}
+
+	// Collect paths to delete after successful transaction
+	var pathsToDelete []string
+	for _, m := range post.Media {
+		path := m.MediaURL
+		if strings.HasPrefix(path, "/") {
+			path = path[1:]
+		}
+		pathsToDelete = append(pathsToDelete, path)
+	}
+
+	tx := r.db.Begin()
+	
+	// Delete likes
+	if err := tx.Where("post_id = ?", id).Delete(&domain.PostLike{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Find all comments for this post
+	var comments []domain.PostComment
+	if err := tx.Where("post_id = ?", id).Find(&comments).Error; err == nil && len(comments) > 0 {
+		var commentIDs []uint
+		for _, c := range comments {
+			commentIDs = append(commentIDs, c.ID)
+		}
+		
+		// Delete comment likes
+		if len(commentIDs) > 0 {
+			if err := tx.Where("comment_id IN ?", commentIDs).Delete(&domain.PostCommentLike{}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+		
+		// Delete comments
+		if err := tx.Where("post_id = ?", id).Delete(&domain.PostComment{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	if err := tx.Where("post_id = ?", id).Delete(&domain.PostMedia{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Delete(&domain.Post{}, id).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	
+	// Resolve base project dir robustly
+	cwd, _ := os.Getwd()
+	baseDir := cwd
+	if filepath.Base(cwd) == "server" && strings.Contains(cwd, filepath.Join("backend", "cmd", "server")) {
+		baseDir = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		baseDir = filepath.Dir(cwd)
+	}
+
+	err := tx.Commit().Error
+	if err == nil {
+		// Only remove files from filesystem if database deletion succeeded
+		for _, m := range post.Media {
+			if m.MediaURL != "" {
+				filename := filepath.Base(m.MediaURL)
+				filePath := filepath.Join(baseDir, "backend", "uploads", "posts", filename)
+				if removeErr := os.Remove(filePath); removeErr != nil {
+					println("Failed to remove media file:", filePath, removeErr.Error())
+				}
+			}
+		}
+	}
+	
+	return err
 }
 
 func (r *SQLiteRepository) UpdatePost(post *domain.Post, mediaToKeep []uint) error {
 	tx := r.db.Begin()
 
-	// 1. Delete media that are not in the 'keep' list
+	// 1. Get media to delete and remove files from disk
+	var mediaToDelete []domain.PostMedia
+	deleteQuery := tx.Where("post_id = ?", post.ID)
+	if len(mediaToKeep) > 0 {
+		deleteQuery = deleteQuery.Where("id NOT IN ?", mediaToKeep)
+	}
+	if err := deleteQuery.Find(&mediaToDelete).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Resolve base project dir robustly
+	cwd, _ := os.Getwd()
+	baseDir := cwd
+	if filepath.Base(cwd) == "server" && strings.Contains(cwd, filepath.Join("backend", "cmd", "server")) {
+		baseDir = filepath.Dir(filepath.Dir(filepath.Dir(cwd)))
+	} else if filepath.Base(cwd) == "backend" {
+		baseDir = filepath.Dir(cwd)
+	}
+
+	// Delete files from disk
+	for _, m := range mediaToDelete {
+		if m.MediaURL != "" {
+			filename := filepath.Base(m.MediaURL)
+			filePath := filepath.Join(baseDir, "backend", "uploads", "posts", filename)
+			_ = os.Remove(filePath)
+		}
+	}
+
+	// 2. Delete media records from database
 	if len(mediaToKeep) > 0 {
 		if err := tx.Where("post_id = ? AND id NOT IN ?", post.ID, mediaToKeep).Delete(&domain.PostMedia{}).Error; err != nil {
 			tx.Rollback()
@@ -46,7 +157,7 @@ func (r *SQLiteRepository) UpdatePost(post *domain.Post, mediaToKeep []uint) err
 		}
 	}
 
-	// 2. Save the post content (and associate new media if any are in post.Media)
+	// 3. Save the post content (and associate new media if any are in post.Media)
 	if err := tx.Save(post).Error; err != nil {
 		tx.Rollback()
 		return err

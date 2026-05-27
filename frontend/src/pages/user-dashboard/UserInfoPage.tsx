@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import CentralSpinner from '@/components/ui/CentralSpinner';
 import { Loader2, Pen } from 'lucide-react';
 import api from '@/lib/api';
 import { getImageUrl } from '@/utils/image-utils';
@@ -70,7 +71,7 @@ export default function UserInfoPage() {
             </h1>
 
             {/* Profile Card Container */}
-            <div className="bg-[#111] overflow-hidden rounded-none relative">
+            <div className="bg-[#111] overflow-hidden rounded-xl relative">
 
                 {/* Banner Section */}
                 <div className="relative h-48 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-[#333] dark:to-[#1a1a1a] overflow-hidden group">

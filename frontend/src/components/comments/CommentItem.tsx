@@ -59,7 +59,7 @@ import { Comment } from '@/types/models';
 
 interface CommentItemProps {
     comment: Comment;
-    type: 'episode' | 'post' | 'chapter';
+    type: 'episode' | 'post' | 'chapter' | 'anime';
     itemId: number;
     depth?: number;
     // rootParentId: the top-level comment's ID, used so replies-to-replies
@@ -168,7 +168,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     const [isReplying, setIsReplying] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     // const [isExpanded, setIsExpanded] = useState(true); // Removed in favor of visibleRepliesCount
-    const [visibleRepliesCount, setVisibleRepliesCount] = useState(activeCommentId || propIsHighlighted ? 999 : 0);
+    const [visibleRepliesCount, setVisibleRepliesCount] = useState(activeCommentId || propIsHighlighted ? 99999 : 0);
     const [replyText, setReplyText] = useState('');
     const [editText, setEditText] = useState(comment.content);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -359,9 +359,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         setReactionCounts(newCounts);
         
         try {
-            const url = type === 'episode'
-                ? `/comments/${comment.id}/like`
-                : type === 'chapter'
+            const url = (type === 'episode' || type === 'chapter' || type === 'anime')
                 ? `/comments/${comment.id}/like`
                 : `/posts/comments/${comment.id}/like`;
             await api.post(url, { type: reactionKey });
@@ -488,7 +486,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     useEffect(() => {
         const handleExpand = (event: any) => {
             if (event.detail?.id === comment.id) {
-                setVisibleRepliesCount(prev => prev > 0 ? prev : 4);
+                setVisibleRepliesCount(prev => prev > 0 ? prev : 99999);
             }
         };
         
@@ -543,6 +541,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 ? `/episodes/${itemId}/comments`
                 : type === 'chapter'
                 ? `/chapters/${itemId}/comments`
+                : type === 'anime'
+                ? `/animes/${itemId}/comments`
                 : `/posts/${itemId}/comments`;
 
             // YouTube-style: if replying to a reply (depth > 0),
@@ -558,7 +558,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 content: contentToSend,
                 parent_id: actualParentId,
                 mention_user_id: isReplyToReply ? comment.user_id : null,
-                ...(type === 'episode' ? { episode_id: itemId } : type === 'chapter' ? { chapter_id: itemId } : { post_id: itemId })
+                ...(type === 'episode' ? { episode_id: itemId } : type === 'chapter' ? { chapter_id: itemId } : type === 'anime' ? { anime_id: itemId } : { post_id: itemId })
             });
 
             setReplyText('');
@@ -588,7 +588,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     const handleEdit = async () => {
         if (!editText.trim()) return;
         try {
-            const url = (type === 'episode' || type === 'chapter')
+            const url = (type === 'episode' || type === 'chapter' || type === 'anime')
                 ? `/comments/${comment.id}`
                 : `/posts/comments/${comment.id}`;
             const res = await api.put(url, { content: editText });
@@ -604,7 +604,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         console.log('handleDelete invoked for comment:', comment.id);
         
         try {
-            const url = (type === 'episode' || type === 'chapter')
+            const url = (type === 'episode' || type === 'chapter' || type === 'anime')
                 ? `/comments/${comment.id}`
                 : `/posts/comments/${comment.id}`;
             
@@ -691,7 +691,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         
         setIsLoadingReactions(true);
         try {
-            const endpoint = (type === 'episode' || type === 'chapter') 
+            const endpoint = (type === 'episode' || type === 'chapter' || type === 'anime') 
                 ? `/comments/${comment.id}/reactions` 
                 : `/posts/comments/${comment.id}/reactions`;
             const { data } = await api.get(endpoint);
@@ -1446,7 +1446,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                     )}
 
                                     <button 
-                                        onClick={() => setVisibleRepliesCount(prev => prev === 0 ? 4 : prev + 4)} 
+                                        onClick={() => setVisibleRepliesCount(99999)} 
                                         className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-full transition w-fit border border-blue-100 dark:border-blue-900/30"
                                     >
                                         <ChevronDown className={cn("w-4 h-4 transition-transform", visibleRepliesCount > 0 && "rotate-0")} />

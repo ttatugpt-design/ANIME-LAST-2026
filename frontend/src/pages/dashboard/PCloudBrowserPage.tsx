@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Folder, File as FileIcon, ExternalLink, RefreshCw, ChevronLeft, Copy, Settings, Trash2, Plus, UserCircle, Search, Zap, Share2, ArrowRightLeft, CheckCircle2, LayoutGrid, List, Pencil, Move, UploadCloud, Link, Database, FolderPlus, ArrowLeft, Tv2, Check } from "lucide-react";
+import { Folder, File as FileIcon, ExternalLink, RefreshCw, ChevronLeft, Copy, Settings, Trash2, Plus, UserCircle, Search, Zap, Share2, ArrowRightLeft, CheckCircle2, LayoutGrid, List, Pencil, Move, UploadCloud, Link, Database, FolderPlus, ArrowLeft, Tv2, Check, Cloud, FileVideo } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -111,6 +111,34 @@ export default function PCloudBrowserPage() {
         }
     };
 
+    // Smart Sorting Helper
+    const smartSort = (items: any[]) => {
+        return [...items].sort((a, b) => {
+            // 1. Folders first
+            const isFolderA = a.isfolder || a.is_folder;
+            const isFolderB = b.isfolder || b.is_folder;
+            if (isFolderA !== isFolderB) return isFolderA ? -1 : 1;
+
+            // 2. Extract Episode Number (the number before [1080p], [720p], etc.)
+            const extractEp = (name: string) => {
+                // Matches " - 5 [", " - 05 [", etc.
+                const match = name.match(/-\s*(\d+)\s*\[/);
+                return match ? parseInt(match[1], 10) : 999999;
+            };
+
+            const nameA = a.name || a.title || "";
+            const nameB = b.name || b.title || "";
+
+            const epA = extractEp(nameA);
+            const epB = extractEp(nameB);
+
+            if (epA !== epB) return epA - epB;
+
+            // 3. Fallback to alphabetical
+            return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    };
+
     const handleFetch = async (targetUrl = currentUrl, pushToHistory = true) => {
         setLoading(true);
         
@@ -124,14 +152,19 @@ export default function PCloudBrowserPage() {
         setSelectedItems({});
 
         try {
-            const res = await api.get(`/pcloud/public-drive?url=${encodeURIComponent(targetUrl)}`);
+            // Clean targetUrl before sending: remove double slashes at the end
+            const cleanedUrl = targetUrl.replace(/([^:])\/\/+/g, '$1/');
+            const res = await api.get(`/pcloud/public-drive?url=${encodeURIComponent(cleanedUrl)}`);
+            console.log("[pCloud] Fetch Result:", res.data);
             if (res.data.result === 0 && res.data.metadata) {
-                setFiles(res.data.metadata.contents || []);
+                const sorted = smartSort(res.data.metadata.contents || []);
+                setFiles(sorted);
             } else {
                 setFiles([]);
+                toast.error("لم يتم العثور على ملفات في هذا المسار");
             }
         } catch (error: any) {
-            toast.error("Error: " + error.message);
+            toast.error("خطأ في جلب البيانات: " + error.message);
         } finally {
             setLoading(false);
         }
@@ -209,7 +242,7 @@ export default function PCloudBrowserPage() {
         const activeAcc = accounts[parseInt(idx)];
         const targetFld = fldId !== undefined ? fldId : (service === 'hg' ? hgCurrentFld : doodCurrentFld);
 
-        if (!activeAcc) return toast.error("يرجى اختيار حساب");
+        if (!activeAcc) return; // Silent return if no account, user will see the select
 
         if (service === 'hg') { setHgLoading(true); setHgCurrentFld(targetFld); setHgSelected({}); } 
         else { setDoodLoading(true); setDoodCurrentFld(targetFld); setDoodSelected({}); }
@@ -222,7 +255,7 @@ export default function PCloudBrowserPage() {
 
             if (Number(res.data.status) === 200) {
                 const result = res.data.result;
-                let merged = [];
+                let merged: any[] = [];
                 if (Array.isArray(result)) {
                     merged = result;
                 } else if (result && typeof result === 'object') {
@@ -230,20 +263,23 @@ export default function PCloudBrowserPage() {
                     const folders = result.folders || result.folder_list || [];
                     merged = [
                         ...(folders.map((f: any) => ({ ...f, is_folder: true, title: f.name || f.title, fld_id: f.fld_id || f.folder_id })) || []),
-                        ...(files.map((f: any) => ({ ...f, title: f.title || f.name })))
+                        ...(files.map((f: any) => ({ ...f, is_folder: false, title: f.title || f.name })))
                     ];
                 }
                 
                 const final = merged.map((item: any) => ({
                     ...item,
+                    is_folder: !!item.is_folder,
                     title: item.title || item.name || "Unknown File"
                 }));
 
-                if (service === 'hg') setHgBrowserFiles(final);
-                else setDoodBrowserFiles(final);
+                const sorted = smartSort(final);
+
+                if (service === 'hg') setHgBrowserFiles(sorted);
+                else setDoodBrowserFiles(sorted);
             }
         } catch (error) {
-            toast.error("فشل الجلب");
+            toast.error("فشل الجلب من السيرفر");
         } finally {
             if (service === 'hg') setHgLoading(false); else setDoodLoading(false);
         }
@@ -327,6 +363,49 @@ export default function PCloudBrowserPage() {
         }
     };
 
+    const handleSequentialLinkAssign = async (sourceType: 'pcloud' | 'doodstream' | 'streamhg') => {
+        if (!selectedAnime) {
+            toast.error("يرجى اختيار الأنمي أولاً");
+            setIsAnimeModalOpen(true);
+            return;
+        }
+
+        let links: string[] = [];
+        
+        if (sourceType === 'pcloud') {
+            const selectedFiles = files.filter(f => !f.isfolder && selectedItems[f.url]);
+            const sorted = smartSort(selectedFiles);
+            links = sorted.map(f => f.url);
+        } else if (sourceType === 'doodstream') {
+            const selectedFiles = doodBrowserFiles.filter(f => !f.is_folder && doodSelected[f.file_code]);
+            const sorted = smartSort(selectedFiles);
+            links = sorted.map(f => f.file_code);
+        } else if (sourceType === 'streamhg') {
+            const selectedFiles = hgBrowserFiles.filter(f => !f.is_folder && hgSelected[f.file_code]);
+            const sorted = smartSort(selectedFiles);
+            links = sorted.map(f => f.file_code);
+        }
+
+        if (links.length === 0) {
+            toast.error("لم يتم تحديد أي روابط");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await api.post("/automation/assign-sequential", {
+                anime_id: selectedAnime.id,
+                source_type: sourceType,
+                links: links
+            });
+            toast.success(res.data.message);
+        } catch (error: any) {
+            toast.error("فشل الربط: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleFinalSync = async () => {
         if (!selectedAnime) return toast.error("يرجى اختيار أنمي أولاً");
         if (hgQueue.length === 0 && doodQueue.length === 0) return toast.error("جداول الانتظار فارغة! ارفع ملفات أولاً.");
@@ -368,287 +447,346 @@ export default function PCloudBrowserPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex bg-background/50 border rounded-xl overflow-hidden shadow-xl min-h-[600px] flex-col">
-                {/* Main Browser Toolbar */}
-                <div className="p-4 border-b flex flex-wrap items-center justify-between bg-muted/5 gap-4">
-                    <div className="flex items-center gap-3">
-                        <Badge className="bg-blue-600 font-mono text-[10px] px-2 py-0.5">pCloud Interface</Badge>
-                        <h2 className="font-black tracking-tight text-lg text-indigo-900 italic">متصفح الملفات السحابي</h2>
-                        <div className="h-6 w-[2px] bg-indigo-200/50 mx-2 hidden md:block" />
-                        <Button 
-                            variant={selectedAnime ? "default" : "outline"} 
-                            className={`h-10 gap-2 rounded-xl transition-all ${selectedAnime ? "bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20" : "border-indigo-200 text-indigo-600"}`}
-                            onClick={() => setIsAnimeModalOpen(true)}
-                        >
-                            {selectedAnime ? <CheckCircle2 className="h-5 w-5"/> : <Tv2 className="h-5 w-5" />}
-                            {selectedAnime ? selectedAnime.title : "اختيار الأنمي"}
-                        </Button>
+            {/* pCloud Explorer Section (Styled like Dood Manager) */}
+            <Card className="w-full border-none shadow-2xl bg-white overflow-hidden ring-1 ring-slate-200">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 flex flex-row items-center justify-between py-4">
+                    <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2"><Cloud className="h-5 w-5 text-indigo-600" /> متصفح الملفات السحابي PCLOUD</CardTitle>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-slate-700 border-slate-300 bg-slate-100 font-mono text-[10px]">{currentUrl.substring(0, 30)}...</Badge>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600 hover:bg-indigo-50" onClick={() => handleFetch()} disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+                    </div>
+                </CardHeader>
+                
+                <div className="p-2 px-4 border-b flex flex-wrap gap-2 items-center bg-slate-50/50">
+                    <Button variant="outline" size="sm" className="h-8 text-[11px] font-bold border-slate-200 text-slate-700 bg-white" onClick={handleBack} disabled={history.length <= 1}><ArrowLeft className="h-3 w-3 mr-1"/> رجوع</Button>
+                    <Input value={currentUrl} onChange={e => setCurrentUrl(e.target.value)} className="h-8 text-[11px] font-mono flex-1 min-w-[200px] bg-white border-slate-200 text-slate-900 rounded-lg" />
+                    <Button size="sm" className="h-8 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold" onClick={() => handleFetch(currentUrl)}>انتقال</Button>
+                    
+                    <div className="h-6 w-[2px] bg-slate-200 mx-2 hidden md:block" />
+                    
+                    <div className="flex items-center gap-1">
+                        <Button variant="outline" size="sm" className="h-8 text-[11px] border-slate-200 text-slate-700" onClick={copyAllSelected} title="نسخ روابط الملفات المحددة"><Copy className="h-3.5 w-3.5 mr-1"/> نسخ</Button>
+                        <Button variant="outline" size="sm" className="h-8 text-[11px] border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => handleRemoteUpload('streamhg')} disabled={loading}><UploadCloud className="h-3.5 w-3.5 mr-1"/> HG</Button>
+                        <Button variant="outline" size="sm" className="h-8 text-[11px] border-cyan-200 text-cyan-700 hover:bg-cyan-50" onClick={() => handleRemoteUpload('doodstream')} disabled={loading}><UploadCloud className="h-3.5 w-3.5 mr-1"/> Dood</Button>
+                        <Button variant="default" size="sm" className="h-8 text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-black" onClick={() => handleSequentialLinkAssign('pcloud')} disabled={loading}><Check className="h-3.5 w-3.5 mr-1"/> تضمين الروابط المحددة</Button>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                         <Button size="sm" variant="outline" className="h-10 gap-2 text-indigo-600 border-indigo-200 rounded-xl" onClick={copyAllSelected} title="نسخ روابط الملفات المحددة"><Copy className="h-4 w-4"/> نسخ الروابط</Button>
-                         
-                         <div className="flex items-center bg-orange-500/5 border border-orange-200 rounded-xl p-1 gap-1">
-                            <Select value={selectedHgIdx} onValueChange={setSelectedHgIdx}>
-                                <SelectTrigger className="w-[110px] h-8 border-none bg-transparent focus:ring-0"><SelectValue placeholder="HG Acc" /></SelectTrigger>
-                                <SelectContent>{hgAccounts.map((acc, i) => <SelectItem key={i} value={i.toString()}>{acc.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                            <Button size="sm" className="bg-orange-600 hover:bg-orange-700 h-8 gap-2 rounded-lg" onClick={() => handleRemoteUpload('streamhg')} disabled={loading}><UploadCloud className="h-4 w-4"/> HG</Button>
-                         </div>
-
-                         <div className="flex items-center bg-cyan-500/5 border border-cyan-200 rounded-xl p-1 gap-1">
-                            <Select value={selectedDoodIdx} onValueChange={setSelectedDoodIdx}>
-                                <SelectTrigger className="w-[110px] h-8 border-none bg-transparent focus:ring-0"><SelectValue placeholder="Dood Acc" /></SelectTrigger>
-                                <SelectContent>{doodAccounts.map((acc, i) => <SelectItem key={i} value={i.toString()}>{acc.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                            <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 h-8 gap-2 rounded-lg" onClick={() => handleRemoteUpload('doodstream')} disabled={loading}><UploadCloud className="h-4 w-4"/> Dood</Button>
-                         </div>
-                    </div>
-                </div>
-
-                {/* Path Toolbar */}
-                <div className="p-2 px-4 border-b flex gap-2 items-center bg-muted/10">
+                    <div className="h-6 w-[2px] bg-slate-200 mx-2 hidden md:block" />
+                    
                     <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-indigo-600 hover:bg-indigo-50" 
-                        onClick={handleBack} 
-                        disabled={history.length === 0}
-                        title="الرجوع للمجلد السابق"
+                        variant={selectedAnime ? "default" : "outline"} 
+                        className={`h-8 gap-2 rounded-lg text-[11px] transition-all ${selectedAnime ? "bg-green-600 text-white" : "border-indigo-200 text-indigo-600"}`}
+                        onClick={() => setIsAnimeModalOpen(true)}
                     >
-                        <ArrowLeft className="h-5 w-5" />
+                        {selectedAnime ? <CheckCircle2 className="h-4 w-4"/> : <Tv2 className="h-4 w-4" />}
+                        {selectedAnime ? selectedAnime.title : "اختيار الأنمي"}
                     </Button>
-                    <Input value={currentUrl} onChange={e => setCurrentUrl(e.target.value)} className="h-8 text-[11px] font-mono flex-1 bg-background border-indigo-100 rounded-lg" />
-                    <Button size="sm" className="h-8 px-4 bg-indigo-600 rounded-lg font-bold" onClick={() => handleFetch(currentUrl)}>انتقال</Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 text-indigo-600 border-indigo-100" onClick={() => handleFetch()}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button>
                 </div>
 
-                {/* Data Table */}
-                <ScrollArea className="flex-1 max-h-[600px]">
+                <div className="max-h-[600px] overflow-auto min-h-[400px]">
                     <Table>
-                        <TableHeader className="bg-muted/50 sticky top-0 z-20 shadow-sm">
-                            <TableRow>
-                                <TableHead className="w-[40px] pl-6">
-                                    <input type="checkbox" className="rounded border-gray-300 h-4 w-4" onChange={(e) => {
-                                        const urls = files.filter(f => !f.isfolder).map(f => f.url);
-                                        const newS = { ...selectedItems };
-                                        urls.forEach(u => newS[u] = e.target.checked);
-                                        setSelectedItems(newS);
-                                    }} />
+                        <TableHeader className="sticky top-0 bg-slate-50 z-10 shadow-sm">
+                            <TableRow className="border-slate-200">
+                                <TableHead className="w-12 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className="rounded border-slate-300 h-4 w-4"
+                                        onChange={(e) => {
+                                            const urls = files.filter(f => !f.isfolder).map(f => f.url);
+                                            const newS = { ...selectedItems };
+                                            urls.forEach(u => newS[u] = e.target.checked);
+                                            setSelectedItems(newS);
+                                        }}
+                                    />
                                 </TableHead>
-                                <TableHead className="text-indigo-900 font-bold">اسم الملف / المجلد</TableHead>
-                                <TableHead className="text-right pr-6 text-indigo-900 font-bold">إجـراءات</TableHead>
+                                <TableHead className="w-12 text-slate-900 font-bold text-center">#</TableHead>
+                                <TableHead className="text-slate-900 font-bold">اسم الملف أو المجلد</TableHead>
+                                <TableHead className="text-right text-slate-900 pr-6 font-bold">خيارات</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading && files.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-32 text-muted-foreground"><RefreshCw className="h-10 w-10 animate-spin mx-auto mb-4 opacity-20"/> جاري جلب محتويات pCloud...</TableCell></TableRow> :
-                            files.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-32 text-muted-foreground italic opacity-50">المجلد فارغ أو الرابط غير صالح</TableCell></TableRow> :
+                            {loading && files.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-40 text-slate-400"><RefreshCw className="h-10 w-10 animate-spin mx-auto mb-2 opacity-20"/> جاري الجلب...</TableCell></TableRow> :
+                            files.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-40 text-slate-400 italic">لا توجد ملفات</TableCell></TableRow> :
                             files.map((item, i) => (
-                                <TableRow key={i} className="hover:bg-indigo-50/40 transition-colors group cursor-default">
-                                    <TableCell className="pl-6">{!item.isfolder && <input type="checkbox" className="rounded h-4 w-4" checked={!!selectedItems[item.url]} onChange={() => setSelectedItems(p=>({...p, [item.url]: !p[item.url]}))}/>}</TableCell>
-                                    <TableCell onClick={() => item.isfolder && handleFetch(item.url)} className={`transition-all ${item.isfolder ? "font-black text-indigo-700 cursor-pointer hover:text-indigo-900" : "font-medium text-gray-700"}`}>
-                                        <div className="flex items-center gap-4">
-                                            {item.isfolder ? <Folder className="fill-indigo-500 text-indigo-500 h-6 w-6" /> : <FileIcon className="h-6 w-6 text-indigo-200" />}
-                                            <span className="text-[13px] truncate max-w-2xl">{item.name}</span>
+                                <TableRow key={i} className="border-slate-100 hover:bg-slate-50 group">
+                                    <TableCell className="text-center">
+                                        {!item.isfolder && <input type="checkbox" className="rounded border-slate-300 h-4 w-4" checked={!!selectedItems[item.url]} onChange={() => setSelectedItems(p => ({...p, [item.url]: !p[item.url]}))}/>}
+                                    </TableCell>
+                                    <TableCell className="text-center text-slate-400 font-mono text-[10px]">{i + 1}</TableCell>
+                                    <TableCell 
+                                        className={`py-4 transition-colors ${item.isfolder ? 'cursor-pointer text-indigo-600 font-bold hover:text-indigo-700' : 'text-slate-700'}`}
+                                        onClick={() => item.isfolder && handleFetch(item.url)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {item.isfolder ? <Folder className="h-4 w-4 text-indigo-500 fill-indigo-100" /> : <FileIcon className="h-4 w-4 text-slate-300" />}
+                                            <span className="text-[14px] font-bold break-words">{item.name}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right pr-6">
-                                        {!item.isfolder && (
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-600 hover:bg-blue-50 rounded-xl" onClick={() => window.open(item.url, "_blank")}><ExternalLink className="h-5 w-5"/></Button>
-                                            </div>
-                                        )}
+                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {!item.isfolder && <Button size="icon" variant="ghost" className="h-8 w-8 text-indigo-600 hover:bg-indigo-50" onClick={() => window.open(item.url, "_blank")}><ExternalLink className="h-4 w-4"/></Button>}
+                                            {!item.isfolder && (
+                                                <>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={() => handleRemoteUpload('streamhg', [item.url])} title="رفع سريع لـ HG"><Zap className="h-4 w-4"/></Button>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-cyan-600 hover:bg-cyan-50" onClick={() => handleRemoteUpload('doodstream', [item.url])} title="رفع سريع لـ Dood"><Database className="h-4 w-4"/></Button>
+                                                </>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                </ScrollArea>
-            </div>
+                </div>
+            </Card>
 
-            {/* SYNC & MANAGEMENT DASHBOARD */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* ---------------- STREAM HG CARD ---------------- */}
-                <Card className="border-orange-500/20 shadow-2xl overflow-hidden flex flex-col min-h-[500px]">
-                    <CardHeader className="py-4 bg-gradient-to-r from-orange-600 to-orange-400 text-white flex flex-row items-center justify-between shadow-lg">
-                        <CardTitle className="text-lg font-black italic tracking-tighter flex items-center gap-2"><Zap className="h-5 w-5 fill-white" /> STREAM-HG MANAGER</CardTitle>
-                        <Badge variant="outline" className="text-white border-white/50 bg-white/10">{hgQueue.length} Pending</Badge>
-                    </CardHeader>
-                    <Tabs defaultValue="queue" className="flex-1 flex flex-col">
-                        <TabsList className="grid grid-cols-3 rounded-none bg-orange-500/10 h-12 p-1 border-b">
-                            <TabsTrigger value="queue" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white gap-2 font-bold"><List className="h-4 w-4"/> المزامنة</TabsTrigger>
-                            <TabsTrigger value="browser" onClick={() => fetchHostingBrowser('hg')} className="data-[state=active]:bg-orange-600 data-[state=active]:text-white gap-2 font-bold"><LayoutGrid className="h-4 w-4"/> متصفح API</TabsTrigger>
-                            <TabsTrigger value="manual" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white gap-2 font-bold"><Link className="h-4 w-4"/> رفع يدوي</TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="queue" className="flex-1 m-0 p-0">
-                            <ScrollArea className="h-[350px]">
-                                <Table>
-                                    <TableBody>
-                                        {hgQueue.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic">قائمة الانتظار فارغة...</TableCell></TableRow> :
-                                        hgQueue.map((item, i) => (
-                                            <TableRow key={i} className="group hover:bg-orange-50/30">
-                                                <TableCell className="text-[11px] font-bold max-w-[200px] truncate pl-4">{item.filename}</TableCell>
-                                                <TableCell className="font-mono text-orange-600 text-[10px]">{item.code}</TableCell>
-                                                <TableCell className="text-right pr-4">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-50" onClick={() => setHgQueue(hgQueue.filter((_, idx)=>idx!==i))}><Trash2 className="h-3 w-3"/></Button>
-                                                </TableCell>
+
+                {/* HOSTING MANAGERS SECTION */}
+                <div className="flex flex-col gap-8 items-start">
+                    {/* DOOD-STREAM Card (Now on Top and Full Width) */}
+                    <Card className="w-full border-none shadow-2xl bg-white overflow-hidden ring-1 ring-slate-200">
+                        <CardHeader className="bg-slate-50 border-b border-slate-200 flex flex-row items-center justify-between py-4">
+                            <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2"><Database className="h-5 w-5 text-cyan-600" /> DOOD-STREAM MANAGER</CardTitle>
+                            <Badge variant="outline" className="text-slate-700 border-slate-300 bg-slate-100">{doodQueue.length} Pending</Badge>
+                        </CardHeader>
+                        <Tabs defaultValue="queue" className="flex-1 flex flex-col" onValueChange={(v) => v === 'browser' && fetchHostingBrowser('dood')}>
+                            <TabsList className="grid grid-cols-3 rounded-none bg-slate-100 h-12 p-1 border-b border-slate-200">
+                                <TabsTrigger value="queue" className="data-[state=active]:bg-white data-[state=active]:text-cyan-700 data-[state=active]:shadow-sm gap-2 font-bold text-slate-500"><List className="h-4 w-4"/> المزامنة</TabsTrigger>
+                                <TabsTrigger value="browser" className="data-[state=active]:bg-white data-[state=active]:text-cyan-700 data-[state=active]:shadow-sm gap-2 font-bold text-slate-500"><LayoutGrid className="h-4 w-4"/> متصفح API</TabsTrigger>
+                                <TabsTrigger value="manual" className="data-[state=active]:bg-white data-[state=active]:text-cyan-700 data-[state=active]:shadow-sm gap-2 font-bold text-slate-500"><Link className="h-4 w-4"/> رفع يدوي</TabsTrigger>
+                            </TabsList>
+                            
+                            <TabsContent value="queue" className="p-0 m-0">
+                                <div className="max-h-[500px] overflow-auto">
+                                    <Table>
+                                        <TableHeader className="sticky top-0 bg-slate-50 z-10 shadow-sm">
+                                            <TableRow className="border-slate-200">
+                                                <TableHead className="w-12 text-slate-900"></TableHead>
+                                                <TableHead className="text-slate-900 font-bold">الملف</TableHead>
+                                                <TableHead className="text-right text-slate-900 pr-6 font-bold">الحالة</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </ScrollArea>
-                        </TabsContent>
-
-                        <TabsContent value="browser" className="flex-1 m-0 p-0">
-                            <div className="p-2 border-b bg-muted/5 flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" className="h-8 text-[10px] rounded-lg" onClick={() => fetchHostingBrowser('hg', '0')}><ArrowLeft className="h-3 w-3 mr-1"/> Root</Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600" onClick={() => fetchHostingBrowser('hg')} disabled={hgLoading}><RefreshCw className={`h-3 w-3 ${hgLoading? "animate-spin":""}`}/></Button>
-                                    <div className="h-4 w-[1px] bg-border mx-1" />
-                                    <Button size="sm" className="h-8 text-[11px] bg-orange-600 text-white font-bold gap-2 shadow-lg shadow-orange-600/20 rounded-lg" onClick={() => addToSyncQueue('hg')}><Plus className="h-4 w-4" /> إضافة للمزامنة</Button>
-                                    <Button size="sm" variant="ghost" className="h-8 text-[11px] text-red-600 font-bold" onClick={() => deleteHostingFiles('hg', [])}><Trash2 className="h-3 w-3 mr-1"/> حذف المختار</Button>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {doodQueue.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400 italic">قائمة الانتظار فارغة</TableCell></TableRow> :
+                                            doodQueue.map((item, i) => (
+                                                <TableRow key={i} className="border-slate-100 hover:bg-slate-50">
+                                                    <TableCell className="pl-6"><FileVideo className="h-4 w-4 text-cyan-600" /></TableCell>
+                                                    <TableCell className="text-slate-900 font-medium py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-sm break-words">{item.filename}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                         <Badge className="bg-green-100 text-green-700 border-green-200">جاهز</Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
-                                <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1 text-orange-600 border-orange-200 rounded-lg hover:bg-orange-50" onClick={() => setShowFolderDialog('hg')}><FolderPlus className="h-3 w-3"/> مجلد جديد</Button>
-                            </div>
-                            <ScrollArea className="h-[350px]">
-                                 <Table>
-                                    <TableHeader className="bg-muted/30 sticky top-0 z-10">
-                                        <TableRow className="h-8">
-                                            <TableHead className="w-[30px] pl-6"><input type="checkbox" className="rounded" onChange={(e)=>{
-                                                const res:Record<string,boolean> = {};
-                                                hgBrowserFiles.filter(f=>!f.is_folder).forEach(f=> res[f.file_code] = e.target.checked);
-                                                setHgSelected(res);
-                                            }}/></TableHead>
-                                            <TableHead className="text-[10px] font-bold uppercase tracking-wider">الملف / المجلد</TableHead>
-                                            <TableHead className="text-right text-[10px] pr-6 font-bold uppercase tracking-wider">إجـراءات</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {hgLoading ? <TableRow><TableCell colSpan={3} className="text-center py-24 text-muted-foreground"><RefreshCw className="h-10 w-10 animate-spin mx-auto mb-2 opacity-20"/> جاري الجلب...</TableCell></TableRow> :
-                                        (!Array.isArray(hgBrowserFiles) || hgBrowserFiles.length === 0) ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic">لا توجد ملفات حالياً</TableCell></TableRow> :
-                                        hgBrowserFiles.map((file, i) => (
-                                            <TableRow key={i} className="group h-10 hover:bg-orange-50/20 transition-all">
-                                                <TableCell className="pl-6">{!file.is_folder && <input type="checkbox" className="rounded h-4 w-4" checked={!!hgSelected[file.file_code]} onChange={()=>setHgSelected(p=>({...p, [file.file_code]: !p[file.file_code]}))}/>}</TableCell>
-                                                <TableCell className={file.is_folder ? "text-[11px] font-black text-orange-700 cursor-pointer hover:underline" : "text-[11px] font-medium"} 
-                                                           onClick={() => file.is_folder && fetchHostingBrowser('hg', file.fld_id)}>
-                                                    <div className="flex items-center gap-3 truncate max-w-[200px]">
-                                                        {file.is_folder ? <Folder className="h-4 w-4 fill-orange-500 text-orange-500"/> : <FileIcon className="h-4 w-4 text-orange-200"/>}
-                                                        {file.title}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-6">
-                                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => setEditItem({code: file.file_code, name: file.title, type: 'hg'})}><Pencil className="h-4 w-4"/></Button>
-                                                        {!file.is_folder && <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => deleteHostingFiles('hg', [file.file_code])}><Trash2 className="h-4 w-4"/></Button>}
-                                                        {!file.is_folder && <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:bg-orange-50 font-bold" onClick={() => setHgQueue([...hgQueue, { filename: file.title, code: file.file_code, pcloud_url: "" }])}><Plus className="h-4 w-4"/></Button>}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                 </Table>
-                            </ScrollArea>
-                        </TabsContent>
+                            </TabsContent>
 
-                        <TabsContent value="manual" className="flex-1 p-6 space-y-4">
-                            <label className="text-xs font-black text-orange-600 flex items-center gap-2"><Link className="h-4 w-4" /> روابط مباشـرة من pCloud</label>
-                            <Textarea placeholder="انسخ الروابط هنا (رابط واحد في كل سطر)..." className="min-h-[220px] font-mono text-[11px] rounded-xl border-orange-100" value={hgManualLinks} onChange={e => setHgManualLinks(e.target.value)} />
-                            <Button className="w-full bg-orange-600 hover:bg-orange-700 h-12 font-black text-lg shadow-xl shadow-orange-600/30 rounded-xl transition-all hover:scale-[1.01]" onClick={() => handleRemoteUpload('streamhg', hgManualLinks.split('\n').filter(l => l.trim()))}>بدء الرفــــع الآن</Button>
-                        </TabsContent>
-                    </Tabs>
-                </Card>
-
-                {/* ---------------- DOOD STREAM CARD ---------------- */}
-                <Card className="border-cyan-500/20 shadow-2xl overflow-hidden flex flex-col min-h-[500px]">
-                    <CardHeader className="py-4 bg-gradient-to-r from-cyan-600 to-cyan-400 text-white flex flex-row items-center justify-between shadow-lg">
-                        <CardTitle className="text-lg font-black italic tracking-tighter flex items-center gap-2"><Database className="h-5 w-5 fill-white" /> DOOD-STREAM MANAGER</CardTitle>
-                        <Badge variant="outline" className="text-white border-white/50 bg-white/10">{doodQueue.length} Pending</Badge>
-                    </CardHeader>
-                    <Tabs defaultValue="queue" className="flex-1 flex flex-col">
-                        <TabsList className="grid grid-cols-3 rounded-none bg-cyan-500/10 h-12 p-1 border-b">
-                            <TabsTrigger value="queue" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white gap-2 font-bold"><List className="h-4 w-4"/> المزامنة</TabsTrigger>
-                            <TabsTrigger value="browser" onClick={() => fetchHostingBrowser('dood')} className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white gap-2 font-bold"><LayoutGrid className="h-4 w-4"/> متصفح API</TabsTrigger>
-                            <TabsTrigger value="manual" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white gap-2 font-bold"><Link className="h-4 w-4"/> رفع يدوي</TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="queue" className="flex-1 m-0 p-0">
-                            <ScrollArea className="h-[350px]">
-                                <Table>
-                                    <TableBody>
-                                        {doodQueue.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic">قائمة الانتظار فارغة...</TableCell></TableRow> :
-                                        doodQueue.map((item, i) => (
-                                            <TableRow key={i} className="group hover:bg-cyan-50/30">
-                                                <TableCell className="text-[11px] font-bold max-w-[200px] truncate pl-4">{item.filename}</TableCell>
-                                                <TableCell className="font-mono text-cyan-600 text-[10px]">{item.code}</TableCell>
-                                                <TableCell className="text-right pr-4">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-50" onClick={() => setDoodQueue(doodQueue.filter((_, idx)=>idx!==i))}><Trash2 className="h-3 w-3"/></Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </ScrollArea>
-                        </TabsContent>
-
-                        <TabsContent value="browser" className="flex-1 m-0 p-0">
-                             <div className="p-2 border-b bg-muted/5 flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" className="h-8 text-[10px] rounded-lg" onClick={() => fetchHostingBrowser('dood', '0')}><ArrowLeft className="h-3 w-3 mr-1"/> Root</Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-cyan-600" onClick={() => fetchHostingBrowser('dood')} disabled={doodLoading}><RefreshCw className={`h-3 w-3 ${doodLoading? "animate-spin":""}`}/></Button>
-                                    <div className="h-4 w-[1px] bg-border mx-1" />
-                                    <Button size="sm" className="h-8 text-[11px] bg-cyan-600 text-white font-bold gap-2 shadow-lg shadow-cyan-600/20 rounded-lg" onClick={() => addToSyncQueue('dood')}><Plus className="h-4 w-4" /> إضافة للمزامنة</Button>
-                                    <Button size="sm" variant="ghost" className="h-8 text-[11px] text-red-600 font-bold" onClick={() => deleteHostingFiles('dood', [])}><Trash2 className="h-3 w-3 mr-1"/> حذف المختار</Button>
+                            <TabsContent value="browser" className="p-0 m-0">
+                                <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <Select value={selectedDoodIdx} onValueChange={setSelectedDoodIdx}>
+                                            <SelectTrigger className="w-[200px] bg-white border-slate-300 text-slate-900">
+                                                <SelectValue placeholder="اختر حساب Dood" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white border-slate-200 text-slate-900">
+                                                {doodAccounts.map((acc, idx) => (
+                                                    <SelectItem key={idx} value={idx.toString()}>{acc.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button size="icon" variant="outline" className="border-slate-300 hover:bg-white text-slate-700" onClick={() => fetchHostingBrowser('dood')}><RefreshCw className={`h-4 w-4 ${doodLoading ? 'animate-spin' : ''}`} /></Button>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Button size="sm" variant="outline" className="border-cyan-600 text-cyan-700 hover:bg-cyan-50 font-bold" onClick={() => handleSequentialLinkAssign('doodstream')}>تضمين الروابط المحددة</Button>
+                                        <Button size="sm" variant="outline" className="border-cyan-600 text-cyan-700 hover:bg-cyan-50 font-bold" onClick={() => addToSyncQueue('dood')}>إضافة للمزامنة</Button>
+                                        <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white gap-2 font-bold" onClick={() => setShowFolderDialog('dood')}><Plus className="h-4 w-4"/> مجلد جديد</Button>
+                                    </div>
                                 </div>
-                                <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1 text-cyan-600 border-cyan-200 rounded-lg hover:bg-cyan-50" onClick={() => setShowFolderDialog('dood')}><FolderPlus className="h-3 w-3"/> مجلد جديد</Button>
-                            </div>
-                            <ScrollArea className="h-[350px]">
-                                 <Table>
-                                    <TableHeader className="bg-muted/30 sticky top-0 z-10">
-                                        <TableRow className="h-8">
-                                            <TableHead className="w-[30px] pl-6"><input type="checkbox" className="rounded" onChange={(e)=>{
-                                                const res:Record<string,boolean> = {};
-                                                doodBrowserFiles.filter(f=>!f.is_folder).forEach(f=> res[f.file_code] = e.target.checked);
-                                                setDoodSelected(res);
-                                            }}/></TableHead>
-                                            <TableHead className="text-[10px] font-bold uppercase tracking-wider">الملف / المجلد</TableHead>
-                                            <TableHead className="text-right text-[10px] pr-6 font-bold uppercase tracking-wider">إجـراءات</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {doodLoading ? <TableRow><TableCell colSpan={3} className="text-center py-24 text-muted-foreground"><RefreshCw className="h-10 w-10 animate-spin mx-auto mb-2 opacity-20"/> جاري الجلب...</TableCell></TableRow> :
-                                        (!Array.isArray(doodBrowserFiles) || doodBrowserFiles.length === 0) ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic">لا توجد ملفات حالياً</TableCell></TableRow> :
-                                        doodBrowserFiles.map((file, i) => (
-                                            <TableRow key={i} className="group h-10 hover:bg-cyan-50/20 transition-all">
-                                                <TableCell className="pl-6">{!file.is_folder && <input type="checkbox" className="rounded h-4 w-4" checked={!!doodSelected[file.file_code]} onChange={()=>setDoodSelected(p=>({...p, [file.file_code]: !p[file.file_code]}))}/>}</TableCell>
-                                                <TableCell className={file.is_folder ? "text-[11px] font-black text-cyan-700 cursor-pointer hover:underline" : "text-[11px] font-medium"} 
-                                                           onClick={() => file.is_folder && fetchHostingBrowser('dood', file.fld_id)}>
-                                                    <div className="flex items-center gap-3 truncate max-w-[200px]">
-                                                        {file.is_folder ? <Folder className="h-4 w-4 fill-cyan-500 text-cyan-500"/> : <FileIcon className="h-4 w-4 text-cyan-200"/>}
-                                                        {file.title}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-6">
-                                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => setEditItem({code: file.file_code, name: file.title, type: 'dood'})}><Pencil className="h-4 w-4"/></Button>
-                                                        {!file.is_folder && <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => deleteHostingFiles('dood', [file.file_code])}><Trash2 className="h-4 w-4"/></Button>}
-                                                        {!file.is_folder && <Button variant="ghost" size="icon" className="h-8 w-8 text-cyan-600 hover:bg-cyan-50 font-bold" onClick={() => setDoodQueue([...doodQueue, { filename: file.title, code: file.file_code, pcloud_url: "" }])}><Plus className="h-4 w-4"/></Button>}
-                                                    </div>
-                                                </TableCell>
+                                <div className="max-h-[500px] overflow-auto min-h-[300px]">
+                                    <Table>
+                                        <TableHeader className="sticky top-0 bg-slate-50 z-10">
+                                            <TableRow className="border-slate-200">
+                                                <TableHead className="w-12">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="rounded border-slate-300 h-4 w-4"
+                                                        onChange={(e) => {
+                                                            const res: Record<string, boolean> = {};
+                                                            doodBrowserFiles.filter(f => !f.is_folder).forEach(f => res[f.file_code] = e.target.checked);
+                                                            setDoodSelected(res);
+                                                        }}
+                                                    />
+                                                </TableHead>
+                                                <TableHead className="text-slate-900 font-bold">الاسم</TableHead>
+                                                <TableHead className="text-right text-slate-900 pr-6 font-bold">خيارات</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                 </Table>
-                            </ScrollArea>
-                        </TabsContent>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {doodLoading && doodBrowserFiles.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400"><RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2 opacity-20"/> جاري جلب الملفات...</TableCell></TableRow> :
+                                            doodBrowserFiles.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400 italic">لا يوجد ملفات</TableCell></TableRow> :
+                                            doodBrowserFiles.map((file, i) => (
+                                                <TableRow key={i} className="border-slate-100 hover:bg-slate-50 group">
+                                                    <TableCell className="pl-6">{!file.is_folder && <input type="checkbox" className="rounded border-slate-300 h-4 w-4" checked={!!doodSelected[file.file_code]} onChange={() => setDoodSelected(p => ({...p, [file.file_code]: !p[file.file_code]}))}/>}</TableCell>
+                                                    <TableCell 
+                                                        className={`py-4 transition-colors ${file.is_folder ? 'cursor-pointer text-cyan-600 font-bold hover:text-cyan-700' : 'text-slate-700'}`}
+                                                        onClick={() => file.is_folder && fetchHostingBrowser('dood', file.fld_id)}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            {file.is_folder ? <Folder className="h-4 w-4 text-cyan-500 fill-cyan-100" /> : <FileIcon className="h-4 w-4 text-slate-300" />}
+                                                            <span className="text-[14px] font-bold break-words">{file.title}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100" onClick={() => setEditItem({code: file.file_code, name: file.title, type: 'dood'})}><Pencil className="h-3 w-3"/></Button>
+                                                            {!file.is_folder && <Button size="icon" variant="ghost" className="h-8 w-8 text-cyan-600 hover:bg-cyan-50" onClick={() => setDoodQueue([...doodQueue, { filename: file.title, code: file.file_code, pcloud_url: "" }])}><Plus className="h-4 w-4"/></Button>}
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => deleteHostingFiles('dood', [file.file_code])}><Trash2 className="h-3 w-3"/></Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </TabsContent>
 
-                        <TabsContent value="manual" className="flex-1 p-6 space-y-4">
-                             <label className="text-xs font-black text-cyan-600 flex items-center gap-2"><Link className="h-4 w-4" /> روابط مباشـرة من pCloud</label>
-                             <Textarea placeholder="انسخ الروابط هنا (رابط واحد في كل سطر)..." className="min-h-[220px] font-mono text-[11px] rounded-xl border-cyan-100" value={doodManualLinks} onChange={e => setDoodManualLinks(e.target.value)} />
-                             <Button className="w-full bg-cyan-600 hover:bg-cyan-700 h-12 font-black text-lg shadow-xl shadow-cyan-600/30 rounded-xl transition-all hover:scale-[1.01]" onClick={() => handleRemoteUpload('doodstream', doodManualLinks.split('\n').filter(l => l.trim()))}>بدء الرفــــع الآن</Button>
-                        </TabsContent>
-                    </Tabs>
-                </Card>
+                            <TabsContent value="manual" className="p-8">
+                                <div className="space-y-4">
+                                    <Textarea placeholder="روابط pCloud..." className="bg-slate-950 border-white/10" value={doodManualLinks} onChange={e => setDoodManualLinks(e.target.value)} />
+                                    <Button className="w-full bg-cyan-600" onClick={() => handleRemoteUpload('doodstream', doodManualLinks.split('\n'))}>بدء الرفع</Button>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </Card>
+
+                    {/* STREAM-HG Card (Now below DoodStream) */}
+                    <Card className="w-full border-none shadow-2xl bg-white overflow-hidden ring-1 ring-slate-200">
+                        <CardHeader className="bg-slate-50 border-b border-slate-200 flex flex-row items-center justify-between py-4">
+                            <CardTitle className="text-lg font-black text-slate-900 flex items-center gap-2"><Zap className="h-5 w-5 text-orange-600" /> STREAM-HG MANAGER</CardTitle>
+                            <Badge variant="outline" className="text-slate-700 border-slate-300 bg-slate-100">{hgQueue.length} Pending</Badge>
+                        </CardHeader>
+                        <Tabs defaultValue="queue" className="flex-1 flex flex-col" onValueChange={(v) => v === 'browser' && fetchHostingBrowser('hg')}>
+                            <TabsList className="grid grid-cols-3 rounded-none bg-slate-100 h-12 p-1 border-b border-slate-200">
+                                <TabsTrigger value="queue" className="data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm gap-2 font-bold text-slate-500"><List className="h-4 w-4"/> المزامنة</TabsTrigger>
+                                <TabsTrigger value="browser" className="data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm gap-2 font-bold text-slate-500"><LayoutGrid className="h-4 w-4"/> متصفح API</TabsTrigger>
+                                <TabsTrigger value="manual" className="data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm gap-2 font-bold text-slate-500"><Link className="h-4 w-4"/> رفع يدوي</TabsTrigger>
+                            </TabsList>
+                            
+                            <TabsContent value="queue" className="p-0 m-0">
+                                <div className="max-h-[500px] overflow-auto">
+                                    <Table>
+                                        <TableHeader className="sticky top-0 bg-slate-50 z-10 shadow-sm">
+                                            <TableRow className="border-slate-200">
+                                                <TableHead className="w-12 text-slate-900"></TableHead>
+                                                <TableHead className="text-slate-900 font-bold">الملف</TableHead>
+                                                <TableHead className="text-right text-slate-900 pr-6 font-bold">الحالة</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {hgQueue.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400 italic">قائمة الانتظار فارغة</TableCell></TableRow> :
+                                            hgQueue.map((item, i) => (
+                                                <TableRow key={i} className="border-slate-100 hover:bg-slate-50">
+                                                    <TableCell className="pl-6"><Zap className="h-4 w-4 text-orange-600" /></TableCell>
+                                                    <TableCell className="text-slate-900 font-medium py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-sm break-words">{item.filename}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                         <Badge className="bg-green-100 text-green-700 border-green-200">جاهز</Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="browser" className="p-0 m-0">
+                                <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <Select value={selectedHgIdx} onValueChange={setSelectedHgIdx}>
+                                            <SelectTrigger className="w-[200px] bg-white border-slate-300 text-slate-900">
+                                                <SelectValue placeholder="اختر حساب HG" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white border-slate-200 text-slate-900">
+                                                {hgAccounts.map((acc, idx) => (
+                                                    <SelectItem key={idx} value={idx.toString()}>{acc.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button size="icon" variant="outline" className="border-slate-300 hover:bg-white text-slate-700" onClick={() => fetchHostingBrowser('hg')}><RefreshCw className={`h-4 w-4 ${hgLoading ? 'animate-spin' : ''}`} /></Button>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Button size="sm" variant="outline" className="border-orange-600 text-orange-700 hover:bg-orange-50 font-bold" onClick={() => handleSequentialLinkAssign('streamhg')}>تضمين الروابط المحددة</Button>
+                                        <Button size="sm" variant="outline" className="border-orange-600 text-orange-700 hover:bg-orange-50 font-bold" onClick={() => addToSyncQueue('hg')}>إضافة للمزامنة</Button>
+                                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white gap-2 font-bold" onClick={() => setShowFolderDialog('hg')}><Plus className="h-4 w-4"/> مجلد جديد</Button>
+                                    </div>
+                                </div>
+                                <div className="max-h-[500px] overflow-auto min-h-[300px]">
+                                    <Table>
+                                        <TableHeader className="sticky top-0 bg-slate-50 z-10">
+                                            <TableRow className="border-slate-200">
+                                                <TableHead className="w-12">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="rounded border-slate-300 h-4 w-4"
+                                                        onChange={(e) => {
+                                                            const res: Record<string, boolean> = {};
+                                                            hgBrowserFiles.filter(f => !f.is_folder).forEach(f => res[f.file_code] = e.target.checked);
+                                                            setHgSelected(res);
+                                                        }}
+                                                    />
+                                                </TableHead>
+                                                <TableHead className="text-slate-900 font-bold">الاسم</TableHead>
+                                                <TableHead className="text-right text-slate-900 pr-6 font-bold">خيارات</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {hgLoading && hgBrowserFiles.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400"><RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2 opacity-20"/> جاري جلب الملفات...</TableCell></TableRow> :
+                                            hgBrowserFiles.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-20 text-slate-400 italic">لا يوجد ملفات</TableCell></TableRow> :
+                                            hgBrowserFiles.map((file, i) => (
+                                                <TableRow key={i} className="border-slate-100 hover:bg-slate-50 group">
+                                                    <TableCell className="pl-6">{!file.is_folder && <input type="checkbox" className="rounded border-slate-300 h-4 w-4" checked={!!hgSelected[file.file_code]} onChange={() => setHgSelected(p => ({...p, [file.file_code]: !p[file.file_code]}))}/>}</TableCell>
+                                                    <TableCell 
+                                                        className={`py-4 transition-colors ${file.is_folder ? 'cursor-pointer text-orange-600 font-bold hover:text-orange-700' : 'text-slate-700'}`}
+                                                        onClick={() => file.is_folder && fetchHostingBrowser('hg', file.fld_id)}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            {file.is_folder ? <Folder className="h-4 w-4 text-orange-500 fill-orange-100" /> : <FileIcon className="h-4 w-4 text-slate-300" />}
+                                                            <span className="text-[14px] font-bold break-words">{file.title}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6">
+                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-slate-900 hover:bg-slate-100" onClick={() => setEditItem({code: file.file_code, name: file.title, type: 'hg'})}><Pencil className="h-3 w-3"/></Button>
+                                                            {!file.is_folder && <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={() => setHgQueue([...hgQueue, { filename: file.title, code: file.file_code, pcloud_url: "" }])}><Plus className="h-4 w-4"/></Button>}
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => deleteHostingFiles('hg', [file.file_code])}><Trash2 className="h-3 w-3"/></Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="manual" className="p-8">
+                                <div className="space-y-4">
+                                    <Textarea placeholder="روابط pCloud..." className="bg-slate-950 border-white/10" value={hgManualLinks} onChange={e => setHgManualLinks(e.target.value)} />
+                                    <Button className="w-full bg-orange-600" onClick={() => handleRemoteUpload('streamhg', hgManualLinks.split('\n'))}>بدء الرفع</Button>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </Card>
+                </div>
+
+
 
                 {/* ---------------- MASTER SYNC CONTROL ---------------- */}
                 <div className="lg:col-span-2 bg-gradient-to-br from-indigo-700 to-indigo-950 rounded-3xl p-8 shadow-2xl relative border border-white/10 overflow-hidden">
@@ -685,7 +823,6 @@ export default function PCloudBrowserPage() {
                         </div>
                     </div>
                 </div>
-            </div>
 
             {/* Anime Selection Dialog */}
             <Dialog open={isAnimeModalOpen} onOpenChange={setIsAnimeModalOpen}>

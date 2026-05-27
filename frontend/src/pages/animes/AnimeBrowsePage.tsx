@@ -8,7 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import SpinnerImage from "@/components/ui/SpinnerImage";
 import CentralSpinner from "@/components/ui/CentralSpinner";
-import { SocialNavSidebar } from "@/components/social/SocialNavSidebar";
+import { DashboardSidebar } from "@/components/social/DashboardSidebar";
 import { NewsTicker } from "@/components/common/NewsTicker";
 import Footer from "@/components/common/Footer";
 import { renderEmojiContent } from "@/utils/render-content";
@@ -57,11 +57,13 @@ export default function AnimeBrowsePage() {
 
 
             <div className="w-full min-h-screen">
-                <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-visible min-h-screen">
-                    {/* Left Sidebar */}
-                    <div className="hidden lg:block sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-white dark:bg-black z-30 border-r border-gray-100 dark:border-[#333]/50">
-                        <SocialNavSidebar />
-                    </div>
+                <div className="flex flex-col lg:flex-row overflow-visible min-h-screen">
+                    {/* Left Sidebar - Dashboard Style */}
+                    <aside className="hidden lg:block w-64 flex-shrink-0 border-l border-gray-100 dark:border-white/10 bg-white dark:bg-black">
+                        <div className="sticky top-[60px] h-[calc(100vh-60px)] shadow-sm">
+                            <DashboardSidebar />
+                        </div>
+                    </aside>
 
                     <div className="min-w-0 w-full px-1.5 sm:px-6 md:px-8 pt-0 pb-8 lg:pt-0">
                         {/* Navigation Buttons - Centered on desktop, Swipable on mobile */}

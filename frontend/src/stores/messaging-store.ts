@@ -9,13 +9,15 @@ interface User {
 interface MessagingState {
     isOpen: boolean;
     selectedUser: User | null;
-    openMessagingModal: (user?: User | null) => void;
+    initialMessage: string | null;
+    openMessagingModal: (user?: User | null, initialMessage?: string | null) => void;
     closeMessagingModal: () => void;
 }
 
 export const useMessagingStore = create<MessagingState>((set) => ({
     isOpen: false,
     selectedUser: null,
-    openMessagingModal: (user = null) => set({ isOpen: true, selectedUser: user }),
-    closeMessagingModal: () => set({ isOpen: false, selectedUser: null }),
+    initialMessage: null,
+    openMessagingModal: (user = null, initialMessage = null) => set({ isOpen: true, selectedUser: user, initialMessage: initialMessage }),
+    closeMessagingModal: () => set({ isOpen: false, selectedUser: null, initialMessage: null }),
 }));

@@ -47,8 +47,9 @@ func NewCommentHandler(repo *repository.CommentRepository, notifRepo *repository
 func (h *CommentHandler) Create(c *gin.Context) {
 	var input struct {
 		Content       string `json:"content" binding:"required"`
-		EpisodeID     uint   `json:"episode_id"` // Optional if passing via param
-		ChapterID     uint   `json:"chapter_id"` // Optional if passing via param
+		EpisodeID     uint   `json:"episode_id"`
+		ChapterID     uint   `json:"chapter_id"`
+		AnimeID       uint   `json:"anime_id"`
 		ParentID      *uint  `json:"parent_id"`
 		MentionUserID *uint  `json:"mention_user_id"`
 	}
@@ -68,6 +69,8 @@ func (h *CommentHandler) Create(c *gin.Context) {
 			input.EpisodeID = uint(id)
 		} else if strings.Contains(c.Request.URL.Path, "chapters") {
 			input.ChapterID = uint(id)
+		} else if strings.Contains(c.Request.URL.Path, "animes") {
+			input.AnimeID = uint(id)
 		}
 	}
 
@@ -89,6 +92,9 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	}
 	if input.ChapterID != 0 {
 		comment.ChapterID = &input.ChapterID
+	}
+	if input.AnimeID != 0 {
+		comment.AnimeID = &input.AnimeID
 	}
 
 	if err := h.repo.Create(&comment); err != nil {
@@ -127,6 +133,12 @@ func (h *CommentHandler) Create(c *gin.Context) {
 				contextID = *parent.ChapterID
 				contextNum = float64(chNum)
 				contextThumb = parent.Chapter.Anime.Image
+			} else if parent.AnimeID != nil {
+				animeTitle = parent.Anime.Title
+				animeImage = parent.Anime.Image
+				animeID = *parent.AnimeID
+				contextID = *parent.AnimeID
+				contextThumb = parent.Anime.Image
 			}
 
 			dataPayload := gin.H{
@@ -140,11 +152,20 @@ func (h *CommentHandler) Create(c *gin.Context) {
 				"anime_id":        animeID,
 				"anime_title":     animeTitle,
 				"anime_image":     animeImage,
-				"episode_id":      contextID, // Reuse episode_id key for front-end compatibility or use context keys
-				"chapter_id":      parent.ChapterID,
-				"episode_number":  contextNum,
-				"episode_image":   contextThumb,
 				"is_reply_to_reply": parent.ParentID != nil && *parent.ParentID != 0,
+			}
+
+			if parent.EpisodeID != 0 {
+				dataPayload["episode_id"] = contextID
+				dataPayload["episode_number"] = contextNum
+				dataPayload["episode_image"] = contextThumb
+			} else if parent.ChapterID != nil {
+				dataPayload["chapter_id"] = *parent.ChapterID
+				dataPayload["chapter_number"] = contextNum
+				dataPayload["chapter_image"] = contextThumb
+			} else {
+				// Series comment
+				dataPayload["anime_image"] = contextThumb
 			}
 			if parent.Parent != nil && parent.Parent.User != nil {
 				dataPayload["parent_target_name"] = parent.Parent.User.Name
@@ -201,6 +222,8 @@ func (h *CommentHandler) Create(c *gin.Context) {
 			contextID = comment.EpisodeID
 		} else if comment.ChapterID != nil {
 			contextID = *comment.ChapterID
+		} else if comment.AnimeID != nil {
+			contextID = *comment.AnimeID
 		}
 		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "replied_to_user": "` + escapeJSON(repliedToUser) + `", "id": ` + strconv.Itoa(int(contextID)) + `}`
 		go h.historyService.TrackWithMetadata(userID, domain.ActivityReply, &contextID, nil, &comment.ID, metadata, "")
@@ -210,6 +233,8 @@ func (h *CommentHandler) Create(c *gin.Context) {
 			contextID = comment.EpisodeID
 		} else if comment.ChapterID != nil {
 			contextID = *comment.ChapterID
+		} else if comment.AnimeID != nil {
+			contextID = *comment.AnimeID
 		}
 		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "id": ` + strconv.Itoa(int(contextID)) + `}`
 		go h.historyService.TrackWithMetadata(userID, domain.ActivityComment, &contextID, nil, &comment.ID, metadata, "")
@@ -221,6 +246,8 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		topic = "episode:" + strconv.Itoa(int(comment.EpisodeID))
 	} else if comment.ChapterID != nil {
 		topic = "chapter:" + strconv.Itoa(int(*comment.ChapterID))
+	} else if comment.AnimeID != nil {
+		topic = "anime:" + strconv.Itoa(int(*comment.AnimeID))
 	}
 	h.hub.BroadcastToTopic(topic, gin.H{
 		"type": "comment",
@@ -337,6 +364,59 @@ func (h *CommentHandler) GetAllByChapter(c *gin.Context) {
 	c.JSON(http.StatusOK, comments)
 }
 
+// GetAllByAnime fetches comments for an anime (paginated)
+func (h *CommentHandler) GetAllByAnime(c *gin.Context) {
+	animeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid anime ID"})
+		return
+	}
+
+	userIDValue, _ := c.Get("user_id")
+	currentUserID, _ := userIDValue.(uint)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0"))
+
+	attachUserReactions := func(comments []domain.Comment) {
+		if currentUserID == 0 { return }
+		for i := range comments {
+			reactionType := h.repo.GetCommentLikeStatus(currentUserID, comments[i].ID)
+			if reactionType != "" {
+				comments[i].UserReaction = &reactionType
+			}
+			for j := range comments[i].Children {
+				rt := h.repo.GetCommentLikeStatus(currentUserID, comments[i].Children[j].ID)
+				if rt != "" {
+					comments[i].Children[j].UserReaction = &rt
+				}
+			}
+		}
+	}
+
+	if page > 0 {
+		if limit <= 0 { limit = 10 }
+		comments, total, err := h.repo.GetByAnimeIDPaginated(uint(animeID), page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
+			return
+		}
+		attachUserReactions(comments)
+		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+		c.JSON(http.StatusOK, comments)
+		return
+	}
+
+	comments, err := h.repo.GetByAnimeID(uint(animeID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
+		return
+	}
+	attachUserReactions(comments)
+	c.JSON(http.StatusOK, comments)
+}
+
+
 // ToggleLike handles reactions for episode/chapter comments
 func (h *CommentHandler) ToggleLike(c *gin.Context) {
 	commentID, err := strconv.Atoi(c.Param("id"))
@@ -392,6 +472,12 @@ func (h *CommentHandler) ToggleLike(c *gin.Context) {
 				contextID = *target.ChapterID
 				contextNum = float64(target.Chapter.ChapterNumber)
 				contextThumb = target.Chapter.Anime.Image
+			} else if target.AnimeID != nil {
+				animeID = *target.AnimeID
+				animeTitle = target.Anime.Title
+				animeImage = target.Anime.Image
+				contextID = *target.AnimeID
+				contextThumb = target.Anime.Image
 			}
 
 			dataPayload := gin.H{
@@ -404,11 +490,20 @@ func (h *CommentHandler) ToggleLike(c *gin.Context) {
 				"anime_id":        animeID,
 				"anime_title":     animeTitle,
 				"anime_image":     animeImage,
-				"episode_id":      contextID,
-				"chapter_id":      target.ChapterID,
-				"episode_number":  contextNum,
-				"episode_image":   contextThumb,
 				"reaction_type":   input.Type,
+			}
+
+			if target.EpisodeID != 0 {
+				dataPayload["episode_id"] = contextID
+				dataPayload["episode_number"] = contextNum
+				dataPayload["episode_image"] = contextThumb
+			} else if target.ChapterID != nil {
+				dataPayload["chapter_id"] = *target.ChapterID
+				dataPayload["chapter_number"] = contextNum
+				dataPayload["chapter_image"] = contextThumb
+			} else {
+				// Series comment
+				dataPayload["anime_image"] = contextThumb
 			}
 
 			dataJSON, _ := json.Marshal(dataPayload)
@@ -433,6 +528,8 @@ func (h *CommentHandler) ToggleLike(c *gin.Context) {
 			topic = "episode:" + strconv.Itoa(int(target.EpisodeID))
 		} else if target.ChapterID != nil {
 			topic = "chapter:" + strconv.Itoa(int(*target.ChapterID))
+		} else if target.AnimeID != nil {
+			topic = "anime:" + strconv.Itoa(int(*target.AnimeID))
 		}
 
 		h.hub.BroadcastToTopic(topic, gin.H{
@@ -598,6 +695,8 @@ func (h *CommentHandler) GetByID(c *gin.Context) {
 	var allComments []domain.Comment
 	if root.ChapterID != nil {
 		allComments, _ = h.repo.GetByChapterID(*root.ChapterID)
+	} else if root.AnimeID != nil {
+		allComments, _ = h.repo.GetByAnimeID(*root.AnimeID)
 	} else {
 		allComments, _ = h.repo.GetByEpisodeID(root.EpisodeID)
 	}

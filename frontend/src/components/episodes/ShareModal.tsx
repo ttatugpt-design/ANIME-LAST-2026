@@ -2,6 +2,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Clock, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '@/utils/image-utils';
+import { toast } from 'sonner';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 interface ShareModalProps {
     episode: any;
@@ -13,6 +15,8 @@ interface ShareModalProps {
 export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps) {
     const { i18n } = useTranslation();
     const lang = i18n.language;
+
+    useModalBackButton(isOpen, onClose);
 
     const title = (lang === 'ar' ? (episode?.title || episode?.title_en) : (episode?.title_en || episode?.title)) || `Episode ${episode?.episode_number || ''}`;
     const animeTitle = lang === 'ar' ? (anime?.title) : (anime?.title_en || anime?.title) || '';
@@ -83,9 +87,31 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
         }
     ];
 
+    const handleShareClick = (social: any) => {
+        if (social.name === 'Copy Link') {
+            navigator.clipboard.writeText(shareUrl);
+            toast.success(lang === 'ar' ? 'تم نسخ الرابط' : 'Link copied');
+            return;
+        }
+        
+        if (social.url) {
+            // Open as a classic, centered popup window. This explicitly tells the browser 
+            // it's an intended popup and usually bypasses blockers when triggered by a click.
+            const width = 600;
+            const height = 600;
+            const left = (window.innerWidth / 2) - (width / 2);
+            const top = (window.innerHeight / 2) - (height / 2);
+            window.open(
+                social.url, 
+                'share_popup', 
+                `width=${width},height=${height},top=${top},left=${left},toolbar=no,menubar=no,scrollbars=yes,location=no,status=no`
+            );
+        }
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-0 gap-0 rounded-none md:rounded-xl overflow-hidden">
+            <DialogContent className="max-w-2xl w-full h-full md:h-auto md:max-h-[90vh] bg-white dark:bg-black md:dark:bg-[#1a1a1a] border border-gray-200 dark:border-transparent md:dark:border-white/10 p-0 gap-0 rounded-none md:rounded-2xl overflow-hidden">
                 <div className="h-full md:max-h-[600px] overflow-y-auto custom-scrollbar">
                     {/* Header with Image and Title */}
                     <div className="relative h-64 w-full bg-gray-900 group shrink-0">
@@ -98,41 +124,18 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
                             }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#1a1c22] via-black/50 to-transparent p-6 flex flex-col justify-end">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 border border-purple-500/20 backdrop-blur-sm">
-                                    {lang === 'ar' ? 'أنمي' : 'ANIME'}
-                                </span>
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-green-400 bg-green-500/10 px-2 py-0.5 border border-green-500/20 backdrop-blur-sm">
-                                    {lang === 'ar' ? `حلقة ${episode.episode_number}` : `EP ${episode.episode_number}`}
-                                </span>
-                                {episode.quality && (
+                            {episode.quality && (
+                                <div className="flex items-center gap-2 mb-3">
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300 bg-white/10 px-2 py-0.5 border border-white/20 backdrop-blur-sm">
                                         {episode.quality}
                                     </span>
-                                )}
-                            </div>
+                                </div>
+                            )}
 
                             <h4 className="text-white font-black text-3xl leading-tight line-clamp-2 drop-shadow-md mb-2">{title}</h4>
 
-                            <input
-                                type="text"
-                                value={shareUrl}
-                                readOnly
-                                className="w-full bg-transparent border-0 focus:ring-0 text-sm font-medium text-gray-900 dark:text-white"
-                            />
                             <div className="flex items-center justify-between text-gray-300 text-sm font-medium opacity-90">
-                                <span className="truncate max-w-[65%] text-gray-200">{animeTitle}</span>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <span className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-sm backdrop-blur-sm border border-white/5">
-                                        <Clock className="w-3 h-3 text-white" />
-                                        {episode.duration}m
-                                    </span>
-                                    {episode.release_date && (
-                                        <span className="bg-black/40 px-2 py-1 rounded-sm backdrop-blur-sm border border-white/5">
-                                            {new Date(episode.release_date).getFullYear()}
-                                        </span>
-                                    )}
-                                </div>
+                                <span className="truncate max-w-[100%] text-gray-200">{animeTitle}</span>
                             </div>
                         </div>
                     </div>
@@ -149,20 +152,30 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
                                     <a
                                         key={social.name}
                                         href={social.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`${social.bgColor} ${social.color} text-white font-medium py-4 px-6 transition-all duration-200 flex items-center justify-center gap-3 border border-gray-200 dark:border-gray-700 group`}
+                                        target="share_popup"
+                                        onClick={() => {
+                                            const width = 600;
+                                            const height = 600;
+                                            const left = (window.innerWidth / 2) - (width / 2);
+                                            const top = (window.innerHeight / 2) - (height / 2);
+                                            window.open(
+                                                social.url, 
+                                                'share_popup', 
+                                                `width=${width},height=${height},top=${top},left=${left},toolbar=no,menubar=no,scrollbars=yes,location=no,status=no`
+                                            );
+                                        }}
+                                        className="bg-gray-100 hover:bg-gray-200 dark:bg-white dark:hover:bg-gray-200 text-black font-medium py-3 px-6 rounded-full transition-all duration-200 flex items-center justify-center gap-3 group border border-gray-200 dark:border-transparent shadow-sm"
                                     >
-                                        <span className="text-white">{social.icon}</span>
+                                        <span className="text-black">{social.icon}</span>
                                         <span className="text-base">{social.name}</span>
                                     </a>
                                 ) : (
                                     <button
                                         key={social.name}
-                                        onClick={social.onClick}
-                                        className={`${social.bgColor} ${social.color} text-white font-medium py-4 px-6 transition-all duration-200 flex items-center justify-center gap-3 border border-gray-200 dark:border-gray-700 group`}
+                                        onClick={() => handleShareClick(social)}
+                                        className="bg-gray-100 hover:bg-gray-200 dark:bg-white dark:hover:bg-gray-200 text-black font-medium py-3 px-6 rounded-full transition-all duration-200 flex items-center justify-center gap-3 group border border-gray-200 dark:border-transparent shadow-sm"
                                     >
-                                        <span className="text-white">{social.icon}</span>
+                                        <span className="text-black">{social.icon}</span>
                                         <span className="text-base">{social.name}</span>
                                     </button>
                                 )

@@ -13,6 +13,29 @@ func SeedUsers(db *gorm.DB) {
 	adminRole := domain.Role{Name: "admin"}
 	db.Where("name = ?", "admin").FirstOrCreate(&adminRole)
 
+	// Define Admin Permissions
+	adminPermissions := []domain.Permission{
+		{Key: "users.view", Description: "View Users"},
+		{Key: "users.create", Description: "Create Users"},
+		{Key: "users.update", Description: "Update Users"},
+		{Key: "users.delete", Description: "Delete Users"},
+		{Key: "roles.view", Description: "View Roles"},
+		{Key: "roles.create", Description: "Create Roles"},
+		{Key: "roles.update", Description: "Update Roles"},
+		{Key: "roles.delete", Description: "Delete Roles"},
+		{Key: "permissions.view", Description: "View Permissions"},
+		{Key: "permissions.create", Description: "Create Permissions"},
+		{Key: "permissions.update", Description: "Update Permissions"},
+		{Key: "permissions.delete", Description: "Delete Permissions"},
+	}
+
+	for _, p := range adminPermissions {
+		var existingPerm domain.Permission
+		if err := db.Where("key = ?", p.Key).FirstOrCreate(&existingPerm, p).Error; err == nil {
+			db.Model(&adminRole).Association("Permissions").Append(&existingPerm)
+		}
+	}
+
 	userRole := domain.Role{Name: "User"}
 	db.Where("name = ?", "User").FirstOrCreate(&userRole)
 

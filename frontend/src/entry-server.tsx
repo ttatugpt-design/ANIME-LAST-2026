@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import ReactDOMServer from 'react-dom/server'
 import { StaticRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -30,7 +30,9 @@ export async function render(url: string, ssrContext?: any) {
             <QueryClientProvider client={queryClient}>
                 <HelmetProvider context={helmetContext}>
                     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-                        <StaticRouterProvider router={router} context={context} />
+                        <Suspense fallback={<div />}>
+                            <StaticRouterProvider router={router} context={context} />
+                        </Suspense>
                         <Toaster />
                     </ThemeProvider>
                 </HelmetProvider>

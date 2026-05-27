@@ -26,7 +26,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
                 '--disable-software-rasterizer',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process',
+                
                 '--disable-extensions',
                 '--hide-scrollbars',
                 '--disable-blink-features=AutomationControlled'

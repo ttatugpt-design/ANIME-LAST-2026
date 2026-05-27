@@ -203,7 +203,7 @@ const scrapeEpisode = async (browser, episodeUrl) => {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process'
+                
             ] 
         });
         const discoveryPage = await browser.newPage();

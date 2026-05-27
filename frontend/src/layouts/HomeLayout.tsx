@@ -27,10 +27,7 @@ export function HomeLayout() {
             <Header />
 
             {/* Content */}
-            <main className={`flex-1 ${(location.pathname === '/' || location.pathname === `/${currentLang}` || location.pathname.includes('/animes') || location.pathname.includes('/watch/') || location.pathname.includes('/read/') || location.pathname.includes('/dmca') || location.pathname.includes('/community') || location.pathname.includes('/browse') || location.pathname.includes('/categories') || location.pathname.includes('/movies-series') || location.pathname.includes('/mangas'))
-                ? 'w-full p-0'
-                : 'container mx-auto py-8 px-4'
-                }`}>
+            <main className="flex-1 w-full p-0">
                 <Outlet />
             </main>
 

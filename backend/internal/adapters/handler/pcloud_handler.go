@@ -92,49 +92,88 @@ func (h *PCloudHandler) ProxyLogin(c *gin.Context) {
 }
 
 func (h *PCloudHandler) ProxyListPublicDrive(c *gin.Context) {
+	// Panic Recovery to catch 500 errors and log them
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[CRITICAL PANIC] pCloud Handler: %v\n", r)
+			c.AbortWithStatusJSON(500, gin.H{"error": "Server Panic", "details": fmt.Sprintf("%v", r)})
+		}
+	}()
+
 	driveUrl := c.Query("url")
 	if driveUrl == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing url"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "Missing url"})
 		return
 	}
 
+	// Clean URL: remove double slashes (except after http:)
+	driveUrl = regexp.MustCompile(`([^:])//+`).ReplaceAllString(driveUrl, "$1/")
+	fmt.Printf("[pCloud] Fetching URL: %s\n", driveUrl)
+
 	// Ensure it's a filedn.com or pcloud.com link for security
 	if !strings.Contains(driveUrl, "filedn.com") && !strings.Contains(driveUrl, "pcloud.com") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only pCloud/filedn links are allowed"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Only pCloud/filedn links are allowed"})
 		return
 	}
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", driveUrl, nil)
+	req, err := http.NewRequest("GET", driveUrl, nil)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid URL format"})
+		return
+	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36")
 	
 	resp, err := client.Do(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		fmt.Printf("[pCloud] Request Error: %v\n", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Connection failed"})
 		return
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	htmlSource := string(bodyBytes)
-
-	// The file list is actually in a JSON object inside a script tag: var directLinkData = { ... };
-	re := regexp.MustCompile(`var\s+directLinkData\s*=\s*({[\s\S]*?});`)
-	match := re.FindStringSubmatch(htmlSource)
-
-	if len(match) < 2 {
-		c.JSON(http.StatusOK, gin.H{
-			"result": 0,
-			"metadata": gin.H{
-				"contents": []interface{}{},
-			},
-		})
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("[pCloud] Bad Status: %d\n", resp.StatusCode)
+		c.AbortWithStatusJSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("pCloud returned status %d", resp.StatusCode)})
 		return
 	}
 
-	jsonStr := match[1]
-	
-	// We only need the "content" part, but we can unmarshal the whole thing or a Map
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to read pCloud response"})
+		return
+	}
+	htmlSource := string(bodyBytes)
+	fmt.Printf("[pCloud] Received HTML size: %d\n", len(htmlSource))
+
+	// Search for data using multiple patterns
+	var jsonStr string
+	patterns := []string{
+		`directLinkData\s*=\s*({[\s\S]*?});\s*(\n|$)`,       // Pattern 1: stops at };
+		`directLinkData\s*=\s*({[\s\S]*});?\s*<\/script>`,   // Pattern 2: greedy until script end
+		`"content":\s*(\[[\s\S]*?\])`,                       // Pattern 3: content array fallback
+	}
+
+	for i, pattern := range patterns {
+		re := regexp.MustCompile(pattern)
+		match := re.FindStringSubmatch(htmlSource)
+		if len(match) >= 2 {
+			if i == 2 { // Fallback pattern for content array
+				jsonStr = "{\"content\":" + match[1] + "}"
+			} else {
+				jsonStr = match[1]
+			}
+			fmt.Printf("[pCloud] Data found using pattern #%d\n", i+1)
+			break
+		}
+	}
+
+	if jsonStr == "" {
+		fmt.Println("[pCloud] Error: No data found in HTML")
+		c.JSON(http.StatusOK, gin.H{"result": 0, "metadata": gin.H{"contents": []interface{}{}}})
+		return
+	}
+
 	var data struct {
 		Content []struct {
 			Name           string `json:"name"`
@@ -145,7 +184,8 @@ func (h *PCloudHandler) ProxyListPublicDrive(c *gin.Context) {
 	}
 
 	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse drive data: " + err.Error()})
+		fmt.Printf("[pCloud] JSON Error: %v\n", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Data parsing error"})
 		return
 	}
 
@@ -176,6 +216,7 @@ func (h *PCloudHandler) ProxyListPublicDrive(c *gin.Context) {
 		})
 	}
 
+	fmt.Printf("[pCloud] Successfully parsed %d items\n", len(items))
 	c.JSON(http.StatusOK, gin.H{
 		"result": 0,
 		"metadata": gin.H{

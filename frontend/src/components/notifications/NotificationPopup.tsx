@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '@/utils/image-utils';
+import { slugify } from '@/utils/slug';
 import { X, MessageSquare, Heart, UserPlus, UserCheck, UserX } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { renderEmojiContent } from '@/utils/render-content';
@@ -83,6 +84,11 @@ export const NotificationPopup: React.FC = () => {
         }
 
         if (notification.type === 'chat_message' && notification.data.sender_id) {
+            if (window.innerWidth < 1024) {
+                navigate(`/${currentLang}/u/${user?.id}/dashboard/messages?userId=${notification.data.sender_id}`);
+                setNotification(null);
+                return;
+            }
             openMessagingModal({
                 id: notification.data.sender_id,
                 name: notification.data.sender_name || 'Someone',
@@ -120,6 +126,21 @@ export const NotificationPopup: React.FC = () => {
             }
             navigate(url);
             setNotification(null);
+            return;
+        }
+
+        // Series Comment (Anime Details Page)
+        if (animeId && episodeNum === undefined) {
+            let url = `/${currentLang}/animes/${data.anime_id || data.id}/${slugify(data.anime_title || 'anime')}`;
+            const params = new URLSearchParams();
+            if (commentId) params.set('commentId', commentId);
+            if (parentId) params.set('parentId', parentId);
+            params.set('tab', 'comments');
+            
+            url += `?${params.toString()}`;
+            navigate(url);
+            setNotification(null);
+            return;
         }
     };
 

@@ -11,6 +11,7 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import CentralSpinner from '@/components/ui/CentralSpinner';
+import { useModalBackButton } from '@/hooks/useModalBackButton';
 
 interface MobileCommentsModalProps {
     isOpen: boolean;
@@ -26,6 +27,8 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
     const { i18n } = useTranslation();
     const lang = i18n.language;
     const { user } = useAuthStore();
+
+    useModalBackButton(isOpen, onClose);
 
     interface RichTextInputHandle {
         insertEmoji: (emojiUrl: string) => void;
@@ -119,11 +122,11 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: "100%" }}
                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className="fixed inset-0 z-[9999] bg-white dark:bg-black flex flex-col overflow-hidden"
+                    className="fixed inset-0 z-[9999] bg-white dark:bg-[#1a1a1a] flex flex-col overflow-hidden"
                     dir={lang === 'ar' ? 'rtl' : 'ltr'}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between py-3 px-4 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#0a0a0a] sticky top-0 z-10 shadow-sm shrink-0">
+                    <div className="flex items-center justify-between py-3 px-4 bg-white dark:bg-[#1a1a1a] sticky top-0 z-10 shadow-sm shrink-0">
                         <div className="flex items-center gap-2">
                             <h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">
                                 {lang === 'ar' ? 'التعليقات' : 'Comments'}
@@ -160,7 +163,7 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
                     </div>
 
                     {/* Bottom Input Area */}
-                    <div className="shrink-0 p-4 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#0a0a0a] z-20 pb-safe">
+                    <div className="shrink-0 p-4 bg-white dark:bg-[#1a1a1a] z-20 pb-safe">
                         <div className="flex flex-col gap-3">
                             <div className="relative">
                                 <RichTextInput
@@ -240,7 +243,7 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
                                         <button
                                             onClick={addComment}
                                             disabled={!newComment.trim() || isPosting}
-                                            className="px-6 py-2.5 text-[14px] font-black bg-black dark:bg-white text-white dark:text-black rounded-full transition active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                                            className="px-6 py-2.5 text-[14px] font-black bg-white text-black rounded-full transition active:scale-95 disabled:opacity-50 flex items-center gap-2 border border-gray-200 dark:border-transparent"
                                         >
                                             {isPosting && <CentralSpinner size="small" />}
                                             {lang === 'ar' ? 'نشر' : 'Post'}

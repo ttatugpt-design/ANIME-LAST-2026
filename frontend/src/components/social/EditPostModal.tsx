@@ -67,14 +67,18 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, p
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
-        const updatedFiles = [...newMediaFiles, ...files];
-        setNewMediaFiles(updatedFiles);
+        const newFiles = [...newMediaFiles, ...files];
+        setNewMediaFiles(newFiles);
 
-        const updatedPreviews = updatedFiles.map(file => ({
+        const addedPreviews = files.map(file => ({
             url: URL.createObjectURL(file),
             type: file.type.startsWith('video/') ? 'video' as const : 'image' as const
         }));
-        setNewMediaPreviews(updatedPreviews);
+        setNewMediaPreviews(prev => [...prev, ...addedPreviews]);
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const removeNewMedia = (index: number) => {
@@ -105,11 +109,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({ isOpen, onClose, p
         });
 
         try {
-            const res = await api.put(`/posts/${post.id}`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            const res = await api.put(`/posts/${post.id}`, formData);
             toast.success(isAr ? 'تم تحديث المنشور بنجاح' : 'Post updated successfully');
             if (onSuccess) onSuccess(res.data);
             onClose();

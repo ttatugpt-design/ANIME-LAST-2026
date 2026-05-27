@@ -14,8 +14,20 @@ import {
     CheckCheck,
     Clock,
     Sparkles,
-    Loader2
+    Reply,
+    Edit2,
+    Trash2,
+    CornerDownRight,
+    MoreHorizontal,
+    X
 } from 'lucide-react';
+import CentralSpinner from "@/components/ui/CentralSpinner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuthStore } from '@/stores/auth-store';
 import { useSocketStore } from '@/stores/socket-store';
 import api from '@/lib/api';
@@ -25,7 +37,6 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { RichTextInput } from '@/components/comments/RichTextInput';
-import Footer from '@/components/common/Footer';
 import { customEmojis } from '@/lib/customEmojis';
 import { getImageUrl } from '@/utils/image-utils';
 
@@ -38,6 +49,17 @@ interface Message {
     created_at: string;
     sender?: User;
     receiver?: User;
+    parent_id?: number;
+    parent?: Message;
+    is_edited?: boolean;
+    reactions?: MessageReaction[];
+}
+
+interface MessageReaction {
+    id: number;
+    user_id: number;
+    user: User;
+    type: string;
 }
 
 interface User {
@@ -62,6 +84,16 @@ const ChatPage: React.FC = () => {
     const { onlineUsers, typingStatus, sendTypingStatus, sendReadReceipt } = useSocketStore();
     const [lastTypingTime, setLastTypingTime] = useState(0);
 
+    const REACTIONS = useMemo(() => [
+        { key: 'like', label: isRtl ? 'أعجبني' : 'Like', gif: getImageUrl('/uploads/تفاعل البوست/أعجبني.png') },
+        { key: 'love', label: isRtl ? 'أحببته' : 'Love', gif: getImageUrl('/uploads/تفاعل البوست/أحببتة.png') },
+        { key: 'sad', label: isRtl ? 'أحزنني' : 'Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحزنني.gif') },
+        { key: 'angry', label: isRtl ? 'أغضبني' : 'Angry', gif: getImageUrl('/uploads/تفاعل البوست/أغضبني.gif') },
+        { key: 'wow', label: isRtl ? 'واوو' : 'Wow', gif: getImageUrl('/uploads/تفاعل البوست/واوو.png') },
+        { key: 'haha', label: isRtl ? 'اضحكني' : 'Haha', gif: getImageUrl('/uploads/تفاعل البوست/اضحكني.png') },
+        { key: 'super_sad', label: isRtl ? 'أحززنني جداً' : 'So Sad', gif: getImageUrl('/uploads/تفاعل البوست/أحززنني جدا.png') },
+    ], [isRtl]);
+
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -71,6 +103,10 @@ const ChatPage: React.FC = () => {
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [friends, setFriends] = useState<User[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+    const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+    const [showReactionsFor, setShowReactionsFor] = useState<number | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -91,6 +127,38 @@ const ChatPage: React.FC = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Reaction and UI state click outside handler
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            
+            // Reaction Picker
+            if (showReactionsFor !== null) {
+                const isReactionClick = (target as HTMLElement).closest('.reaction-picker-container');
+                const isSmileButtonClick = (target as HTMLElement).closest('.smile-button-trigger');
+                if (!isReactionClick && !isSmileButtonClick) {
+                    setShowReactionsFor(null);
+                }
+            }
+
+            // Reply/Edit Bar - Close if clicking outside the input area or dropdowns
+            const isInputClick = (target as HTMLElement).closest('.chat-input-area');
+            const isMenuClick = (target as HTMLElement).closest('[role="menu"]');
+            
+            setTimeout(() => {
+                if (!isInputClick && !isMenuClick) {
+                    if (replyingTo || editingMessage) {
+                        // Only clear if clicking somewhere unrelated to chat interface
+                        // But for now let's be simple
+                    }
+                }
+            }, 0);
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showReactionsFor, replyingTo, editingMessage]);
 
     // Auto-select user from URL param
     useEffect(() => {
@@ -146,6 +214,27 @@ const ChatPage: React.FC = () => {
             console.error('Failed to fetch friends for chat', err);
         }
     };
+
+    // Handle mobile keyboard opening (visualViewport resize)
+    useEffect(() => {
+        const handleResize = () => {
+            scrollToBottom(true);
+        };
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+        } else {
+            window.addEventListener('resize', handleResize);
+        }
+
+        return () => {
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize);
+            } else {
+                window.removeEventListener('resize', handleResize);
+            }
+        };
+    }, []);
 
     // Fetch messages when user is selected
     useEffect(() => {
@@ -230,7 +319,7 @@ const ChatPage: React.FC = () => {
                 } else {
                     // This is a new conversation
                     const otherUser = newMsg.sender_id === currentUser?.id ? newMsg.receiver : newMsg.sender;
-                    if (!otherUser) return prev; // Safety: shouldn't happen if backend preloads
+                    if (!otherUser) return prev; 
 
                     updatedConv = {
                         other_user: otherUser,
@@ -243,53 +332,151 @@ const ChatPage: React.FC = () => {
         };
 
         const handleReadReceipt = (event: CustomEvent) => {
-            const { receiver_id, sender_id } = event.detail;
-
-            // Update messages list
+            const { receiver_id } = event.detail;
             if (selectedUser && selectedUser.id === receiver_id) {
-                setMessages(prev => prev.map(m =>
-                    m.sender_id === currentUser?.id ? { ...m, is_read: true } : m
-                ));
+                setMessages(prev => prev.map(m => m.sender_id === currentUser?.id ? { ...m, is_read: true } : m));
             }
-
-            // Update sidebar (conversations list) real-time
             setConversations(prev => prev.map(conv => {
                 if (conv.other_user?.id === receiver_id && conv.last_message?.sender_id === currentUser?.id) {
-                    return {
-                        ...conv,
-                        last_message: { ...conv.last_message, is_read: true }
-                    };
+                    return { ...conv, last_message: { ...conv.last_message, is_read: true } };
                 }
                 return conv;
             }));
         };
 
+        const handleMessageEdited = (event: CustomEvent) => {
+            const editedMsg = event.detail as Message;
+            if (selectedUser && (editedMsg.sender_id === selectedUser.id || editedMsg.receiver_id === selectedUser.id)) {
+                setMessages(prev => prev.map(m => m.id === editedMsg.id ? { ...m, content: editedMsg.content, is_edited: true } : m));
+            }
+        };
+
+        const handleMessageDeleted = (event: CustomEvent) => {
+            const { message_id } = event.detail;
+            setMessages(prev => prev.filter(m => m.id !== message_id));
+        };
+
+        const handleMessageReacted = (event: CustomEvent) => {
+            const updatedMsg = event.detail as Message;
+            if (selectedUser && (updatedMsg.sender_id === selectedUser.id || updatedMsg.receiver_id === selectedUser.id)) {
+                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+            }
+        };
+
+        const handleChatCleared = (event: CustomEvent) => {
+            const { user1_id, user2_id } = event.detail;
+            if (selectedUser && 
+                ((user1_id === currentUser?.id && user2_id === selectedUser.id) || 
+                 (user2_id === currentUser?.id && user1_id === selectedUser.id))) {
+                setMessages([]);
+            }
+        };
+
         window.addEventListener('app:chat_message' as any, handleNewMessage as any);
         window.addEventListener('app:read_receipt' as any, handleReadReceipt as any);
+        window.addEventListener('app:message_edited' as any, handleMessageEdited as any);
+        window.addEventListener('app:message_deleted' as any, handleMessageDeleted as any);
+        window.addEventListener('app:message_reacted' as any, handleMessageReacted as any);
+        window.addEventListener('app:chat_cleared' as any, handleChatCleared as any);
+
         return () => {
             window.removeEventListener('app:chat_message' as any, handleNewMessage as any);
             window.removeEventListener('app:read_receipt' as any, handleReadReceipt as any);
+            window.removeEventListener('app:message_edited' as any, handleMessageEdited as any);
+            window.removeEventListener('app:message_deleted' as any, handleMessageDeleted as any);
+            window.removeEventListener('app:message_reacted' as any, handleMessageReacted as any);
+            window.removeEventListener('app:chat_cleared' as any, handleChatCleared as any);
         };
-    }, [selectedUser]);
+    }, [selectedUser, currentUser]);
+
+    const handleReact = async (messageId: number, type: string) => {
+        const currentMsg = messages.find(m => m.id === messageId);
+        const existingReaction = currentMsg?.reactions?.find(r => r.user_id === currentUser?.id);
+        
+        const finalType = existingReaction?.type === type ? '' : type;
+        setShowReactionsFor(null);
+
+        // Optimistic update
+        setMessages(prev => prev.map(m => {
+            if (m.id === messageId) {
+                const otherReactions = (m.reactions || []).filter(r => r.user_id !== currentUser?.id);
+                const newReactions = finalType ? [...otherReactions, { user_id: currentUser?.id!, type: finalType }] : otherReactions;
+                return { ...m, reactions: newReactions as any };
+            }
+            return m;
+        }));
+
+        try {
+            await api.post(`/messages/${messageId}/react`, { type: finalType });
+        } catch (err) {
+            toast.error(isRtl ? 'فشل التفاعل' : 'Failed to react');
+            // Rollback optimistic update on error
+            setMessages(prev => prev.map(m => {
+                if (m.id === messageId) return currentMsg!;
+                return m;
+            }));
+        }
+    };
+
+    const handleDeleteMessage = async (messageId: number) => {
+        if (!window.confirm(isRtl ? 'هل أنت متأكد من حذف هذه الرسالة؟' : 'Are you sure you want to delete this message?')) return;
+        try {
+            await api.delete(`/messages/${messageId}`);
+        } catch (err) {
+            toast.error(isRtl ? 'فشل الحذف' : 'Failed to delete');
+        }
+    };
+
+    const handleClearChat = async () => {
+        if (!selectedUser) return;
+        if (!window.confirm(isRtl ? 'هل أنت متأكد من مسح المحادثة بالكامل؟' : 'Are you sure you want to clear the entire chat?')) return;
+        try {
+            await api.delete(`/messages/conversation/${selectedUser.id}`);
+        } catch (err) {
+            toast.error(isRtl ? 'فشل مسح المحادثة' : 'Failed to clear chat');
+        }
+    };
+
+    const startEditing = (msg: Message) => {
+        setEditingMessage(msg);
+        setInputText(msg.content);
+        setReplyingTo(null);
+        setTimeout(() => inputRef.current?.focus(), 100);
+    };
+
+    const startReply = (msg: Message) => {
+        setReplyingTo(msg);
+        setEditingMessage(null);
+        setTimeout(() => inputRef.current?.focus(), 100);
+    };
 
     const sendMessage = async () => {
         if (!inputText.trim() || !selectedUser) return;
 
         const text = inputText;
+        const parentId = replyingTo?.id;
+        const editId = editingMessage?.id;
+
         setInputText('');
+        setReplyingTo(null);
+        setEditingMessage(null);
         setShowCustomEmojiPicker(false);
         // Stop typing status immediately on send
         sendTypingStatus(selectedUser.id, false);
 
         try {
-            await api.post('/messages/send', {
-                receiver_id: selectedUser.id,
-                content: text
-            });
-            // Handled via WebSocket
+            if (editId) {
+                await api.put(`/messages/${editId}`, { content: text });
+            } else {
+                await api.post('/messages/send', {
+                    receiver_id: selectedUser.id,
+                    content: text,
+                    parent_id: parentId
+                });
+            }
         } catch (err: any) {
             const errorMsg = err.response?.data?.error || err.message;
-            toast.error(`${isRtl ? 'فشل إرسال الرسالة' : 'Failed to send message'}: ${errorMsg}`);
+            toast.error(`${isRtl ? 'فشل العملية' : 'Operation failed'}: ${errorMsg}`);
             setInputText(text);
         }
     };
@@ -377,11 +564,8 @@ const ChatPage: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-[600px] bg-white dark:bg-[#0a0a0a]">
-                <div className="relative w-8 h-8">
-                    <div className="absolute inset-0 border-4 border-gray-100 dark:border-[#333] rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                </div>
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white/40 dark:bg-black/40 backdrop-blur-[3px] animate-fade-in">
+                <CentralSpinner />
             </div>
         );
     }
@@ -584,9 +768,24 @@ const ChatPage: React.FC = () => {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex gap-4 text-gray-500 dark:text-gray-400">
-                                        <Search className="w-6 h-6 cursor-pointer hover:text-gray-700 dark:hover:text-[#e9edef] transition-colors" />
-                                        <MoreVertical className="w-6 h-6 cursor-pointer hover:text-gray-700 dark:hover:text-[#e9edef] transition-colors" />
+                                    <div className="flex items-center gap-4 text-gray-500">
+                                        <Search className="w-5 h-5 cursor-pointer hover:text-gray-700 dark:hover:text-white transition-colors" />
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button className="p-1 hover:text-gray-700 dark:hover:text-white transition-colors outline-none border-none">
+                                                    <MoreVertical className="w-6 h-6" />
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align={isRtl ? "start" : "end"} className="dark:bg-[#202c33] dark:border-white/5 border-gray-100 z-[1000]">
+                                                <DropdownMenuItem 
+                                                    onClick={handleClearChat}
+                                                    className="gap-2 cursor-pointer text-red-500 focus:text-red-500 font-bold"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    {isRtl ? 'مسح المحادثة' : 'Clear Chat'}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </div>
 
@@ -596,37 +795,158 @@ const ChatPage: React.FC = () => {
                                     className="flex-1 overflow-y-auto px-4 py-8 bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] dark:bg-[url('https://raw.githubusercontent.com/Tichif/whatsapp-clone-react/master/public/whatsapp_bg_dark.png')] custom-scrollbar relative"
                                 >
                                     <div className="w-full max-w-[800px] md:mx-auto space-y-2">
-                                        {messages.map((msg, idx) => {
+                                        {messages.map((msg) => {
                                             const isMe = msg.sender_id === currentUser?.id;
                                             return (
                                                 <div
                                                     key={msg.id}
                                                     id={`msg-${msg.id}`}
                                                     className={cn(
-                                                        "flex w-full mb-1",
-                                                        isMe ? "justify-end" : "justify-start"
+                                                        "group relative flex flex-col mb-1 max-w-[92%] sm:max-w-[80%]",
+                                                        isMe 
+                                                            ? (isRtl ? "mr-auto items-start" : "ml-auto items-end") 
+                                                            : (isRtl ? "ml-auto items-end" : "mr-auto items-start")
                                                     )}
                                                 >
+                                                    {/* Reaction Picker Overlay - Positioned above the bubble, centered */}
+                                                    {showReactionsFor === msg.id && (
+                                                        <div className={cn(
+                                                            "absolute bottom-full mb-2 flex items-center gap-1 bg-white dark:bg-[#232d36] p-1.5 rounded-full shadow-2xl border border-gray-100 dark:border-white/10 z-[100] animate-in zoom-in-95 duration-200 reaction-picker-container w-max",
+                                                            isMe 
+                                                                ? (isRtl ? "left-0" : "right-0") 
+                                                                : (isRtl ? "right-0" : "left-0"),
+                                                            "md:left-1/2 md:-translate-x-1/2 md:right-auto" // Center on desktop
+                                                        )}>
+                                                            {REACTIONS.map(r => (
+                                                                <button
+                                                                    key={r.key}
+                                                                    onClick={() => handleReact(msg.id, r.key)}
+                                                                    className="w-8 h-8 hover:scale-125 transition-transform p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                                                                    title={r.label}
+                                                                >
+                                                                    <img src={r.gif} alt={r.label} className="w-full h-full object-contain" />
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Hover Actions Menu */}
                                                     <div className={cn(
-                                                        "max-w-[80%] md:max-w-[70%] px-3 py-1.5 shadow-sm relative",
+                                                        "absolute top-0 flex items-center gap-1 px-1.5 py-1 rounded-full bg-white/90 dark:bg-[#3e4042]/90 backdrop-blur-sm shadow-md border border-gray-100 dark:border-white/10 opacity-0 group-hover:opacity-100 transition-all z-30",
+                                                        isMe 
+                                                            ? (isRtl ? "right-2" : "left-2") 
+                                                            : (isRtl ? "left-2" : "right-2"),
+                                                        "-translate-y-full mb-1 group-hover:-translate-y-[calc(100%+4px)]"
+                                                    )}>
+                                                        <button 
+                                                            onClick={() => setShowReactionsFor(showReactionsFor === msg.id ? null : msg.id)}
+                                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-400 hover:text-yellow-500 transition-colors smile-button-trigger"
+                                                            title={isRtl ? 'تفاعل' : 'React'}
+                                                        >
+                                                            <Smile className="w-4 h-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => startReply(msg)}
+                                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
+                                                            title={isRtl ? 'رد' : 'Reply'}
+                                                        >
+                                                            <Reply className="w-4 h-4" />
+                                                        </button>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <button className="p-1.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors more-options-trigger">
+                                                                    <MoreHorizontal className="w-4 h-4" />
+                                                                </button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="center" className="dark:bg-[#232d36] dark:border-white/5">
+                                                                {isMe && (
+                                                                    <DropdownMenuItem onClick={() => startEditing(msg)} className="gap-2 cursor-pointer">
+                                                                        <Edit2 className="w-4 h-4" />
+                                                                        {isRtl ? 'تعديل' : 'Edit'}
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                <DropdownMenuItem onClick={() => handleDeleteMessage(msg.id)} className="gap-2 cursor-pointer text-red-500 focus:text-red-500">
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                    {isRtl ? 'حذف' : 'Delete'}
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+
+                                                    {/* Message Bubble Container */}
+                                                    <div className={cn(
+                                                        "relative px-3 py-1.5 shadow-sm min-w-[60px]",
                                                         isMe
                                                             ? "bg-[#d9fdd3] dark:bg-[#005c4b] rounded-t-lg rounded-bl-lg rounded-br-none"
                                                             : "bg-white dark:bg-[#202c33] rounded-t-lg rounded-br-lg rounded-bl-none",
                                                         isRtl ? (isMe ? "rounded-br-lg rounded-bl-none" : "rounded-bl-lg rounded-br-none") : ""
                                                     )}>
-                                                        <div className="text-[17px] font-semibold dark:text-[#e9edef] break-words whitespace-pre-wrap">
+                                                        {/* Reply Parent Bubble */}
+                                                        {msg.parent && (
+                                                            <div 
+                                                                onClick={() => {
+                                                                    const el = document.getElementById(`msg-${msg.parent_id}`);
+                                                                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                    el?.classList.add('ring-2', 'ring-blue-500');
+                                                                    setTimeout(() => el?.classList.remove('ring-2', 'ring-blue-500'), 2000);
+                                                                }}
+                                                                className="mb-1.5 p-2 rounded-md bg-black/5 dark:bg-white/5 border-l-4 border-blue-500 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                                                            >
+                                                                <div className="flex items-center gap-1.5 mb-0.5">
+                                                                    <CornerDownRight className="w-3 h-3 text-blue-500" />
+                                                                    <span className="text-[10px] font-bold text-blue-500 truncate">
+                                                                        {msg.parent.sender_id === currentUser?.id ? (isRtl ? 'أنت' : 'You') : (selectedUser?.name)}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-1 italic">
+                                                                    {renderEmojiContent(msg.parent.content)}
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Message Content */}
+                                                        <div className="text-[15px] dark:text-[#e9edef] break-words whitespace-pre-wrap leading-normal font-medium">
                                                             {renderEmojiContent(msg.content)}
                                                         </div>
-                                                        <div className="flex justify-end items-center gap-1 mt-1">
-                                                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+
+                                                        {/* Metadata and Status */}
+                                                        <div className="flex justify-end items-center gap-1.5 mt-0.5 min-w-[50px]">
+                                                            {msg.is_edited && (
+                                                                <span className="text-[9px] text-gray-400 dark:text-[#8696a0] font-medium">
+                                                                    {isRtl ? 'معدلة' : 'edited'}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] text-gray-500 dark:text-[#8696a0] font-bold">
                                                                 {formatMessageTime(msg.created_at)}
                                                             </span>
                                                             {isMe && (
                                                                 msg.is_read
-                                                                    ? <CheckCheck className="w-3 h-3 text-[#53bdeb]" />
-                                                                    : <Check className="w-3 h-3 text-gray-500" />
+                                                                    ? <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                                                                    : <Check className="w-3.5 h-3.5 text-gray-500/70" />
                                                             )}
                                                         </div>
+
+                                                        {/* Reactions Display */}
+                                                        {msg.reactions && msg.reactions.length > 0 && (
+                                                            <div className={cn(
+                                                                "absolute -bottom-2.5 flex items-center -space-x-1",
+                                                                isMe ? "right-0" : "left-0"
+                                                            )}>
+                                                                <div className="flex items-center gap-0.5 bg-white dark:bg-[#3b4a54] px-1.5 py-0.5 rounded-full shadow-sm border border-gray-100 dark:border-white/5 ring-1 ring-black/5">
+                                                                    {Array.from(new Set(msg.reactions.map(r => r.type))).slice(0, 3).map(type => (
+                                                                        <img 
+                                                                            key={type} 
+                                                                            src={REACTIONS.find(r => r.key === type)?.gif} 
+                                                                            alt={type} 
+                                                                            className="w-3.5 h-3.5 object-contain" 
+                                                                        />
+                                                                    ))}
+                                                                    <span className="text-[10px] font-bold dark:text-gray-300 ml-0.5">
+                                                                        {msg.reactions.length}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -655,19 +975,48 @@ const ChatPage: React.FC = () => {
                                 )}
 
                                 {/* Input Area - Fixed at Bottom with Safe Area */}
-                                <div className="bg-white dark:bg-[#202c33] px-4 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] flex items-center gap-4 relative z-50 shrink-0 border-t border-gray-200 dark:border-gray-800">
+                                <div className="bg-white dark:bg-[#202c33] px-4 py-2 pb-[calc(8px+env(safe-area-inset-bottom))] flex flex-col relative z-50 shrink-0 border-t border-gray-200 dark:border-gray-800">
+                                    {/* Reply/Edit Indicator */}
+                                    {(replyingTo || editingMessage) && (
+                                        <div className="flex items-center justify-between bg-gray-50 dark:bg-black/20 p-2 mb-2 rounded-lg border-l-4 border-blue-500 animate-in slide-in-from-bottom-2 duration-200">
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">
+                                                    {editingMessage ? (isRtl ? 'تعديل الرسالة' : 'Editing Message') : (isRtl ? 'الرد على' : 'Replying to')}
+                                                </span>
+                                                <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                                                    {renderEmojiContent((editingMessage || replyingTo)?.content || '')}
+                                                </p>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    setReplyingTo(null);
+                                                    setEditingMessage(null);
+                                                    if (editingMessage) setInputText('');
+                                                }}
+                                                className="p-1 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors"
+                                            >
+                                                <X className="w-4 h-4 text-gray-500" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-4 chat-input-area">
                                     <div className="relative">
                                         <button
                                             ref={customEmojiButtonRef}
-                                            onClick={() => setShowCustomEmojiPicker(!showCustomEmojiPicker)}
+                                            onPointerDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                                setShowCustomEmojiPicker(!showCustomEmojiPicker);
+                                            }}
                                             className="text-gray-500 dark:text-gray-400 hover:text-gray-700 p-1 shrink-0"
                                             title={isRtl ? 'رموز مخصصة' : 'Custom Emojis'}
                                         >
-                                            <Sparkles className="w-7 h-7" />
+                                            <Sparkles className="max-md:w-9 max-md:h-9 w-7 h-7" />
                                         </button>
                                         {showCustomEmojiPicker && (
                                             <div
                                                 ref={customEmojiPickerRef}
+                                                onPointerDown={(e) => e.preventDefault()}
                                                 className="absolute bottom-full mb-2 z-[100] transition-all duration-200"
                                             >
                                                 <CustomEmojiPicker
@@ -679,7 +1028,7 @@ const ChatPage: React.FC = () => {
                                     </div>
 
                                     <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 p-1 shrink-0">
-                                        <ImageIcon className="w-7 h-7" />
+                                        <ImageIcon className="max-md:w-9 max-md:h-9 w-7 h-7" />
                                     </button>
                                     <div className="flex-1 bg-white dark:bg-[#2a3942] rounded-lg px-4 py-1 min-h-[42px] flex items-center">
                                         <RichTextInput
@@ -688,7 +1037,7 @@ const ChatPage: React.FC = () => {
                                             onChange={setInputText}
                                             onKeyDown={handleKeyDown}
                                             placeholder={isRtl ? "اكتب رسالة" : "Type a message"}
-                                            className="w-full bg-transparent border-none outline-none text-[15px] dark:text-[#e9edef]"
+                                            className="w-full bg-transparent border-none outline-none max-md:text-[18px] text-[15px] dark:text-[#e9edef]"
                                         />
                                     </div>
                                     <button
@@ -701,8 +1050,9 @@ const ChatPage: React.FC = () => {
                                                 : "text-gray-400 cursor-default"
                                         )}
                                     >
-                                        <Send className={cn("w-6 h-6", isRtl ? "rotate-180" : "")} />
+                                        <Send className={cn("max-md:w-8 max-md:h-8 w-6 h-6", isRtl ? "rotate-180" : "")} />
                                     </button>
+                                    </div>
                                 </div>
                             </>
                         ) : (

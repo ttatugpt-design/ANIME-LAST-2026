@@ -38,7 +38,7 @@ export const SocialNavSidebar: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col gap-2 p-2 font-sans">
+        <div className="flex flex-col h-full gap-2 p-2 font-sans">
             <div className="space-y-1">
                 {navLinks.map((link) => (
                     <React.Fragment key={link.href}>

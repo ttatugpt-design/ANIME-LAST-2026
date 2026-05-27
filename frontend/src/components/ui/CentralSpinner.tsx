@@ -32,7 +32,7 @@ export default function CentralSpinner({ className, size = "large", color = "#FF
                 
                 {/* Triple Ring Spinner - Correctly Scaled without CSS transform:scale */}
                 <div className={cn(
-                    "rounded-full inline-block relative border-solid border-[#888] border-r-transparent border-b-transparent animate-[ep-spin_1s_linear_infinite] box-border",
+                    "rounded-full inline-block relative border-solid border-[#FF3D00]/20 border-r-transparent border-b-transparent animate-[ep-spin_1s_linear_infinite] box-border",
                     currentSize.outer
                 )}>
                     <div className={cn(
@@ -40,7 +40,7 @@ export default function CentralSpinner({ className, size = "large", color = "#FF
                         currentSize.after
                     )} style={{ borderBottomColor: color, borderLeftColor: color }} />
                     <div className={cn(
-                        "absolute inset-0 m-auto border-solid border-[#888] border-r-transparent border-b-transparent rounded-full animate-[ep-spin_1.2s_linear_infinite] box-border",
+                        "absolute inset-0 m-auto border-solid border-[#FF3D00]/10 border-r-transparent border-b-transparent rounded-full animate-[ep-spin_1.2s_linear_infinite] box-border",
                         currentSize.before
                     )} />
                 </div>

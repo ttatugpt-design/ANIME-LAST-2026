@@ -145,6 +145,10 @@ func (s *UserService) UpdateProfile(id uint, name, currentPassword, newPassword 
 	return user, nil
 }
 
+func (s *UserService) UpdateFavoriteAnimes(userID uint, animeIDs []uint) error {
+	return s.repo.UpdateFavoriteAnimes(userID, animeIDs)
+}
+
 type UserStats struct {
 	NotificationsCount int64 `json:"notifications_count"`
 	HistoryCount       int64 `json:"history_count"`
