@@ -1,0 +1,1 @@
+backend/uploads/backups/** filter=lfs diff=lfs merge=lfs -text

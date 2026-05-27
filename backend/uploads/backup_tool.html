@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>أداة النسخ الاحتياطي الطارئة</title>
+    <style>
+        body { font-family: sans-serif; padding: 50px; background: #f0f2f5; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 15px; shadow: 0 0 20px rgba(0,0,0,0.1); }
+        h1 { color: #1e40af; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+        .btn { display: inline-block; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 5px; cursor: pointer; border: none; }
+        .btn-create { background: #10b981; color: white; }
+        .btn-download { background: #3b82f6; color: white; }
+        .btn-delete { background: #ef4444; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; border-bottom: 1px solid #e5e7eb; text-align: right; }
+        .token-box { background: #fff7ed; padding: 15px; border: 1px solid #fdba74; border-radius: 8px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 أداة النسخ الاحتياطي - التحكم المباشر</h1>
+        
+        <div class="token-box">
+            <p><strong>خطوة 1:</strong> أدخل الـ Token الخاص بك (يمكنك العثور عليه في LocalStorage أو المتصفح):</p>
+            <input type="text" id="token" style="width: 100%; padding: 10px; margin-top: 10px;" placeholder="أدخل الـ Token هنا...">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <button onclick="createBackup()" class="btn btn-create">➕ إنشاء نسخة احتياطية جديدة</button>
+            <button onclick="loadBackups()" class="btn btn-download">🔄 تحديث القائمة</button>
+        </div>
+
+        <table id="backupTable">
+            <thead>
+                <tr>
+                    <th>اسم الملف</th>
+                    <th>الحجم</th>
+                    <th>العمليات</th>
+                </tr>
+            </thead>
+            <tbody id="backupList">
+                <!-- سيتم التحميل هنا -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // محاولة جلب التوكن من الرابط إذا وجد
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('token')) {
+            document.getElementById('token').value = urlParams.get('token');
+        }
+
+        async function loadBackups() {
+            const token = document.getElementById('token').value;
+            const res = await fetch('/api/dashboard/backups', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            const list = document.getElementById('backupList');
+            list.innerHTML = '';
+            data.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${b.filename}</td>
+                    <td>${(b.size / 1024 / 1024).toFixed(2)} MB</td>
+                    <td>
+                        <a href="/api/dashboard/backups/download/${b.filename}?token=${token}" target="_blank" class="btn btn-download">⬇️ تنزيل</a>
+                        <a href="/api/dashboard/backups/delete-now/${b.filename}?token=${token}&redirect=${encodeURIComponent(window.location.href + '?token=' + token)}" class="btn btn-delete">🗑️ حذف</a>
+                    </td>
+                `;
+                list.appendChild(tr);
+            });
+        }
+
+        async function createBackup() {
+            const token = document.getElementById('token').value;
+            window.location.href = `/api/dashboard/backups/create-new?token=${token}&redirect=${encodeURIComponent(window.location.href + '?token=' + token)}`;
+        }
+
+        // تحميل أولي
+        if (document.getElementById('token').value) loadBackups();
+    </script>
+</body>
+</html>
